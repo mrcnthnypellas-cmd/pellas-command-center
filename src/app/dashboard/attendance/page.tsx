@@ -31,7 +31,10 @@ export default async function AttendancePage() {
       </div>
 
       <div className="card p-5">
-        <h2 className="mb-4 text-sm font-semibold text-slate-900">Attendance Map (Today)</h2>
+        <h2 className="mb-1 text-sm font-semibold text-slate-900">Attendance Map (Today)</h2>
+        <p className="mb-4 text-xs text-slate-500">
+          Showing the most recent event · click any row below to open that employee&apos;s exact location.
+        </p>
         <StaticMap
           height={260}
           pins={events
@@ -82,9 +85,18 @@ export default async function AttendancePage() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{formatDateTime(event.timestamp)}</td>
                   <td className="px-4 py-3 text-slate-500">
-                    {event.latitude != null && event.longitude != null
-                      ? `${event.latitude.toFixed(4)}, ${event.longitude.toFixed(4)}`
-                      : '—'}
+                    {event.latitude != null && event.longitude != null ? (
+                      <a
+                        href={`https://www.google.com/maps?q=${event.latitude},${event.longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-brand-600 hover:underline"
+                      >
+                        {event.latitude.toFixed(4)}, {event.longitude.toFixed(4)}
+                      </a>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                 </tr>
               ))

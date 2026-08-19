@@ -81,12 +81,15 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
   const lastInEvent = [...events].reverse().find((e) => e.type === 'IN');
   const lastOutEvent = [...events].reverse().find((e) => e.type === 'OUT');
 
+  // StaticMap centers on the first pin only (a real Google Maps embed can't plot
+  // multiple markers without a paid API key), so order by most recent first —
+  // Time Out beats Time In beats the office fallback.
   const mapPins: StaticMapPin[] = [];
-  if (lastInEvent?.latitude != null && lastInEvent.longitude != null) {
-    mapPins.push({ id: lastInEvent.id, label: 'You', type: 'IN', lat: lastInEvent.latitude, lng: lastInEvent.longitude });
-  }
   if (lastOutEvent?.latitude != null && lastOutEvent.longitude != null) {
     mapPins.push({ id: lastOutEvent.id, label: 'You', type: 'OUT', lat: lastOutEvent.latitude, lng: lastOutEvent.longitude });
+  }
+  if (lastInEvent?.latitude != null && lastInEvent.longitude != null) {
+    mapPins.push({ id: lastInEvent.id, label: 'You', type: 'IN', lat: lastInEvent.latitude, lng: lastInEvent.longitude });
   }
   if (geofence) {
     mapPins.push({ id: 'office', label: 'Office', type: 'OFFICE', lat: geofence.lat, lng: geofence.lng });
@@ -217,19 +220,10 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
           )}
         </div>
         <StaticMap height={220} pins={mapPins} />
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-slate-500">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Time In
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Time Out
-          </span>
-          {geofence && (
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-brand-600" /> Office ({geofence.radiusMeters}m radius)
-            </span>
-          )}
-        </div>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Showing your most recent {lastOutEvent ? 'Time Out' : 'Time In'} location
+          {geofence ? ` · office radius is ${geofence.radiusMeters}m` : ''}.
+        </p>
       </div>
 
       <div className="card p-5">
