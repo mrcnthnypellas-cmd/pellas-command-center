@@ -40,7 +40,7 @@ export function DonutChart({
   return (
     <div className="flex items-center gap-5">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0 -rotate-90">
-        <circle cx={center} cy={center} r={radius} fill="none" stroke="#f1f5f9" strokeWidth={thickness} />
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth={thickness} />
         {arcs.map((arc, i) => (
           <circle
             key={i}
@@ -61,7 +61,7 @@ export function DonutChart({
               x={center}
               y={center - 4}
               textAnchor="middle"
-              className="fill-slate-900"
+              className="fill-slate-50"
               style={{ fontSize: size * 0.16, fontWeight: 700 }}
             >
               {centerValue}
@@ -71,7 +71,7 @@ export function DonutChart({
                 x={center}
                 y={center + 16}
                 textAnchor="middle"
-                className="fill-slate-500"
+                className="fill-slate-400"
                 style={{ fontSize: size * 0.08 }}
               >
                 {centerLabel}

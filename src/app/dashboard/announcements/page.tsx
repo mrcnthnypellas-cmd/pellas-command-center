@@ -37,6 +37,8 @@ export default async function AnnouncementsPage() {
           id: a.id,
           title: a.title,
           body: a.body,
+          hasImage: a.imageStorageKey != null,
+          eventDate: a.eventDate ? a.eventDate.toISOString() : null,
           isActive: a.isActive,
           scope: a.companyId === null ? 'Platform-wide' : 'This company',
           createdAt: a.createdAt.toISOString(),

@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   ]);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="dashboard-shell flex min-h-screen">
       <aside className="hidden w-64 shrink-0 lg:block">
         <Sidebar
           role={session.user.role}

@@ -556,15 +556,19 @@ model PlatformSetting {
 // that company. The dashboard shows the single most recent active announcement
 // visible to the caller (platform-wide ones plus their own company's).
 model Announcement {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   companyId       String?
-  company         Company? @relation(fields: [companyId], references: [id])
+  company         Company?  @relation(fields: [companyId], references: [id])
   title           String
-  body            String
-  isActive        Boolean  @default(true)
+  body            String?
+  imageStorageKey String?
+  imageMimeType   String?
+  eventDate       DateTime? // optional link to a calendar date, shown on the Calendar widget
+  isActive        Boolean   @default(true)
   createdByUserId String
-  createdByUser   User     @relation(fields: [createdByUserId], references: [id])
-  createdAt       DateTime @default(now())
+  createdByUser   User      @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime  @default(now())
 
   @@index([companyId, isActive])
+  @@index([companyId, eventDate])
 }

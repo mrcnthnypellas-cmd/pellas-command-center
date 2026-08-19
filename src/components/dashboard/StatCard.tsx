@@ -3,13 +3,13 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ACCENT_CLASSES: Record<string, string> = {
-  brand: 'bg-blue-50 text-blue-600',
-  green: 'bg-emerald-50 text-emerald-600',
-  amber: 'bg-amber-50 text-amber-600',
-  red: 'bg-red-50 text-red-600',
-  slate: 'bg-slate-100 text-slate-600',
-  teal: 'bg-teal-50 text-teal-600',
-  purple: 'bg-violet-50 text-violet-600',
+  brand: 'bg-blue-500 text-white',
+  green: 'bg-emerald-500 text-white',
+  amber: 'bg-amber-500 text-white',
+  red: 'bg-red-500 text-white',
+  slate: 'bg-slate-500 text-white',
+  teal: 'bg-teal-500 text-white',
+  purple: 'bg-violet-500 text-white',
 };
 
 export function StatCard({
@@ -29,7 +29,7 @@ export function StatCard({
 }) {
   const content = (
     <div className="card flex items-start gap-3 p-4">
-      <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', ACCENT_CLASSES[accent])}>
+      <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-lg shadow-black/20', ACCENT_CLASSES[accent])}>
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">

@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { Wallet, Laptop, FolderOpen, Calendar, MapPin } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { distanceMeters } from '@/lib/geo';
 import { StaticMap, type MapPin as StaticMapPin } from './StaticMap';
-import { AnnouncementCard } from './AnnouncementCard';
+import { DigitalAnnouncementsCard, type DigitalAnnouncement, type DigitalAnnouncementsCardHandle } from './DigitalAnnouncementsCard';
+import { MiniCalendar } from './MiniCalendar';
 
 interface AttendanceEvent {
   id: string;
@@ -23,25 +24,29 @@ interface LatestPayslip {
   net: number;
 }
 
-interface AnnouncementData {
-  title: string;
-  body: string;
-}
-
 interface Geofence {
   lat: number;
   lng: number;
   radiusMeters: number;
 }
 
+// eventDate is a date-only value stored as UTC midnight (spec-established convention
+// for date-only fields in this app) — must read it back with UTC getters, or it shifts
+// a day earlier for any browser west of UTC.
+function dateKeyFromISO(iso: string) {
+  const d = new Date(iso);
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+}
+
 export function EmployeeHomeDashboard({ userId }: { userId: string }) {
   const [now, setNow] = useState<Date | null>(null);
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
   const [payslip, setPayslip] = useState<LatestPayslip | null>(null);
-  const [announcement, setAnnouncement] = useState<AnnouncementData | null>(null);
+  const [announcements, setAnnouncements] = useState<DigitalAnnouncement[]>([]);
   const [geofence, setGeofence] = useState<Geofence | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const announcementsCardRef = useRef<DigitalAnnouncementsCardHandle>(null);
 
   useEffect(() => {
     setNow(new Date());
@@ -70,7 +75,7 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
     void loadPayslip();
     fetch('/api/announcements')
       .then((res) => res.json())
-      .then((data) => setAnnouncement(data.announcements?.[0] ?? null))
+      .then((data) => setAnnouncements(data.announcements ?? []))
       .catch(() => {});
     fetch('/api/attendance/geofence')
       .then((res) => res.json())
@@ -100,6 +105,14 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
     geofence && latestPin?.latitude != null && latestPin.longitude != null
       ? Math.round(distanceMeters(latestPin.latitude, latestPin.longitude, geofence.lat, geofence.lng))
       : null;
+  const markedDates = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of announcements) {
+      if (a.eventDate) map.set(dateKeyFromISO(a.eventDate), a.id);
+    }
+    return map;
+  }, [announcements]);
+
   const clockedIn = events[events.length - 1]?.type === 'IN';
   const totalHours =
     lastInEvent && lastOutEvent && new Date(lastOutEvent.timestamp) > new Date(lastInEvent.timestamp)
@@ -140,7 +153,7 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
 
   return (
     <div className="mx-auto max-w-md space-y-4">
-      {announcement && <AnnouncementCard title={announcement.title} message={announcement.body} />}
+      <DigitalAnnouncementsCard ref={announcementsCardRef} announcements={announcements} />
 
       <div className="card p-6 text-center">
         <div className="text-xs font-medium uppercase tracking-wide text-slate-400">Current Time</div>
@@ -260,9 +273,16 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
         </Link>
       </div>
 
+      <div className="card p-4">
+        <MiniCalendar
+          markedDates={markedDates}
+          onSelectMarkedDate={(id) => announcementsCardRef.current?.showAnnouncement(id)}
+        />
+      </div>
+
       <Link href="/dashboard/calendar" className="card flex items-center gap-3 p-4">
         <Calendar className="h-5 w-5 text-brand-600" />
-        <span className="text-sm font-medium text-slate-700">View calendar & announcements</span>
+        <span className="text-sm font-medium text-slate-700">View full calendar</span>
       </Link>
 
       <p className="sr-only">user:{userId}</p>
