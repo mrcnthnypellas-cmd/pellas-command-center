@@ -3,6 +3,9 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
 import type { Role, UserStatus } from '@prisma/client';
+import { distanceMeters } from './geo';
+
+const GEOFENCED_ROLES: Role[] = ['EMPLOYEE', 'HR_ADMIN'];
 
 declare module 'next-auth' {
   interface Session {
@@ -49,6 +52,8 @@ export const authOptions: AuthOptions = {
       credentials: {
         email: { label: 'Username', type: 'text' },
         password: { label: 'Password', type: 'password' },
+        lat: { label: 'Latitude', type: 'text' },
+        lng: { label: 'Longitude', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
@@ -58,12 +63,35 @@ export const authOptions: AuthOptions = {
         // (e.g. "superadmin") rather than real email addresses.
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase().trim() },
+          include: { company: true },
         });
         if (!user) return null;
         if (user.status !== 'ACTIVE') return null;
 
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
+
+        // Login geofence (Super Admin-configured, per company) — only enforced for
+        // EMPLOYEE/HR_ADMIN. Distance is computed from browser-reported coordinates,
+        // which are client-supplied and not cryptographically verifiable; this is a
+        // best-effort location gate, not a hard security boundary.
+        if (GEOFENCED_ROLES.includes(user.role) && user.company?.geofenceEnabled) {
+          const { geofenceLat, geofenceLng, geofenceRadiusMeters } = user.company;
+          const lat = credentials.lat ? Number(credentials.lat) : NaN;
+          const lng = credentials.lng ? Number(credentials.lng) : NaN;
+
+          if (Number.isNaN(lat) || Number.isNaN(lng)) {
+            throw new Error(
+              'Location access is required to sign in. Please allow location permissions and try again.',
+            );
+          }
+          if (geofenceLat != null && geofenceLng != null && geofenceRadiusMeters != null) {
+            const distance = distanceMeters(lat, lng, geofenceLat, geofenceLng);
+            if (distance > geofenceRadiusMeters) {
+              throw new Error('You are outside the allowed login location for your company.');
+            }
+          }
+        }
 
         await prisma.user.update({
           where: { id: user.id },

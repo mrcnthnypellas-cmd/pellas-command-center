@@ -3,6 +3,7 @@ import { requireCtx } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { formatDate } from '@/lib/utils';
 import { NewCompanyForm } from '@/components/companies/NewCompanyForm';
+import { GeofenceForm } from '@/components/companies/GeofenceForm';
 
 export default async function CompaniesPage() {
   const ctx = await requireCtx();
@@ -22,25 +23,36 @@ export default async function CompaniesPage() {
 
       <NewCompanyForm />
 
-      <div className="card overflow-x-auto">
-        <table className="w-full min-w-[520px] text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Users</th>
-              <th className="px-4 py-3">Created</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {companies.map((c) => (
-              <tr key={c.id}>
-                <td className="px-4 py-3 font-medium text-slate-900">{c.name}</td>
-                <td className="px-4 py-3 text-slate-600">{c._count.users}</td>
-                <td className="px-4 py-3 text-slate-600">{formatDate(c.createdAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-4">
+        {companies.map((c) => (
+          <div key={c.id} className="card p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium text-slate-900">{c.name}</p>
+                <p className="text-sm text-slate-500">
+                  {c._count.users} user(s) · Created {formatDate(c.createdAt)}
+                </p>
+                <p className="mt-1 text-xs">
+                  {c.geofenceEnabled ? (
+                    <span className="badge bg-amber-50 text-amber-700">
+                      Login restricted to set location ({c.geofenceRadiusMeters}m radius)
+                    </span>
+                  ) : (
+                    <span className="badge bg-slate-100 text-slate-600">Login unrestricted</span>
+                  )}
+                </p>
+              </div>
+              <GeofenceForm
+                companyId={c.id}
+                companyName={c.name}
+                geofenceEnabled={c.geofenceEnabled}
+                geofenceLat={c.geofenceLat}
+                geofenceLng={c.geofenceLng}
+                geofenceRadiusMeters={c.geofenceRadiusMeters}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

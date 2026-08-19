@@ -123,6 +123,13 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Login geofence — when enabled, EMPLOYEE and HR_ADMIN users of this company
+  // may only sign in from within geofenceRadiusMeters of (geofenceLat, geofenceLng).
+  geofenceEnabled      Boolean @default(false)
+  geofenceLat          Float?
+  geofenceLng          Float?
+  geofenceRadiusMeters Int?
+
   users           User[]
   employees       Employee[]
   attendances     Attendance[]

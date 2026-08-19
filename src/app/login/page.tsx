@@ -26,22 +26,44 @@ export default function LoginPage() {
     }
   }, []);
 
+  async function getLocation(): Promise<{ lat: string; lng: string } | null> {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return null;
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: String(pos.coords.latitude), lng: String(pos.coords.longitude) }),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+      );
+    });
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    // Best-effort: not every role requires a geofence check, so a denied/unavailable
+    // location prompt shouldn't block roles that don't need it — the server decides.
+    const location = await getLocation();
+
     const result = await signIn('credentials', {
       email,
       password,
+      lat: location?.lat,
+      lng: location?.lng,
       redirect: false,
     });
 
     setLoading(false);
 
     if (!result || result.error) {
-      // Generic message — never confirm/deny whether the username exists (spec §6).
-      setError('Invalid username or password.');
+      // Custom messages (location gate) are shown verbatim; the default "CredentialsSignin"
+      // code stays generic so we never confirm/deny whether the username exists (spec §6).
+      setError(
+        result?.error && result.error !== 'CredentialsSignin'
+          ? result.error
+          : 'Invalid username or password.',
+      );
       return;
     }
 
