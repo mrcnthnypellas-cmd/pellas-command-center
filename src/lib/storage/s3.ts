@@ -22,6 +22,9 @@ export class S3StorageAdapter implements StorageAdapter {
       region: region || 'auto',
       endpoint: endpoint || undefined,
       credentials: { accessKeyId, secretAccessKey },
+      // Required for S3-compatible providers (R2, Supabase Storage, MinIO, B2) —
+      // they route by URL path, not by virtual-hosted subdomain like AWS S3 does.
+      forcePathStyle: true,
     });
   }
 
