@@ -3,7 +3,7 @@
 export interface MapPin {
   id: string;
   label: string;
-  type: 'IN' | 'OUT';
+  type: 'IN' | 'OUT' | 'OFFICE';
   lat: number;
   lng: number;
 }
@@ -56,17 +56,23 @@ export function StaticMap({ pins, height = 220 }: { pins: MapPin[]; height?: num
           <div
             key={p.id}
             className="group absolute -translate-x-1/2 -translate-y-full"
-            style={{ left: `${p.xPct}%`, top: `${p.yPct}%` }}
+            style={{ left: `${p.xPct}%`, top: `${p.yPct}%`, zIndex: p.type === 'OFFICE' ? 5 : 10 }}
           >
             <div
-              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-white shadow-md ${
-                p.type === 'IN' ? 'bg-emerald-500' : 'bg-red-500'
+              className={`flex items-center justify-center border-2 border-white shadow-md ${
+                p.type === 'OFFICE'
+                  ? 'h-7 w-7 rounded-md bg-brand-600'
+                  : `h-6 w-6 rounded-full ${p.type === 'IN' ? 'bg-emerald-500' : 'bg-red-500'}`
               }`}
             >
-              <div className="h-2 w-2 rounded-full bg-white" />
+              {p.type === 'OFFICE' ? (
+                <div className="h-2.5 w-2.5 rounded-sm bg-white" />
+              ) : (
+                <div className="h-2 w-2 rounded-full bg-white" />
+              )}
             </div>
             <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] text-white group-hover:block">
-              {p.label} · {p.type === 'IN' ? 'Time In' : 'Time Out'}
+              {p.label} · {p.type === 'IN' ? 'Time In' : p.type === 'OUT' ? 'Time Out' : 'Office'}
             </div>
           </div>
         ))
