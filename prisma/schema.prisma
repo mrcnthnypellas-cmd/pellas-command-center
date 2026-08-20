@@ -558,6 +558,11 @@ model PlatformSetting {
   themeBackgroundColor String?
   themeFontFamily      String?
 
+  // Overall page zoom (percent) — applied to the login page and every dashboard.
+  // 100 = normal/default size. Global, not per-user, so it's set here rather than in
+  // a client-side widget.
+  zoomPercent Int @default(100)
+
   updatedByUserId String?
   updatedByUser   User?    @relation(fields: [updatedByUserId], references: [id])
   updatedAt       DateTime @updatedAt

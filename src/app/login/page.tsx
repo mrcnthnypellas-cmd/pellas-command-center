@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [hasBackground, setHasBackground] = useState(true);
   const [hasLogo, setHasLogo] = useState(true);
   const [appName, setAppName] = useState('My Pellas Command Center');
+  const [zoomPercent, setZoomPercent] = useState(100);
 
   useEffect(() => {
     const remembered = typeof window !== 'undefined' ? localStorage.getItem(REMEMBERED_USERNAME_KEY) : null;
@@ -31,6 +32,7 @@ export default function LoginPage() {
       .then((data) => {
         if (data.appName) setAppName(data.appName);
         setHasLogo(!!data.hasLogo);
+        if (data.zoomPercent) setZoomPercent(data.zoomPercent);
       })
       .catch(() => {});
   }, []);
@@ -86,7 +88,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy-800 px-4">
+    <div
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy-800 px-4"
+      style={{ zoom: zoomPercent / 100 } as React.CSSProperties}
+    >
       {hasBackground && (
         // eslint-disable-next-line @next/next/no-img-element
         <img

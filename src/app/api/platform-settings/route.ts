@@ -6,10 +6,11 @@ import { prisma } from '@/lib/prisma';
 
 const FONT_OPTIONS = ['Inter', 'System Default', 'Georgia', 'Monospace'] as const;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const ZOOM_OPTIONS = [25, 50, 75, 90, 100, 110, 125, 150] as const;
 
 // Deliberately public/unauthenticated — the login page and every dashboard header
-// need this (timezone for the clock, branding, theme) to render, including before
-// sign-in.
+// need this (timezone for the clock, branding, theme, zoom) to render, including
+// before sign-in.
 export async function GET() {
   const setting = await prisma.platformSetting.findUnique({ where: { id: 'singleton' } });
   return NextResponse.json({
@@ -19,6 +20,7 @@ export async function GET() {
     themePrimaryColor: setting?.themePrimaryColor ?? null,
     themeBackgroundColor: setting?.themeBackgroundColor ?? null,
     themeFontFamily: setting?.themeFontFamily ?? null,
+    zoomPercent: setting?.zoomPercent ?? 100,
   });
 }
 
@@ -28,6 +30,7 @@ const updateSchema = z.object({
   themePrimaryColor: z.union([z.string().regex(HEX_COLOR), z.null()]).optional(),
   themeBackgroundColor: z.union([z.string().regex(HEX_COLOR), z.null()]).optional(),
   themeFontFamily: z.union([z.enum(FONT_OPTIONS), z.null()]).optional(),
+  zoomPercent: z.enum(ZOOM_OPTIONS.map(String) as [string, ...string[]]).transform(Number).optional(),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -62,6 +65,7 @@ export async function PATCH(req: NextRequest) {
       themePrimaryColor: setting.themePrimaryColor,
       themeBackgroundColor: setting.themeBackgroundColor,
       themeFontFamily: setting.themeFontFamily,
+      zoomPercent: setting.zoomPercent,
     });
   } catch (err) {
     if (err instanceof UnauthenticatedError) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });

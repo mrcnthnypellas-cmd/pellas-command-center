@@ -6,6 +6,7 @@ import { LoginBackgroundSettings } from '@/components/settings/LoginBackgroundSe
 import { TimezoneSettings } from '@/components/settings/TimezoneSettings';
 import { BrandingSettings } from '@/components/settings/BrandingSettings';
 import { ThemeSettings } from '@/components/settings/ThemeSettings';
+import { ZoomSettings } from '@/components/settings/ZoomSettings';
 
 export default async function PlatformSettingsPage() {
   const ctx = await requireCtx();
@@ -27,6 +28,7 @@ export default async function PlatformSettingsPage() {
         currentBackground={setting?.themeBackgroundColor ?? null}
         currentFont={setting?.themeFontFamily ?? null}
       />
+      <ZoomSettings currentZoom={setting?.zoomPercent ?? 100} />
       <TimezoneSettings currentTimezone={setting?.timezone ?? 'Asia/Manila'} />
       <LoginBackgroundSettings hasBackground={!!setting?.loginBackgroundStorageKey} />
     </div>

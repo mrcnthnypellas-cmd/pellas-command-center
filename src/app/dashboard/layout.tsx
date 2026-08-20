@@ -32,6 +32,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         }
       : {}),
     fontFamily: fontFamilyCss(setting?.themeFontFamily),
+    zoom: (setting?.zoomPercent ?? 100) / 100,
   } as React.CSSProperties;
 
   return (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import { Wallet, Laptop, FolderOpen, Calendar, MapPin, GripVertical, X, LayoutGrid, Check } from 'lucide-react';
+import { Wallet, Laptop, FolderOpen, Calendar, MapPin, X } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { distanceMeters } from '@/lib/geo';
 import { StaticMap, type MapPin as StaticMapPin } from './StaticMap';
@@ -18,18 +18,6 @@ const SHIFT_TRIGGERS: { id: string; hour: number; minute: number; message: strin
   { id: 'late', hour: 8, minute: 1, message: "You're late — it's past 8:01 AM and you haven't timed in yet." },
   { id: 'lunch', hour: 12, minute: 0, message: "It's 12:00 NN — lunch break!" },
   { id: 'clockout', hour: 17, minute: 1, message: "It's 5:01 PM — don't forget to time out before you leave." },
-];
-
-const DEFAULT_WIDGET_ORDER = [
-  'announcements',
-  'clock',
-  'summary',
-  'clockButtons',
-  'location',
-  'payslip',
-  'quickLinks',
-  'calendar',
-  'calendarLink',
 ];
 
 interface AttendanceEvent {
@@ -71,9 +59,6 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [timezone, setTimezone] = useState('Asia/Manila');
   const [shiftNotices, setShiftNotices] = useState<ShiftNotice[]>([]);
-  const [widgetOrder, setWidgetOrder] = useState<string[]>(DEFAULT_WIDGET_ORDER);
-  const [editingLayout, setEditingLayout] = useState(false);
-  const dragIndex = useRef<number | null>(null);
   const announcementsCardRef = useRef<DigitalAnnouncementsCardHandle>(null);
 
   useEffect(() => {
@@ -87,22 +72,7 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
       .then((res) => res.json())
       .then((data) => data.timezone && setTimezone(data.timezone))
       .catch(() => {});
-
-    const key = `pellas_widget_order_${userId}`;
-    const saved = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as string[];
-        // Guard against a stale saved order missing a widget added since (e.g. after
-        // an app update) — fall back to appending anything new at the end.
-        const merged = [...parsed.filter((id) => DEFAULT_WIDGET_ORDER.includes(id))];
-        for (const id of DEFAULT_WIDGET_ORDER) if (!merged.includes(id)) merged.push(id);
-        setWidgetOrder(merged);
-      } catch {
-        // ignore malformed saved layout
-      }
-    }
-  }, [userId]);
+  }, []);
 
   // Daily shift reminders (late / lunch / clock-out), computed against the platform
   // timezone so they fire at the right wall-clock moment regardless of the device's
@@ -140,20 +110,6 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
 
   function dismissNotice(id: string) {
     setShiftNotices((prev) => prev.filter((n) => n.id !== id));
-  }
-
-  function saveWidgetOrder(order: string[]) {
-    setWidgetOrder(order);
-    localStorage.setItem(`pellas_widget_order_${userId}`, JSON.stringify(order));
-  }
-
-  function handleDrop(targetIndex: number) {
-    if (dragIndex.current === null || dragIndex.current === targetIndex) return;
-    const next = [...widgetOrder];
-    const [moved] = next.splice(dragIndex.current, 1);
-    next.splice(targetIndex, 0, moved!);
-    dragIndex.current = null;
-    saveWidgetOrder(next);
   }
 
   const loadEvents = useCallback(async () => {
@@ -253,22 +209,36 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
     await loadEvents();
   }
 
-  const widgetMap: Record<string, React.ReactNode> = {
-    announcements: <DigitalAnnouncementsCard ref={announcementsCardRef} announcements={announcements} />,
+  return (
+    <div className="mx-auto max-w-md space-y-4">
+      {shiftNotices.map((n) => (
+        <div key={n.id} className="card flex items-center justify-between gap-3 border-amber-200 bg-amber-50 p-3">
+          <p className="text-sm text-amber-800">{n.message}</p>
+          <button
+            type="button"
+            onClick={() => dismissNotice(n.id)}
+            aria-label="Dismiss"
+            className="shrink-0 rounded-md p-1 text-amber-600 hover:bg-amber-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
 
-    clock: (
+      <DigitalAnnouncementsCard ref={announcementsCardRef} announcements={announcements} />
+
       <div className="card p-6 text-center">
         <div className="text-xs font-medium uppercase tracking-wide text-slate-400">Current Time</div>
         <div className="mt-1 font-mono text-4xl font-bold tabular-nums text-slate-900">
           {now
-            ? new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(now)
+            ? new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(
+                now,
+              )
             : '--:--:--'}
         </div>
         <div className="mt-1 text-sm text-slate-500">{now ? formatDate(now) : ''}</div>
       </div>
-    ),
 
-    summary: (
       <div className="grid grid-cols-3 gap-3">
         <div className="card p-3 text-center">
           <div className="text-[10px] font-medium uppercase text-slate-400">Time In</div>
@@ -287,9 +257,7 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
           <div className="mt-1 text-sm font-semibold text-emerald-600">{clockedIn ? 'Working' : totalHours ? 'Done' : '—'}</div>
         </div>
       </div>
-    ),
 
-    clockButtons: (
       <div className="card p-5 text-center">
         <p className="text-sm text-slate-600">
           {clockedIn
@@ -302,7 +270,7 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button
             type="button"
-            disabled={loading || clockedIn || editingLayout}
+            disabled={loading || clockedIn}
             onClick={() => handleClock('IN')}
             className="btn-primary py-3 text-base"
           >
@@ -310,7 +278,7 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
           </button>
           <button
             type="button"
-            disabled={loading || !clockedIn || editingLayout}
+            disabled={loading || !clockedIn}
             onClick={() => handleClock('OUT')}
             className="btn-danger py-3 text-base"
           >
@@ -318,9 +286,7 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
           </button>
         </div>
       </div>
-    ),
 
-    location: (
       <div className="card p-4">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1 text-xs font-medium text-slate-500">
@@ -344,9 +310,7 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
           {geofence ? ` · office radius is ${geofence.radiusMeters}m` : ''}.
         </p>
       </div>
-    ),
 
-    payslip: (
       <div className="card p-5">
         <h2 className="mb-2 text-sm font-semibold text-slate-900">Latest Payslip</h2>
         {payslip ? (
@@ -365,9 +329,7 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
           <p className="text-sm text-slate-500">No payslip issued yet.</p>
         )}
       </div>
-    ),
 
-    quickLinks: (
       <div className="grid grid-cols-3 gap-3">
         <Link href="/dashboard/my-payslip" className="card flex flex-col items-center gap-1.5 p-4 text-center">
           <Wallet className="h-5 w-5 text-brand-600" />
@@ -382,69 +344,18 @@ export function EmployeeHomeDashboard({ userId }: { userId: string }) {
           <span className="text-xs font-medium text-slate-700">Documents</span>
         </Link>
       </div>
-    ),
 
-    calendar: (
       <div className="card p-4">
         <MiniCalendar
           markedDates={markedDates}
           onSelectMarkedDate={(id) => announcementsCardRef.current?.showAnnouncement(id)}
         />
       </div>
-    ),
 
-    calendarLink: (
       <Link href="/dashboard/calendar" className="card flex items-center gap-3 p-4">
         <Calendar className="h-5 w-5 text-brand-600" />
         <span className="text-sm font-medium text-slate-700">View full calendar</span>
       </Link>
-    ),
-  };
-
-  return (
-    <div className="mx-auto max-w-md space-y-4">
-      {shiftNotices.map((n) => (
-        <div key={n.id} className="card flex items-center justify-between gap-3 border-amber-200 bg-amber-50 p-3">
-          <p className="text-sm text-amber-800">{n.message}</p>
-          <button
-            type="button"
-            onClick={() => dismissNotice(n.id)}
-            aria-label="Dismiss"
-            className="shrink-0 rounded-md p-1 text-amber-600 hover:bg-amber-100"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ))}
-
-      <button
-        type="button"
-        onClick={() => setEditingLayout((v) => !v)}
-        className={editingLayout ? 'btn-primary w-full' : 'btn-secondary w-full'}
-      >
-        {editingLayout ? <Check className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
-        {editingLayout ? 'Done arranging' : 'Customize layout'}
-      </button>
-
-      {widgetOrder.map((id, index) => (
-        <div
-          key={id}
-          draggable={editingLayout}
-          onDragStart={() => {
-            dragIndex.current = index;
-          }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={() => handleDrop(index)}
-          className={editingLayout ? 'relative rounded-xl ring-2 ring-dashed ring-brand-400/50' : undefined}
-        >
-          {editingLayout && (
-            <div className="absolute -left-2 -top-2 z-10 flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-brand-600 text-white shadow-md active:cursor-grabbing">
-              <GripVertical className="h-4 w-4" />
-            </div>
-          )}
-          <div className={editingLayout ? 'pointer-events-none' : undefined}>{widgetMap[id]}</div>
-        </div>
-      ))}
 
       <p className="sr-only">user:{userId}</p>
     </div>
