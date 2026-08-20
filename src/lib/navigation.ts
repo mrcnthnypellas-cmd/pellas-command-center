@@ -16,6 +16,7 @@ import {
   Building,
   Settings,
   Megaphone,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -36,6 +37,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Announcements', href: '/dashboard/announcements', icon: Megaphone },
     { label: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
     { label: 'Audit Log', href: '/dashboard/audit-log', icon: FolderOpen },
+    { label: 'Mondelez Attendance', href: '/dashboard/mondelez-attendance', icon: ClipboardList },
     { label: 'Platform Settings', href: '/dashboard/settings', icon: Settings },
   ],
   COMPANY_ADMIN: [
@@ -43,6 +45,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Employees', href: '/dashboard/employees', icon: Users },
     { label: 'Announcements', href: '/dashboard/announcements', icon: Megaphone },
     { label: 'Attendance', href: '/dashboard/attendance', icon: Clock },
+    { label: 'Mondelez Attendance', href: '/dashboard/mondelez-attendance', icon: ClipboardList },
     { label: 'Payroll', href: '/dashboard/payroll', icon: Wallet },
     { label: 'IT Assets', href: '/dashboard/it-assets', icon: Laptop },
     { label: 'Documents', href: '/dashboard/documents', icon: FolderOpen },
@@ -57,6 +60,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { label: 'Employees', href: '/dashboard/employees', icon: Users },
     { label: 'Attendance', href: '/dashboard/attendance', icon: Clock },
+    { label: 'Mondelez Attendance', href: '/dashboard/mondelez-attendance', icon: ClipboardList },
     { label: 'Payroll', href: '/dashboard/payroll', icon: Wallet },
     { label: 'Documents', href: '/dashboard/documents', icon: FolderOpen },
     { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar },

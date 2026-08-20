@@ -22,7 +22,8 @@ export type Resource =
   | 'auditLog'
   | 'report'
   | 'platformSetting' // login page branding, etc. — Super Admin only
-  | 'announcement';
+  | 'announcement'
+  | 'countEvent'; // client-branded attendance/payroll count sheets (e.g. Mondelez)
 
 export type Action = 'create' | 'read' | 'update' | 'delete' | 'list';
 
@@ -64,6 +65,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     report: ['read', 'list'],
     platformSetting: ['read', 'update'],
     announcement: ['create', 'read', 'update', 'delete', 'list'],
+    countEvent: ['create', 'read', 'update', 'delete', 'list'],
   },
   COMPANY_ADMIN: {
     user: ['create', 'read', 'update', 'delete', 'list'],
@@ -81,6 +83,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     auditLog: ['read', 'list'],
     report: ['read', 'list'],
     announcement: ['create', 'read', 'update', 'delete', 'list'],
+    countEvent: ['create', 'read', 'update', 'delete', 'list'],
   },
   HR_ADMIN: {
     employee: ['create', 'read', 'update', 'delete', 'list'],
@@ -93,6 +96,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     notification: ['read', 'update', 'list'],
     report: ['read', 'list'], // HR reports only — filtered at query layer
     announcement: ['read', 'list'],
+    countEvent: ['create', 'read', 'update', 'delete', 'list'],
   },
   IT_ADMIN: {
     // Explicitly denied: employee.confidential, payroll, payslip.

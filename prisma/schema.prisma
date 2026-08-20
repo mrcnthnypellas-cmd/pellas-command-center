@@ -147,6 +147,7 @@ model Company {
   documentsRoot   Document[]
   emailLogs       EmailLog[]
   announcements   Announcement[]
+  countEvents     CountEvent[]
 }
 
 model User {
@@ -179,6 +180,7 @@ model User {
   emailLogs             EmailLog[]
   platformSettingUpdates PlatformSetting[]
   createdAnnouncements  Announcement[]
+  createdCountEvents    CountEvent[]
 
   @@index([companyId])
   @@index([role])
@@ -283,6 +285,70 @@ model Payslip {
 
   @@index([companyId])
   @@index([employeeId])
+}
+
+// ---------- Count Sheets (client-branded attendance + payroll, e.g. Mondelez
+// inventory-count gigs) — a separate roster from regular Employees, since these are
+// per-event casual counters/encoders/supervisors, not monthly-salaried staff. One
+// shared worker roster per event feeds both the printable Attendance Sheet and the
+// printable Payroll Sheet, so editing a name/position once updates both. ----------
+
+enum CountWorkerPosition {
+  SUPERVISOR
+  ENCODER
+  COUNTER
+}
+
+model CountEvent {
+  id                String   @id @default(cuid())
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id])
+  agencyName        String   @default("Anthony L. Pellas & Associates")
+  clientName        String   @default("Mondelez Philippines, Inc.")
+  siteName          String
+  eventDate         DateTime
+  timeScheduleStart String   @default("06:00AM")
+  timeScheduleEnd   String   @default("2:00PM")
+  createdByUserId   String
+  createdByUser     User     @relation(fields: [createdByUserId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workers CountWorker[]
+
+  @@index([companyId])
+}
+
+model CountWorker {
+  id           String              @id @default(cuid())
+  countEventId String
+  countEvent   CountEvent          @relation(fields: [countEventId], references: [id], onDelete: Cascade)
+  sortOrder    Int                 @default(0)
+  name         String
+  position     CountWorkerPosition @default(COUNTER)
+  tin          String?
+
+  // All money/hour fields are manually entered (no guessed OT/night-diff formula —
+  // same "no auto-calculation" decision as the regular Payroll module) except netPay,
+  // which is a plain sum of the payout fields below minus deductionLess.
+  ratePerDay       Decimal? @db.Decimal(10, 2)
+  hourlyRate       Decimal? @db.Decimal(10, 2)
+  hoursWorked      Decimal? @db.Decimal(10, 2)
+  regularHrs       Decimal? @db.Decimal(10, 2)
+  otHrs            Decimal? @db.Decimal(10, 2)
+  nightDiffHrs     Decimal? @db.Decimal(10, 2)
+  dailyRatePayout  Decimal? @db.Decimal(10, 2)
+  otPayout         Decimal? @db.Decimal(10, 2)
+  nightDiffPayout  Decimal? @db.Decimal(10, 2)
+  transpoAllowance Decimal? @db.Decimal(10, 2)
+  deductionLess    Decimal? @db.Decimal(10, 2)
+  netPay           Decimal? @db.Decimal(10, 2)
+  receivedBy       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([countEventId])
 }
 
 // ---------- IT Assets ----------

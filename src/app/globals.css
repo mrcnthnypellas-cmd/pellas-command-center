@@ -11,6 +11,34 @@
   }
 }
 
+/* Count-sheet print pages (/print/count-events/...) — force table header shading and
+ * borders to actually print (browsers strip background colors by default) and use a
+ * clean page size/margin instead of the browser's own header/footer chrome. */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+@page {
+  margin: 12mm;
+}
+/* Named pages (Chrome/Edge) so the wide payroll table prints landscape while the
+ * narrower attendance sheet stays portrait — applied via the `page` property on
+ * each print page's root element. */
+@page attendance-sheet {
+  size: A4 portrait;
+}
+@page payroll-sheet {
+  size: A4 landscape;
+}
+.print-page-attendance {
+  page: attendance-sheet;
+}
+.print-page-payroll {
+  page: payroll-sheet;
+}
+
 @layer components {
   .card {
     @apply rounded-xl border border-slate-200 bg-white shadow-card;
