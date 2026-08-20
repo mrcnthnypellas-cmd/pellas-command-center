@@ -156,7 +156,7 @@ export function CountRosterEditor({
       value={(worker[field] as string) ?? ''}
       onChange={(e) => updateLocal(worker.id, field, e.target.value)}
       onBlur={() => void saveRow(workers.find((w) => w.id === worker.id)!)}
-      className={`rounded border border-slate-200 px-1.5 py-1 text-xs ${opts?.width ?? 'w-20'}`}
+      className={`rounded border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-900 ${opts?.width ?? 'w-20'}`}
     />
   );
 
@@ -215,7 +215,7 @@ export function CountRosterEditor({
                       value={w.position}
                       onChange={(e) => updateLocal(w.id, 'position', e.target.value)}
                       onBlur={() => void saveRow(workers.find((x) => x.id === w.id)!)}
-                      className="rounded border border-slate-200 px-1.5 py-1 text-xs"
+                      className="rounded border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-900"
                     >
                       {POSITIONS.map((p) => (
                         <option key={p} value={p}>
