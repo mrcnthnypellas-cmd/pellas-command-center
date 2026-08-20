@@ -4,6 +4,8 @@ import { requireAbility } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 import { LoginBackgroundSettings } from '@/components/settings/LoginBackgroundSettings';
 import { TimezoneSettings } from '@/components/settings/TimezoneSettings';
+import { BrandingSettings } from '@/components/settings/BrandingSettings';
+import { ThemeSettings } from '@/components/settings/ThemeSettings';
 
 export default async function PlatformSettingsPage() {
   const ctx = await requireCtx();
@@ -19,6 +21,12 @@ export default async function PlatformSettingsPage() {
         <p className="text-sm text-slate-500">Branding and configuration shared across every company.</p>
       </div>
 
+      <BrandingSettings currentAppName={setting?.appName ?? 'My Pellas Command Center'} hasLogo={!!setting?.logoStorageKey} />
+      <ThemeSettings
+        currentPrimary={setting?.themePrimaryColor ?? null}
+        currentBackground={setting?.themeBackgroundColor ?? null}
+        currentFont={setting?.themeFontFamily ?? null}
+      />
       <TimezoneSettings currentTimezone={setting?.timezone ?? 'Asia/Manila'} />
       <LoginBackgroundSettings hasBackground={!!setting?.loginBackgroundStorageKey} />
     </div>

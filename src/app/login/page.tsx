@@ -17,6 +17,8 @@ export default function LoginPage() {
   const [forgotMessage, setForgotMessage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasBackground, setHasBackground] = useState(true);
+  const [hasLogo, setHasLogo] = useState(true);
+  const [appName, setAppName] = useState('My Pellas Command Center');
 
   useEffect(() => {
     const remembered = typeof window !== 'undefined' ? localStorage.getItem(REMEMBERED_USERNAME_KEY) : null;
@@ -24,6 +26,13 @@ export default function LoginPage() {
       setEmail(remembered);
       setRememberMe(true);
     }
+    fetch('/api/platform-settings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.appName) setAppName(data.appName);
+        setHasLogo(!!data.hasLogo);
+      })
+      .catch(() => {});
   }, []);
 
   async function getLocation(): Promise<{ lat: string; lng: string } | null> {
@@ -91,11 +100,21 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-sm rounded-2xl border border-white/20 bg-white/85 p-8 shadow-2xl backdrop-blur-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white shadow-lg">
-            PC
-          </div>
+          {hasLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/api/platform-settings/logo"
+              alt={appName}
+              onError={() => setHasLogo(false)}
+              className="mx-auto mb-3 h-12 w-12 rounded-xl object-contain shadow-lg"
+            />
+          ) : (
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white shadow-lg">
+              {appName.trim()[0]?.toUpperCase() ?? 'P'}
+            </div>
+          )}
           <h1 className="text-xl font-bold text-navy-900">Welcome Back!</h1>
-          <p className="mt-1 text-sm text-slate-600">Please sign in to continue.</p>
+          <p className="mt-1 text-sm text-slate-600">Sign in to {appName}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

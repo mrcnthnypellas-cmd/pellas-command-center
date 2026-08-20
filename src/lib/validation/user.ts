@@ -36,3 +36,29 @@ export const createUserSchema = z
     path: ['clientCode'],
   });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+// Editing an existing user. Every field is optional (partial update — e.g. the
+// Deactivate/Reactivate toggle sends only `status`); the route handler falls back to
+// the existing DB value for anything omitted. The one cross-field rule (a company is
+// required for non-Super-Admin roles) only applies when `role` is actually part of
+// this request, since a status-only PATCH doesn't carry role/companyId at all.
+export const updateUserSchema = z
+  .object({
+    password: z.string().min(5, 'Password must be at least 5 characters').max(100).optional(),
+    firstName: z.string().min(1).max(100).optional(),
+    lastName: z.string().min(1).max(100).optional(),
+    phone: z.string().max(30).optional(),
+    role: z.enum(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_ADMIN', 'IT_ADMIN', 'EMPLOYEE', 'CLIENT']).optional(),
+    companyId: z.string().cuid().optional(),
+    employeeCode: z.string().max(50).optional(),
+    department: z.string().max(100).optional(),
+    position: z.string().max(100).optional(),
+    clientCode: z.string().max(50).optional(),
+    businessName: z.string().max(200).optional(),
+    status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+  })
+  .refine((data) => data.role === undefined || data.role === 'SUPER_ADMIN' || !!data.companyId, {
+    message: 'A company is required for every role except Super Admin',
+    path: ['companyId'],
+  });
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;

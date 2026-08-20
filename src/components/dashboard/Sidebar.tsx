@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { Role } from '@prisma/client';
@@ -12,28 +13,40 @@ export function Sidebar({
   companyName,
   firstName,
   lastName,
+  appName = 'My Pellas Command Center',
+  hasLogo = false,
   className,
 }: {
   role: Role;
   companyName?: string;
   firstName: string;
   lastName: string;
+  appName?: string;
+  hasLogo?: boolean;
   className?: string;
 }) {
   const pathname = usePathname();
   const items = navForRole(role);
+  const [logoOk, setLogoOk] = useState(hasLogo);
 
   return (
     <nav className={cn('flex h-full flex-col bg-navy-800 text-navy-100', className)}>
       <div className="flex items-center gap-2.5 px-4 py-5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
-          M
-        </div>
-        <div className="min-w-0 leading-tight">
-          <div className="truncate text-sm font-semibold text-white">My Pellas</div>
-          <div className="truncate text-[10px] font-medium uppercase tracking-wider text-navy-300">
-            Command Center
+        {logoOk ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src="/api/platform-settings/logo"
+            alt={appName}
+            onError={() => setLogoOk(false)}
+            className="h-9 w-9 shrink-0 rounded-lg object-contain"
+          />
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
+            {appName.trim()[0]?.toUpperCase() ?? 'P'}
           </div>
+        )}
+        <div className="min-w-0 leading-tight">
+          <div className="truncate text-sm font-semibold text-white">{appName}</div>
         </div>
       </div>
 

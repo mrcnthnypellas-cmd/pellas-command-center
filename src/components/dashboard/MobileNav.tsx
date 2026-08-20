@@ -10,11 +10,15 @@ export function MobileNav({
   companyName,
   firstName,
   lastName,
+  appName,
+  hasLogo,
 }: {
   role: Role;
   companyName?: string;
   firstName: string;
   lastName: string;
+  appName?: string;
+  hasLogo?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -41,7 +45,15 @@ export function MobileNav({
             >
               <X className="h-5 w-5" />
             </button>
-            <Sidebar role={role} companyName={companyName} firstName={firstName} lastName={lastName} className="h-full" />
+            <Sidebar
+              role={role}
+              companyName={companyName}
+              firstName={firstName}
+              lastName={lastName}
+              appName={appName}
+              hasLogo={hasLogo}
+              className="h-full"
+            />
           </div>
         </div>
       )}

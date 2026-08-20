@@ -545,9 +545,22 @@ model PlatformSetting {
   // context — configurable here rather than derived from wherever the server happens
   // to be hosted (that mismatch caused a real date-off-by-one bug earlier).
   timezone                  String   @default("Asia/Manila")
-  updatedByUserId           String?
-  updatedByUser             User?    @relation(fields: [updatedByUserId], references: [id])
-  updatedAt                 DateTime @updatedAt
+
+  // Branding — shown on the login page and dashboard sidebar/header.
+  appName        String  @default("My Pellas Command Center")
+  logoStorageKey String?
+
+  // Dashboard theme — Super Admin picks a primary color, background color, and font;
+  // the rest of the palette (card tint, borders, hover states) is derived from these
+  // via CSS color-mix() rather than exposing every shade individually. Null = use the
+  // built-in dark navy default.
+  themePrimaryColor    String?
+  themeBackgroundColor String?
+  themeFontFamily      String?
+
+  updatedByUserId String?
+  updatedByUser   User?    @relation(fields: [updatedByUserId], references: [id])
+  updatedAt       DateTime @updatedAt
 }
 
 // ---------- Announcements ----------

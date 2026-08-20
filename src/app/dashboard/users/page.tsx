@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Plus, Pencil } from 'lucide-react';
 import { requireCtx } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { roleLabel } from '@/lib/utils';
+import { UserStatusToggle } from '@/components/users/UserStatusToggle';
 
 export default async function UsersPage() {
   const ctx = await requireCtx();
@@ -20,7 +21,7 @@ export default async function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Users</h1>
-          <p className="text-sm text-slate-500">{users.length} user(s) across all companies</p>
+          <p className="text-sm text-slate-500">{users.length} user(s)</p>
         </div>
         <Link href="/dashboard/users/new" className="btn-primary">
           <Plus className="h-4 w-4" />
@@ -29,13 +30,14 @@ export default async function UsersPage() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <th className="px-4 py-3">User</th>
               <th className="px-4 py-3">Company</th>
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -59,6 +61,19 @@ export default async function UsersPage() {
                   >
                     {u.status}
                   </span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      href={`/dashboard/users/${u.id}/edit`}
+                      className="btn-secondary py-1.5 text-xs"
+                      aria-label={`Edit ${u.firstName} ${u.lastName}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </Link>
+                    {u.id !== ctx.userId && <UserStatusToggle userId={u.id} status={u.status} />}
+                  </div>
                 </td>
               </tr>
             ))}

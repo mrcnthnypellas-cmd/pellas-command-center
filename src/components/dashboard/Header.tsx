@@ -15,12 +15,16 @@ export function Header({
   lastName,
   companyName,
   unreadNotifications,
+  appName,
+  hasLogo,
 }: {
   role: Role;
   firstName: string;
   lastName: string;
   companyName?: string;
   unreadNotifications: number;
+  appName?: string;
+  hasLogo?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -36,7 +40,14 @@ export function Header({
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
-        <MobileNav role={role} companyName={companyName} firstName={firstName} lastName={lastName} />
+        <MobileNav
+          role={role}
+          companyName={companyName}
+          firstName={firstName}
+          lastName={lastName}
+          appName={appName}
+          hasLogo={hasLogo}
+        />
         <LiveClock variant="compact" />
         <div className="relative hidden w-64 lg:block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
