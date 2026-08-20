@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { requireSession } from '@/lib/session';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { Header } from '@/components/dashboard/Header';
+import { LedBanner } from '@/components/dashboard/LedBanner';
 import { prisma } from '@/lib/prisma';
 import { fontFamilyCss, isLightColor } from '@/lib/theme';
 
@@ -20,6 +21,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const appName = setting?.appName ?? 'My Pellas Command Center';
   const hasLogo = !!setting?.logoStorageKey;
+  const bannerVisible = !!setting?.bannerEnabled && !!setting?.bannerMessage?.trim();
+  const bannerHeightPx = bannerVisible ? setting!.bannerHeight : 0;
   const themeStyle: React.CSSProperties = {
     ...(setting?.themePrimaryColor ? { '--theme-primary': setting.themePrimaryColor } : {}),
     ...(setting?.themeBackgroundColor
@@ -36,30 +39,43 @@ export default async function DashboardLayout({ children }: { children: React.Re
   } as React.CSSProperties;
 
   return (
-    <div className="dashboard-shell flex min-h-screen" style={themeStyle}>
-      <aside className="hidden w-64 shrink-0 lg:block">
-        <Sidebar
-          role={session.user.role}
-          companyName={company?.name ?? (session.user.role === 'SUPER_ADMIN' ? 'All Companies' : undefined)}
-          firstName={session.user.firstName}
-          lastName={session.user.lastName}
-          appName={appName}
-          hasLogo={hasLogo}
-          className="sticky top-0 h-screen"
+    <div className="dashboard-shell flex min-h-screen flex-col" style={themeStyle}>
+      {bannerVisible && (
+        <LedBanner
+          message={setting!.bannerMessage}
+          textColor={setting!.bannerTextColor}
+          backgroundColor={setting!.bannerBackgroundColor}
+          fontFamily={setting!.bannerFontFamily}
+          speedSeconds={setting!.bannerSpeedSeconds}
+          height={bannerHeightPx}
         />
-      </aside>
+      )}
+      <div className="flex flex-1">
+        <aside className="hidden w-64 shrink-0 lg:block">
+          <Sidebar
+            role={session.user.role}
+            companyName={company?.name ?? (session.user.role === 'SUPER_ADMIN' ? 'All Companies' : undefined)}
+            firstName={session.user.firstName}
+            lastName={session.user.lastName}
+            appName={appName}
+            hasLogo={hasLogo}
+            className="sticky"
+            style={{ top: bannerHeightPx, height: `calc(100vh - ${bannerHeightPx}px)` }}
+          />
+        </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header
-          role={session.user.role}
-          firstName={session.user.firstName}
-          lastName={session.user.lastName}
-          companyName={company?.name}
-          unreadNotifications={unreadNotifications}
-          appName={appName}
-          hasLogo={hasLogo}
-        />
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Header
+            role={session.user.role}
+            firstName={session.user.firstName}
+            lastName={session.user.lastName}
+            companyName={company?.name}
+            unreadNotifications={unreadNotifications}
+            appName={appName}
+            hasLogo={hasLogo}
+          />
+          <main className="flex-1 p-4 sm:p-6">{children}</main>
+        </div>
       </div>
     </div>
   );

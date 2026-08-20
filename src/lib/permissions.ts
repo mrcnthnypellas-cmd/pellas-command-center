@@ -23,7 +23,8 @@ export type Resource =
   | 'report'
   | 'platformSetting' // login page branding, etc. — Super Admin only
   | 'announcement'
-  | 'countEvent'; // client-branded attendance/payroll count sheets (e.g. Mondelez)
+  | 'countEvent' // client-branded attendance/payroll count sheets (e.g. Mondelez)
+  | 'ledBanner'; // scrolling dashboard banner — Super Admin, HR Admin, IT Admin
 
 export type Action = 'create' | 'read' | 'update' | 'delete' | 'list';
 
@@ -66,6 +67,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     platformSetting: ['read', 'update'],
     announcement: ['create', 'read', 'update', 'delete', 'list'],
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
+    ledBanner: ['read', 'update'],
   },
   COMPANY_ADMIN: {
     user: ['create', 'read', 'update', 'delete', 'list'],
@@ -97,6 +99,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     report: ['read', 'list'], // HR reports only — filtered at query layer
     announcement: ['read', 'list'],
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
+    ledBanner: ['read', 'update'],
   },
   IT_ADMIN: {
     // Explicitly denied: employee.confidential, payroll, payslip.
@@ -106,6 +109,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     notification: ['read', 'update', 'list'],
     report: ['read', 'list'], // IT reports only — filtered at query layer
     announcement: ['read', 'list'],
+    ledBanner: ['read', 'update'],
   },
   EMPLOYEE: {
     // All owner-scoped: ownerUserId must equal ctx.userId, enforced by requireAbility below.

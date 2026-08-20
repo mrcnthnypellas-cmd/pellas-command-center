@@ -66,6 +66,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar },
     { label: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
     { label: 'Gov Services', href: '/dashboard/gov-services', icon: ExternalLink },
+    { label: 'Dashboard Banner', href: '/dashboard/settings', icon: Settings },
   ],
   IT_ADMIN: [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -73,6 +74,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar },
     { label: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
     { label: 'Gov Services', href: '/dashboard/gov-services', icon: ExternalLink },
+    { label: 'Dashboard Banner', href: '/dashboard/settings', icon: Settings },
   ],
   EMPLOYEE: [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },

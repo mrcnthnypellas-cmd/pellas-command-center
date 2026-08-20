@@ -16,6 +16,7 @@ export function Sidebar({
   appName = 'My Pellas Command Center',
   hasLogo = false,
   className,
+  style,
 }: {
   role: Role;
   companyName?: string;
@@ -24,13 +25,14 @@ export function Sidebar({
   appName?: string;
   hasLogo?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const pathname = usePathname();
   const items = navForRole(role);
   const [logoOk, setLogoOk] = useState(hasLogo);
 
   return (
-    <nav className={cn('flex h-full flex-col bg-navy-800 text-navy-100', className)}>
+    <nav className={cn('flex h-full flex-col bg-navy-800 text-navy-100', className)} style={style}>
       <div className="flex items-center gap-2.5 px-4 py-5">
         {logoOk ? (
           // eslint-disable-next-line @next/next/no-img-element

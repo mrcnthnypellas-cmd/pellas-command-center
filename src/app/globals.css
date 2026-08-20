@@ -11,6 +11,24 @@
   }
 }
 
+/* Scrolling LED banner (dashboard top bar) — content is duplicated once in the
+ * component so translating the track by exactly -50% loops seamlessly regardless
+ * of message length. */
+@keyframes led-banner-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.led-banner-scroll {
+  animation-name: led-banner-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  width: max-content;
+}
+
 /* Count-sheet print pages (/print/count-events/...) — force table header shading and
  * borders to actually print (browsers strip background colors by default) and use a
  * clean page size/margin instead of the browser's own header/footer chrome. */

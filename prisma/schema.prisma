@@ -629,6 +629,20 @@ model PlatformSetting {
   // a client-side widget.
   zoomPercent Int @default(100)
 
+  // Scrolling LED banner shown at the top of every dashboard. Editable by Super
+  // Admin, HR Admin, and IT Admin (not Company Admin/Employee/Client) — see the
+  // 'ledBanner' resource in permissions.ts, separate from 'platformSetting' so this
+  // one section can be opened up without granting the rest of Platform Settings.
+  bannerEnabled         Boolean @default(false)
+  bannerMessage         String  @default("")
+  bannerTextColor       String  @default("#ffffff")
+  bannerBackgroundColor String  @default("#dc2626")
+  bannerFontFamily      String?
+  // Seconds for one full scroll loop — lower is faster.
+  bannerSpeedSeconds    Int     @default(20)
+  // Height of the banner bar in px ("background width" as the user called it).
+  bannerHeight          Int     @default(40)
+
   updatedByUserId String?
   updatedByUser   User?    @relation(fields: [updatedByUserId], references: [id])
   updatedAt       DateTime @updatedAt
