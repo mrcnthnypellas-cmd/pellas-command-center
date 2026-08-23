@@ -39,6 +39,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
     { label: 'Audit Log', href: '/dashboard/audit-log', icon: FolderOpen },
     { label: 'Mondelez Attendance', href: '/dashboard/mondelez-attendance', icon: ClipboardList },
+    { label: 'Messages', href: '/dashboard/messages', icon: MessageSquare },
     { label: 'Platform Settings', href: '/dashboard/settings', icon: Settings },
   ],
   COMPANY_ADMIN: [
@@ -75,6 +76,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { label: 'IT Assets', href: '/dashboard/it-assets', icon: Laptop },
     { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar },
+    { label: 'Messages', href: '/dashboard/messages', icon: MessageSquare },
     { label: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
     { label: 'Gov Services', href: '/dashboard/gov-services', icon: ExternalLink },
     { label: 'Dashboard Banner', href: '/dashboard/settings', icon: Settings },

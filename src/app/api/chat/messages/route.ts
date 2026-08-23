@@ -4,11 +4,14 @@ import { requireAbility, ForbiddenError } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 import { sendChatMessageSchema } from '@/lib/validation/chat';
 
-const ADMIN_ROLES = ['COMPANY_ADMIN', 'HR_ADMIN'] as const;
+// Every admin-ish role can read/reply into any employee's thread at their company —
+// a shared help-desk inbox rather than a picked 1:1 conversation. Super Admin isn't
+// tied to one company, so it can reach any employee's thread on the whole platform.
+const ADMIN_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_ADMIN', 'IT_ADMIN'] as const;
 
 // Resolves which employee's thread this request targets, and checks the caller is
 // allowed into it: an Employee only ever reaches their own thread; an admin must
-// name a real EMPLOYEE in their own company.
+// name a real EMPLOYEE (in their own company, unless they're Super Admin).
 async function resolveThreadOwner(
   ctx: { userId: string; role: string; companyId: string | null },
   requestedEmployeeUserId: string | undefined,
@@ -25,7 +28,10 @@ async function resolveThreadOwner(
     return NextResponse.json({ error: 'employeeUserId is required' }, { status: 400 });
   }
   const target = await prisma.user.findUnique({ where: { id: requestedEmployeeUserId } });
-  if (!target || target.role !== 'EMPLOYEE' || target.companyId !== ctx.companyId) {
+  if (!target || target.role !== 'EMPLOYEE') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (ctx.role !== 'SUPER_ADMIN' && target.companyId !== ctx.companyId) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
   return { employeeUserId: target.id, companyId: target.companyId! };

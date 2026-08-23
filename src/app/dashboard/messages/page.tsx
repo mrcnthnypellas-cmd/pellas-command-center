@@ -3,7 +3,7 @@ import { requireCtx } from '@/lib/session';
 import { ChatBox } from '@/components/chat/ChatBox';
 import { AdminChatInbox } from '@/components/chat/AdminChatInbox';
 
-const ALLOWED_ROLES = ['EMPLOYEE', 'COMPANY_ADMIN', 'HR_ADMIN'] as const;
+const ALLOWED_ROLES = ['EMPLOYEE', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_ADMIN', 'IT_ADMIN'] as const;
 
 export default async function MessagesPage() {
   const ctx = await requireCtx();

@@ -72,6 +72,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     announcement: ['create', 'read', 'update', 'delete', 'list'],
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
     ledBanner: ['read', 'update'],
+    chatMessage: ['create', 'read', 'list', 'delete'],
   },
   COMPANY_ADMIN: {
     user: ['create', 'read', 'update', 'delete', 'list'],
@@ -90,7 +91,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     report: ['read', 'list'],
     announcement: ['create', 'read', 'update', 'delete', 'list'],
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
-    chatMessage: ['create', 'read', 'list'],
+    chatMessage: ['create', 'read', 'list', 'delete'],
   },
   HR_ADMIN: {
     employee: ['create', 'read', 'update', 'delete', 'list'],
@@ -105,7 +106,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     announcement: ['read', 'list'],
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
     ledBanner: ['read', 'update'],
-    chatMessage: ['create', 'read', 'list'],
+    chatMessage: ['create', 'read', 'list', 'delete'],
   },
   IT_ADMIN: {
     // Explicitly denied: employee.confidential, payroll, payslip.
@@ -116,6 +117,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     report: ['read', 'list'], // IT reports only — filtered at query layer
     announcement: ['read', 'list'],
     ledBanner: ['read', 'update'],
+    chatMessage: ['create', 'read', 'list', 'delete'],
   },
   EMPLOYEE: {
     // All owner-scoped: ownerUserId must equal ctx.userId, enforced by requireAbility below.
@@ -127,7 +129,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     calendarEvent: ['read', 'list'],
     notification: ['read', 'update', 'list'],
     announcement: ['read', 'list'],
-    chatMessage: ['create', 'read', 'list'],
+    chatMessage: ['create', 'read', 'list', 'delete'],
   },
   CLIENT: {
     client: ['read'],

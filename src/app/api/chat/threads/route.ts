@@ -3,18 +3,23 @@ import { requireCtx, UnauthenticatedError } from '@/lib/session';
 import { requireAbility, ForbiddenError } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 
-// Admin-side inbox: one row per employee at the caller's company, regardless of
-// whether they've messaged yet — an admin can open any employee's thread to start
-// the conversation, not just reply to existing ones.
+// Admin-side inbox: one row per employee, regardless of whether they've messaged
+// yet — an admin can open any employee's thread to start the conversation, not
+// just reply to existing ones. Company Admin/HR Admin/IT Admin see their own
+// company's employees; Super Admin isn't tied to one company, so sees every
+// employee on the platform (with a company label to tell threads apart).
 export async function GET() {
   try {
     const ctx = await requireCtx();
-    if (!ctx.companyId) return NextResponse.json({ error: 'No company on this account' }, { status: 400 });
-    requireAbility(ctx, { resource: 'chatMessage', action: 'list', resourceCompanyId: ctx.companyId });
+    const isSuperAdmin = ctx.role === 'SUPER_ADMIN';
+    if (!isSuperAdmin && !ctx.companyId) {
+      return NextResponse.json({ error: 'No company on this account' }, { status: 400 });
+    }
+    requireAbility(ctx, { resource: 'chatMessage', action: 'list', resourceCompanyId: isSuperAdmin ? null : ctx.companyId });
 
     const employees = await prisma.user.findMany({
-      where: { companyId: ctx.companyId, role: 'EMPLOYEE', status: 'ACTIVE' },
-      select: { id: true, firstName: true, lastName: true },
+      where: { role: 'EMPLOYEE', status: 'ACTIVE', ...(isSuperAdmin ? {} : { companyId: ctx.companyId }) },
+      select: { id: true, firstName: true, lastName: true, company: { select: { name: true } } },
       orderBy: [{ firstName: 'asc' }],
     });
 
@@ -31,6 +36,7 @@ export async function GET() {
         return {
           employeeUserId: emp.id,
           name: `${emp.firstName} ${emp.lastName}`,
+          companyName: isSuperAdmin ? (emp.company?.name ?? null) : null,
           lastMessage: lastMessage?.body ?? null,
           lastMessageAt: lastMessage?.createdAt ?? null,
           unreadCount,

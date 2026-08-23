@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 interface Thread {
   employeeUserId: string;
   name: string;
+  companyName: string | null;
   lastMessage: string | null;
   lastMessageAt: string | null;
   unreadCount: number;
@@ -55,7 +56,10 @@ export function AdminChatInbox({ currentUserId }: { currentUserId: string }) {
                 )}
               >
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-slate-900">{t.name}</div>
+                  <div className="truncate text-sm font-medium text-slate-900">
+                    {t.name}
+                    {t.companyName && <span className="ml-1.5 font-normal text-slate-400">· {t.companyName}</span>}
+                  </div>
                   <div className="truncate text-xs text-slate-500">{t.lastMessage ?? 'No messages yet'}</div>
                 </div>
                 {t.unreadCount > 0 && (
@@ -76,6 +80,7 @@ export function AdminChatInbox({ currentUserId }: { currentUserId: string }) {
             employeeUserId={activeThread.employeeUserId}
             currentUserId={currentUserId}
             title={activeThread.name}
+            canModerate
           />
         ) : (
           <div className="card flex h-[520px] items-center justify-center text-sm text-slate-500">
