@@ -33,7 +33,7 @@ export default async function DashboardHomePage() {
   };
 
   if (ctx.role === 'EMPLOYEE') {
-    return <EmployeeHomeDashboard userId={ctx.userId} />;
+    return <EmployeeHomeDashboard userId={ctx.userId} firstName={session.user.firstName} />;
   }
 
   if (ctx.role === 'SUPER_ADMIN') {
