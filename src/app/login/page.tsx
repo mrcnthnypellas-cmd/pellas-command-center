@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
@@ -20,6 +20,26 @@ export default function LoginPage() {
   const [hasLogo, setHasLogo] = useState(true);
   const [appName, setAppName] = useState('My Pellas Command Center');
   const [zoomPercent, setZoomPercent] = useState(100);
+  // Started on page load rather than on submit — a location fix (even the fast,
+  // low-accuracy kind used here) can take a few seconds, and most of that time
+  // overlaps with the user actually typing their username/password. By the time
+  // they hit Sign In, this has usually already resolved, instead of adding its
+  // full duration on top of the sign-in request every single login.
+  const locationPromiseRef = useRef<Promise<{ lat: string; lng: string } | null> | null>(null);
+
+  function requestLocation(): Promise<{ lat: string; lng: string } | null> {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: String(pos.coords.latitude), lng: String(pos.coords.longitude) }),
+        () => resolve(null),
+        // Low accuracy (network/cell-based) resolves far faster than GPS and is
+        // more than precise enough against a geofence radius measured in hundreds
+        // of meters.
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 },
+      );
+    });
+  }
 
   useEffect(() => {
     const remembered = typeof window !== 'undefined' ? localStorage.getItem(REMEMBERED_USERNAME_KEY) : null;
@@ -27,6 +47,7 @@ export default function LoginPage() {
       setEmail(remembered);
       setRememberMe(true);
     }
+    locationPromiseRef.current = requestLocation();
     fetch('/api/platform-settings')
       .then((res) => res.json())
       .then((data) => {
@@ -37,17 +58,6 @@ export default function LoginPage() {
       .catch(() => {});
   }, []);
 
-  async function getLocation(): Promise<{ lat: string; lng: string } | null> {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return null;
-    return new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: String(pos.coords.latitude), lng: String(pos.coords.longitude) }),
-        () => resolve(null),
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
-      );
-    });
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -55,7 +65,8 @@ export default function LoginPage() {
 
     // Best-effort: not every role requires a geofence check, so a denied/unavailable
     // location prompt shouldn't block roles that don't need it — the server decides.
-    const location = await getLocation();
+    // Reuses the in-flight request from page load instead of starting a fresh one.
+    const location = await (locationPromiseRef.current ?? requestLocation());
 
     const result = await signIn('credentials', {
       email,
