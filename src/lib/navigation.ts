@@ -17,6 +17,7 @@ import {
   Settings,
   Megaphone,
   ClipboardList,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -53,6 +54,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Clients', href: '/dashboard/clients', icon: Building2 },
     { label: 'Transactions', href: '/dashboard/transactions', icon: Receipt },
     { label: 'Email', href: '/dashboard/email', icon: Mail },
+    { label: 'Messages', href: '/dashboard/messages', icon: MessageSquare },
     { label: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
     { label: 'Gov Services', href: '/dashboard/gov-services', icon: ExternalLink },
   ],
@@ -64,6 +66,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Payroll', href: '/dashboard/payroll', icon: Wallet },
     { label: 'Documents', href: '/dashboard/documents', icon: FolderOpen },
     { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar },
+    { label: 'Messages', href: '/dashboard/messages', icon: MessageSquare },
     { label: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
     { label: 'Gov Services', href: '/dashboard/gov-services', icon: ExternalLink },
     { label: 'Dashboard Banner', href: '/dashboard/settings', icon: Settings },
@@ -83,6 +86,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'My Assets', href: '/dashboard/my-assets', icon: Laptop },
     { label: 'Documents', href: '/dashboard/documents', icon: FolderOpen },
     { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar },
+    { label: 'Messages', href: '/dashboard/messages', icon: MessageSquare },
     { label: 'Gov Services', href: '/dashboard/gov-services', icon: ExternalLink },
   ],
   CLIENT: [

@@ -148,6 +148,7 @@ model Company {
   emailLogs       EmailLog[]
   announcements   Announcement[]
   countEvents     CountEvent[]
+  chatMessages    ChatMessage[]
 }
 
 model User {
@@ -181,6 +182,8 @@ model User {
   platformSettingUpdates PlatformSetting[]
   createdAnnouncements  Announcement[]
   createdCountEvents    CountEvent[]
+  ownedChatThreads      ChatMessage[]        @relation("ChatThreadOwner")
+  sentChatMessages      ChatMessage[]        @relation("ChatMessageSender")
 
   @@index([companyId])
   @@index([role])
@@ -349,6 +352,27 @@ model CountWorker {
   updatedAt DateTime @updatedAt
 
   @@index([countEventId])
+}
+
+// ---------- Chat (Employee <-> Admin) ----------
+// One thread per employee, identified by employeeUserId — any Company Admin/HR
+// Admin at that employee's company can read and reply into it (a shared "message
+// admin" inbox rather than a picked 1:1 conversation), matching how the Employee
+// dashboard's "Message Admin" entry point works: there's only ever one thread to
+// open, not a contact list.
+model ChatMessage {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id])
+  employeeUserId String
+  employeeUser   User     @relation("ChatThreadOwner", fields: [employeeUserId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User     @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([companyId, employeeUserId])
 }
 
 // ---------- IT Assets ----------

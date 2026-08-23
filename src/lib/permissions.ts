@@ -24,7 +24,8 @@ export type Resource =
   | 'platformSetting' // login page branding, etc. — Super Admin only
   | 'announcement'
   | 'countEvent' // client-branded attendance/payroll count sheets (e.g. Mondelez)
-  | 'ledBanner'; // scrolling dashboard banner — Super Admin, HR Admin, IT Admin
+  | 'ledBanner' // scrolling dashboard banner — Super Admin, HR Admin, IT Admin
+  | 'chatMessage'; // Employee <-> Admin chat thread
 
 export type Action = 'create' | 'read' | 'update' | 'delete' | 'list';
 
@@ -38,6 +39,9 @@ export interface AbilityContext {
  * ownerId semantics depend on resource:
  *  - employee/attendance/payroll/payslip/asset("My Assets"): the Employee.userId who owns the record
  *  - client/transaction: the Client.userId who owns the record
+ *  - chatMessage: the ChatMessage.employeeUserId the thread belongs to (not who sent
+ *    a given message — an admin can send into an employee's thread, but the thread
+ *    itself is only "owned" by the employee for access-check purposes)
  *  - document: not owner-scoped, uses visibility/allowedRoles instead (checked separately)
  */
 export interface AbilityCheck {
@@ -86,6 +90,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     report: ['read', 'list'],
     announcement: ['create', 'read', 'update', 'delete', 'list'],
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
+    chatMessage: ['create', 'read', 'list'],
   },
   HR_ADMIN: {
     employee: ['create', 'read', 'update', 'delete', 'list'],
@@ -100,6 +105,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     announcement: ['read', 'list'],
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
     ledBanner: ['read', 'update'],
+    chatMessage: ['create', 'read', 'list'],
   },
   IT_ADMIN: {
     // Explicitly denied: employee.confidential, payroll, payslip.
@@ -121,6 +127,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     calendarEvent: ['read', 'list'],
     notification: ['read', 'update', 'list'],
     announcement: ['read', 'list'],
+    chatMessage: ['create', 'read', 'list'],
   },
   CLIENT: {
     client: ['read'],
@@ -137,7 +144,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
 // allowedRoles-based), and no document call site ever passes ownerUserId. Including it
 // here would make every document list/read call fail closed for these roles.
 const OWNER_SCOPED_FOR_ROLES: Partial<Record<Role, Resource[]>> = {
-  EMPLOYEE: ['employee', 'attendance', 'payslip', 'asset'],
+  EMPLOYEE: ['employee', 'attendance', 'payslip', 'asset', 'chatMessage'],
   CLIENT: ['client', 'transaction'],
 };
 
