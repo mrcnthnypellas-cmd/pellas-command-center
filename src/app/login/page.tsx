@@ -195,6 +195,12 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
+
+      <p className="absolute bottom-4 left-0 right-0 text-center text-xs text-white/70">
+        © {new Date().getFullYear()} Pellas Command Center. All rights reserved.
+        <br />
+        This system made by Marc Pellas
+      </p>
     </div>
   );
 }

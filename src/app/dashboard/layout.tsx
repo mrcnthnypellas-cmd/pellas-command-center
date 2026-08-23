@@ -75,6 +75,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
             hasLogo={hasLogo}
           />
           <main className="flex-1 p-4 sm:p-6">{children}</main>
+          <footer className="border-t border-slate-200/10 px-4 py-4 text-center text-xs text-slate-500 sm:px-6">
+            © {new Date().getFullYear()} Pellas Command Center. All rights reserved.
+            <br />
+            This system made by Marc Pellas
+          </footer>
         </div>
       </div>
     </div>
