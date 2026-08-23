@@ -44,6 +44,12 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 // this request, since a status-only PATCH doesn't carry role/companyId at all.
 export const updateUserSchema = z
   .object({
+    username: z
+      .string()
+      .min(3, 'Username must be at least 3 characters')
+      .max(50)
+      .regex(/^[a-zA-Z0-9._-]+$/, 'Only letters, numbers, dots, dashes, and underscores')
+      .optional(),
     password: z.string().min(5, 'Password must be at least 5 characters').max(100).optional(),
     firstName: z.string().min(1).max(100).optional(),
     lastName: z.string().min(1).max(100).optional(),

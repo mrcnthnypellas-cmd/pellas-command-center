@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import { requireCtx } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { EditUserForm } from '@/components/users/EditUserForm';
+import { DeleteUserButton } from '@/components/users/DeleteUserButton';
 
 export default async function EditUserPage({ params }: { params: { id: string } }) {
   const ctx = await requireCtx();
@@ -47,6 +48,8 @@ export default async function EditUserPage({ params }: { params: { id: string } 
         }}
         companies={companies}
       />
+
+      {user.id !== ctx.userId && <DeleteUserButton userId={user.id} username={user.email} />}
     </div>
   );
 }

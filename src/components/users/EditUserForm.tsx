@@ -75,8 +75,16 @@ export function EditUserForm({ user, companies }: { user: UserData; companies: C
 
       <div>
         <label className="label">Username</label>
-        <input value={user.email} disabled className="input opacity-60" />
-        <p className="mt-1 text-xs text-slate-500">Username can&apos;t be changed after creation.</p>
+        <input
+          name="username"
+          required
+          minLength={3}
+          pattern="[a-zA-Z0-9._-]+"
+          title="Only letters, numbers, dots, dashes, and underscores"
+          defaultValue={user.email}
+          className="input"
+        />
+        <p className="mt-1 text-xs text-slate-500">Used to sign in. Must stay unique.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

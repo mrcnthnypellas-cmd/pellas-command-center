@@ -89,6 +89,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           firstName: input.firstName ?? existing.firstName,
           lastName: input.lastName ?? existing.lastName,
           phone: input.phone ?? existing.phone,
+          ...(input.username ? { email: input.username } : {}),
           ...(input.status ? { status: input.status } : {}),
           ...(passwordHash ? { passwordHash } : {}),
         },
@@ -131,8 +132,63 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ user: updated });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return NextResponse.json({ error: 'Employee code or client code already in use' }, { status: 409 });
+      const target = (err.meta?.target as string[] | undefined)?.join(',') ?? '';
+      const message = target.includes('email') ? 'That username is already taken' : 'Employee code or client code already in use';
+      return NextResponse.json({ error: message }, { status: 409 });
     }
+    return handleError(err);
+  }
+}
+
+// Permanently deletes the user AND, via onDelete: Cascade, their Employee/Client
+// record and everything scoped to it (Attendance, Payroll, Payslips, Transactions,
+// Notifications, ...). Distinct from the Deactivate toggle — deactivation is
+// reversible and keeps history; this is not. See EditUserForm's Danger Zone for the
+// confirmation UI that makes this hard to trigger by accident.
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const ctx = await requireCtx();
+
+    const existing = await prisma.user.findUnique({ where: { id: params.id } });
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    if (ctx.role === 'SUPER_ADMIN') {
+      requireAbility(ctx, { resource: 'user', action: 'delete', resourceCompanyId: null });
+    } else {
+      requireAbility(ctx, { resource: 'user', action: 'delete', resourceCompanyId: ctx.companyId });
+      if (existing.companyId !== ctx.companyId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      if (existing.role === 'SUPER_ADMIN') {
+        return NextResponse.json({ error: 'Only Super Admin can delete another Super Admin' }, { status: 403 });
+      }
+    }
+
+    if (existing.id === ctx.userId) {
+      return NextResponse.json({ error: 'You cannot delete your own account' }, { status: 400 });
+    }
+
+    if (existing.role === 'SUPER_ADMIN') {
+      const otherSuperAdmins = await prisma.user.count({ where: { role: 'SUPER_ADMIN', id: { not: existing.id } } });
+      if (otherSuperAdmins === 0) {
+        return NextResponse.json({ error: 'Cannot delete the last remaining Super Admin' }, { status: 400 });
+      }
+    }
+
+    await prisma.user.delete({ where: { id: existing.id } });
+
+    await writeAuditLog({
+      companyId: existing.companyId,
+      userId: ctx.userId,
+      action: 'user.delete',
+      entityType: 'User',
+      entityId: existing.id,
+      previousValue: { email: existing.email, role: existing.role, companyId: existing.companyId },
+      newValue: null,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
     return handleError(err);
   }
 }
