@@ -35,13 +35,22 @@ export function ExportAttendanceButton() {
               <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="input" />
             </div>
           </div>
-          <a
-            href={`/api/attendance/export?start=${start}&end=${end}`}
-            className="btn-primary w-full"
-            onClick={() => setOpen(false)}
-          >
-            Download Summary (.xlsx)
-          </a>
+          <div className="space-y-2">
+            <a
+              href={`/api/attendance/export?start=${start}&end=${end}`}
+              className="btn-primary w-full"
+              onClick={() => setOpen(false)}
+            >
+              Download Summary (.xlsx)
+            </a>
+            <a
+              href={`/api/attendance/export-log?start=${start}&end=${end}`}
+              className="btn-secondary w-full"
+              onClick={() => setOpen(false)}
+            >
+              Download Raw Log (.xlsx)
+            </a>
+          </div>
         </div>
       )}
     </div>

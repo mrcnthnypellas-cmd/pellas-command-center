@@ -54,15 +54,17 @@ export default async function AttendancePage() {
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <th className="px-4 py-3">Employee</th>
+              <th className="px-4 py-3">Code</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Time</th>
+              <th className="px-4 py-3">Device</th>
               <th className="px-4 py-3">Location</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {events.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                   No attendance events yet today.
                 </td>
               </tr>
@@ -72,6 +74,7 @@ export default async function AttendancePage() {
                   <td className="px-4 py-3 font-medium text-slate-900">
                     {event.employee.user.firstName} {event.employee.user.lastName}
                   </td>
+                  <td className="px-4 py-3 text-slate-500">{event.employee.employeeCode}</td>
                   <td className="px-4 py-3">
                     <span
                       className={
@@ -84,6 +87,7 @@ export default async function AttendancePage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{formatDateTime(event.timestamp)}</td>
+                  <td className="px-4 py-3 text-slate-500">{event.device ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-500">
                     {event.latitude != null && event.longitude != null ? (
                       <a
