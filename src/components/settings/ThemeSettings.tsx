@@ -6,6 +6,16 @@ import { useRouter } from 'next/navigation';
 const DEFAULT_PRIMARY = '#3b63f5';
 const DEFAULT_BACKGROUND = '#0b0f21';
 
+// One-click starting points on top of the free-form color pickers below — each just
+// sets primary/background/font to fixed values, so it's still the same color-mix
+// theming engine doing the work, not a separate layout/preset system.
+const PRESETS: { name: string; primary: string; background: string; font: string }[] = [
+  { name: 'Default (Dark)', primary: DEFAULT_PRIMARY, background: DEFAULT_BACKGROUND, font: 'Inter' },
+  { name: 'Modern (Light)', primary: '#2563eb', background: '#f8fafc', font: 'Inter' },
+  { name: 'Emerald', primary: '#059669', background: '#f0fdf4', font: 'Inter' },
+  { name: 'Slate Pro', primary: '#4f46e5', background: '#1e293b', font: 'System Default' },
+];
+
 const FONT_OPTIONS = [
   { value: 'Inter', label: 'Inter (default)' },
   { value: 'System Default', label: 'System Default' },
@@ -58,6 +68,13 @@ export function ThemeSettings({ currentPrimary, currentBackground, currentFont }
     void save({ themePrimaryColor: null, themeBackgroundColor: null, themeFontFamily: null });
   }
 
+  function applyPreset(preset: (typeof PRESETS)[number]) {
+    setPrimary(preset.primary);
+    setBackground(preset.background);
+    setFont(preset.font);
+    void save({ themePrimaryColor: preset.primary, themeBackgroundColor: preset.background, themeFontFamily: preset.font });
+  }
+
   return (
     <div className="card space-y-4 p-5">
       <div>
@@ -70,6 +87,27 @@ export function ThemeSettings({ currentPrimary, currentBackground, currentFont }
 
       {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {saved && <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Theme updated.</div>}
+
+      <div>
+        <label className="label">Quick presets</label>
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              onClick={() => applyPreset(preset)}
+              disabled={loading}
+              className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <span className="flex h-5 w-5 shrink-0 overflow-hidden rounded-full border border-slate-200">
+                <span className="h-full w-1/2" style={{ backgroundColor: preset.background }} />
+                <span className="h-full w-1/2" style={{ backgroundColor: preset.primary }} />
+              </span>
+              {preset.name}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-end gap-4">
         <div>
