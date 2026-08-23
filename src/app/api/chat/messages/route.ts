@@ -3,59 +3,35 @@ import { requireCtx, UnauthenticatedError } from '@/lib/session';
 import { requireAbility, ForbiddenError } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 import { sendChatMessageSchema } from '@/lib/validation/chat';
+import { contactsWhereClause } from '@/lib/chatContacts';
 
-// Every admin-ish role can read/reply into any employee's thread at their company —
-// a shared help-desk inbox rather than a picked 1:1 conversation. Super Admin isn't
-// tied to one company, so it can reach any employee's thread on the whole platform.
-const ADMIN_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_ADMIN', 'IT_ADMIN'] as const;
-
-// Resolves which employee's thread this request targets, and checks the caller is
-// allowed into it: an Employee only ever reaches their own thread; an admin must
-// name a real EMPLOYEE (in their own company, unless they're Super Admin).
-async function resolveThreadOwner(
-  ctx: { userId: string; role: string; companyId: string | null },
-  requestedEmployeeUserId: string | undefined,
-): Promise<{ employeeUserId: string; companyId: string } | NextResponse> {
-  if (ctx.role === 'EMPLOYEE') {
-    if (!ctx.companyId) return NextResponse.json({ error: 'No company on this account' }, { status: 400 });
-    return { employeeUserId: ctx.userId, companyId: ctx.companyId };
-  }
-
-  if (!(ADMIN_ROLES as readonly string[]).includes(ctx.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-  if (!requestedEmployeeUserId) {
-    return NextResponse.json({ error: 'employeeUserId is required' }, { status: 400 });
-  }
-  const target = await prisma.user.findUnique({ where: { id: requestedEmployeeUserId } });
-  if (!target || target.role !== 'EMPLOYEE') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  }
-  if (ctx.role !== 'SUPER_ADMIN' && target.companyId !== ctx.companyId) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  }
-  return { employeeUserId: target.id, companyId: target.companyId! };
-}
+// GET ?withUserId=X returns the full conversation between the caller and X (both
+// directions), and marks whatever X sent as read. POST sends a message to a
+// recipientId, which must be a legitimate contact per contactsWhereClause — the
+// same rule the contact list itself is built from, so a message can never be sent
+// to someone who wouldn't also show up as a pickable contact.
 
 export async function GET(req: NextRequest) {
   try {
     const ctx = await requireCtx();
-    const requested = req.nextUrl.searchParams.get('employeeUserId') ?? undefined;
-    const resolved = await resolveThreadOwner(ctx, requested);
-    if (resolved instanceof NextResponse) return resolved;
+    requireAbility(ctx, { resource: 'chatMessage', action: 'list', resourceCompanyId: ctx.companyId });
 
-    requireAbility(ctx, { resource: 'chatMessage', action: 'list', resourceCompanyId: resolved.companyId, ownerUserId: resolved.employeeUserId });
+    const withUserId = req.nextUrl.searchParams.get('withUserId');
+    if (!withUserId) return NextResponse.json({ error: 'withUserId is required' }, { status: 400 });
 
     const messages = await prisma.chatMessage.findMany({
-      where: { employeeUserId: resolved.employeeUserId },
+      where: {
+        OR: [
+          { senderId: ctx.userId, recipientId: withUserId },
+          { senderId: withUserId, recipientId: ctx.userId },
+        ],
+      },
       include: { sender: { select: { firstName: true, lastName: true, role: true } } },
       orderBy: { createdAt: 'asc' },
     });
 
-    // Opening the thread reads the other side's messages — mark whatever the caller
-    // didn't send themselves as read.
     await prisma.chatMessage.updateMany({
-      where: { employeeUserId: resolved.employeeUserId, senderId: { not: ctx.userId }, isRead: false },
+      where: { senderId: withUserId, recipientId: ctx.userId, isRead: false },
       data: { isRead: true },
     });
 
@@ -68,24 +44,29 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const ctx = await requireCtx();
+    requireAbility(ctx, { resource: 'chatMessage', action: 'create', resourceCompanyId: ctx.companyId });
+
     const body = await req.json();
     const parsed = sendChatMessageSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
+    if (parsed.data.recipientId === ctx.userId) {
+      return NextResponse.json({ error: 'Cannot message yourself' }, { status: 400 });
+    }
 
-    const resolved = await resolveThreadOwner(ctx, parsed.data.employeeUserId);
-    if (resolved instanceof NextResponse) return resolved;
+    const recipient = await prisma.user.findFirst({
+      where: { AND: [{ id: parsed.data.recipientId }, contactsWhereClause(ctx)] },
+    });
+    if (!recipient) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    requireAbility(ctx, { resource: 'chatMessage', action: 'create', resourceCompanyId: resolved.companyId, ownerUserId: resolved.employeeUserId });
+    // A Super Admin sender has no companyId of their own — the message is filed
+    // under the other (Employee) party's company so it still shows up in that
+    // company's records.
+    const companyId = ctx.companyId ?? recipient.companyId!;
 
     const message = await prisma.chatMessage.create({
-      data: {
-        companyId: resolved.companyId,
-        employeeUserId: resolved.employeeUserId,
-        senderId: ctx.userId,
-        body: parsed.data.body,
-      },
+      data: { companyId, senderId: ctx.userId, recipientId: recipient.id, body: parsed.data.body },
       include: { sender: { select: { firstName: true, lastName: true, role: true } } },
     });
 

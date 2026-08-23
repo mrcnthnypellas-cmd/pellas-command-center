@@ -39,9 +39,9 @@ export interface AbilityContext {
  * ownerId semantics depend on resource:
  *  - employee/attendance/payroll/payslip/asset("My Assets"): the Employee.userId who owns the record
  *  - client/transaction: the Client.userId who owns the record
- *  - chatMessage: the ChatMessage.employeeUserId the thread belongs to (not who sent
- *    a given message — an admin can send into an employee's thread, but the thread
- *    itself is only "owned" by the employee for access-check purposes)
+ *  - chatMessage: not owner-scoped here — a message has two participants (sender
+ *    and recipient), not one fixed owner, so "am I allowed to see this
+ *    conversation" is checked directly in the chat routes instead
  *  - document: not owner-scoped, uses visibility/allowedRoles instead (checked separately)
  */
 export interface AbilityCheck {
@@ -146,7 +146,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
 // allowedRoles-based), and no document call site ever passes ownerUserId. Including it
 // here would make every document list/read call fail closed for these roles.
 const OWNER_SCOPED_FOR_ROLES: Partial<Record<Role, Resource[]>> = {
-  EMPLOYEE: ['employee', 'attendance', 'payslip', 'asset', 'chatMessage'],
+  EMPLOYEE: ['employee', 'attendance', 'payslip', 'asset'],
   CLIENT: ['client', 'transaction'],
 };
 

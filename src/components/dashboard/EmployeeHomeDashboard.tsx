@@ -174,7 +174,7 @@ const QUICK_LINKS = [
   { href: '/dashboard/my-assets', label: 'My Assets', icon: Laptop },
   { href: '/dashboard/documents', label: 'Documents', icon: FolderOpen },
   { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/dashboard/messages', label: 'Message Admin', icon: MessageSquare },
+  { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare },
   { href: '/dashboard/gov-services', label: 'Gov Services', icon: ExternalLink },
 ];
 

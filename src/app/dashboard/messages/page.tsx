@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { requireCtx } from '@/lib/session';
-import { ChatBox } from '@/components/chat/ChatBox';
-import { AdminChatInbox } from '@/components/chat/AdminChatInbox';
+import { ChatInbox } from '@/components/chat/ChatInbox';
 
 const ALLOWED_ROLES = ['EMPLOYEE', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_ADMIN', 'IT_ADMIN'] as const;
 
@@ -13,16 +12,10 @@ export default async function MessagesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Messages</h1>
-        <p className="text-sm text-slate-500">
-          {ctx.role === 'EMPLOYEE' ? 'Chat directly with your company admin.' : 'Chat with your employees.'}
-        </p>
+        <p className="text-sm text-slate-500">Pick anyone from your contacts to start a conversation.</p>
       </div>
 
-      {ctx.role === 'EMPLOYEE' ? (
-        <ChatBox currentUserId={ctx.userId} title="Message Admin" />
-      ) : (
-        <AdminChatInbox currentUserId={ctx.userId} />
-      )}
+      <ChatInbox currentUserId={ctx.userId} />
     </div>
   );
 }

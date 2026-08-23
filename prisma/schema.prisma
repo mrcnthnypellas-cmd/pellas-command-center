@@ -182,8 +182,8 @@ model User {
   platformSettingUpdates PlatformSetting[]
   createdAnnouncements  Announcement[]
   createdCountEvents    CountEvent[]
-  ownedChatThreads      ChatMessage[]        @relation("ChatThreadOwner")
   sentChatMessages      ChatMessage[]        @relation("ChatMessageSender")
+  receivedChatMessages  ChatMessage[]        @relation("ChatMessageRecipient")
 
   @@index([companyId])
   @@index([role])
@@ -354,25 +354,26 @@ model CountWorker {
   @@index([countEventId])
 }
 
-// ---------- Chat (Employee <-> Admin) ----------
-// One thread per employee, identified by employeeUserId — any Company Admin/HR
-// Admin at that employee's company can read and reply into it (a shared "message
-// admin" inbox rather than a picked 1:1 conversation), matching how the Employee
-// dashboard's "Message Admin" entry point works: there's only ever one thread to
-// open, not a contact list.
+// ---------- Chat (1:1, picked from a contact list) ----------
+// A real 1:1 conversation between any two users allowed to reach each other —
+// see contactsWhereClause() in src/lib/chatContacts.ts for exactly who that is
+// (roughly: same-company Employee<->Employee and Employee<->Admin, plus any
+// Employee<->Super Admin). A "thread" is just every message where the pair
+// (senderId, recipientId) matches in either direction, not a stored row.
 model ChatMessage {
-  id             String   @id @default(cuid())
-  companyId      String
-  company        Company  @relation(fields: [companyId], references: [id])
-  employeeUserId String
-  employeeUser   User     @relation("ChatThreadOwner", fields: [employeeUserId], references: [id], onDelete: Cascade)
-  senderId       String
-  sender         User     @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  body           String
-  isRead         Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  senderId    String
+  sender      User     @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   User     @relation("ChatMessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  body        String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
-  @@index([companyId, employeeUserId])
+  @@index([senderId, recipientId])
+  @@index([recipientId, senderId])
 }
 
 // ---------- IT Assets ----------
