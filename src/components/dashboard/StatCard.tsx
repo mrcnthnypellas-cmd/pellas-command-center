@@ -2,14 +2,17 @@ import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// Bold solid-color cards (icon, label, value, and sublabel all white) — deliberately
+// outside the .card/.dashboard-shell theming system so these stay colorful and
+// legible the same way regardless of the Dashboard Theme setting.
 const ACCENT_CLASSES: Record<string, string> = {
-  brand: 'bg-blue-500 text-white',
-  green: 'bg-emerald-500 text-white',
-  amber: 'bg-amber-500 text-white',
-  red: 'bg-red-500 text-white',
-  slate: 'bg-slate-500 text-white',
-  teal: 'bg-teal-500 text-white',
-  purple: 'bg-violet-500 text-white',
+  brand: 'bg-blue-600',
+  green: 'bg-emerald-600',
+  amber: 'bg-amber-500',
+  red: 'bg-red-500',
+  slate: 'bg-slate-700',
+  teal: 'bg-cyan-500',
+  purple: 'bg-violet-500',
 };
 
 export function StatCard({
@@ -28,14 +31,15 @@ export function StatCard({
   href?: string;
 }) {
   const content = (
-    <div className="card flex items-start gap-3 p-4">
-      <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-lg shadow-black/20', ACCENT_CLASSES[accent])}>
+    <div className={cn('relative overflow-hidden rounded-xl p-4 shadow-card', ACCENT_CLASSES[accent])}>
+      <div className="pointer-events-none absolute -right-5 -top-5 h-24 w-24 rounded-full bg-white/10" />
+      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20 text-white">
         <Icon className="h-5 w-5" />
       </div>
-      <div className="min-w-0">
-        <div className="truncate text-xs font-medium text-slate-500">{label}</div>
-        <div className="truncate text-2xl font-semibold text-slate-900">{value}</div>
-        {sublabel && <div className="truncate text-xs text-slate-400">{sublabel}</div>}
+      <div className="relative mt-3 min-w-0">
+        <div className="truncate text-[11px] font-semibold uppercase tracking-wide text-white/80">{label}</div>
+        <div className="truncate text-2xl font-bold text-white">{value}</div>
+        {sublabel && <div className="mt-0.5 truncate text-xs text-white/70">{sublabel}</div>}
       </div>
     </div>
   );
