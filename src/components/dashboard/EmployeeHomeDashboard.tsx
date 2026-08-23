@@ -100,6 +100,15 @@ const NOTIFICATION_ICON: Record<string, { icon: LucideIcon; className: string }>
 };
 const DEFAULT_NOTIFICATION_ICON = { icon: Megaphone, className: 'bg-blue-100 text-blue-600' };
 
+// CalendarEvent has no dedicated category field, so the tag is inferred: a title
+// mentioning "meeting" reads as a meeting, isDeadline reads as important, everything
+// else is a plain event.
+function eventTag(event: { title: string; isDeadline: boolean }): { label: string; className: string } {
+  if (/meeting/i.test(event.title)) return { label: 'Meeting', className: 'bg-violet-50 text-violet-700' };
+  if (event.isDeadline) return { label: 'Important', className: 'bg-emerald-50 text-emerald-700' };
+  return { label: 'Event', className: 'bg-blue-50 text-blue-700' };
+}
+
 function AttendanceRing({ percent }: { percent: number }) {
   const r = 18;
   const c = 2 * Math.PI * r;
@@ -487,9 +496,10 @@ export function EmployeeHomeDashboard({ userId, firstName }: { userId: string; f
                         </div>
                       </div>
                     </div>
-                    <span className={cn('badge shrink-0', e.isDeadline ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700')}>
-                      {e.isDeadline ? 'Important' : 'Event'}
-                    </span>
+                    {(() => {
+                      const tag = eventTag(e);
+                      return <span className={cn('badge shrink-0', tag.className)}>{tag.label}</span>;
+                    })()}
                   </li>
                 );
               })}
