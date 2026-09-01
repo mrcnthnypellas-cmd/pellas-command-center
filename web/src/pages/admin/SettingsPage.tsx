@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { MapPin, Save } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MapPin, Save, Image as ImageIcon, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
@@ -14,6 +14,9 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
+  const [uploadingBg, setUploadingBg] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -22,11 +25,53 @@ export default function SettingsPage() {
         supabase.from("companies").select("*").eq("id", profile.company_id).single(),
         supabase.from("company_settings").select("*").eq("company_id", profile.company_id).single(),
       ]);
-      if (c) setCompanyName(c.name);
+      if (c) {
+        setCompanyName(c.name);
+        setBackgroundUrl(c.login_background_url ?? null);
+      }
       if (s) setSettings(s as CompanySettings);
     }
     load();
   }, [profile]);
+
+  async function handleBackgroundUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !profile) return;
+    if (!file.type.startsWith("image/")) {
+      push("error", "Please choose an image file.");
+      return;
+    }
+    setUploadingBg(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `login-background/${profile.company_id}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from("branding").upload(path, file, { upsert: true });
+    if (uploadError) {
+      setUploadingBg(false);
+      return push("error", uploadError.message);
+    }
+    const { data: publicUrlData } = supabase.storage.from("branding").getPublicUrl(path);
+    const url = publicUrlData.publicUrl;
+
+    const { error: updateError } = await supabase.from("companies").update({ login_background_url: url }).eq("id", profile.company_id);
+    setUploadingBg(false);
+    if (updateError) return push("error", updateError.message);
+
+    setBackgroundUrl(url);
+    await supabase.from("audit_logs").insert({
+      company_id: profile.company_id, actor_id: profile.id, actor_name: `${profile.first_name} ${profile.last_name}`,
+      action: "Login Background Updated", module: "Settings", target: companyName, details: { url },
+    });
+    push("success", "Login background updated.");
+  }
+
+  async function removeBackground() {
+    if (!profile) return;
+    const { error } = await supabase.from("companies").update({ login_background_url: null }).eq("id", profile.company_id);
+    if (error) return push("error", error.message);
+    setBackgroundUrl(null);
+    push("success", "Login background removed — using the default look.");
+  }
 
   async function save() {
     if (!profile || !settings) return;
@@ -70,6 +115,25 @@ export default function SettingsPage() {
       <Card className="p-5 space-y-4">
         <h2 className="font-semibold text-slate-700">Company</h2>
         <Input label="Company Name" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="flex items-center gap-2 font-semibold text-slate-700"><ImageIcon className="h-4 w-4" /> Login Page Background</h2>
+        <p className="text-sm text-slate-500">Upload a photo to use as the background of the login page. Leave empty to use the default look.</p>
+        {backgroundUrl && (
+          <div className="relative h-32 w-full overflow-hidden rounded-lg border border-slate-200 bg-cover bg-center" style={{ backgroundImage: `url(${backgroundUrl})` }} />
+        )}
+        <div className="flex gap-2">
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleBackgroundUpload} />
+          <Button type="button" variant="secondary" loading={uploadingBg} onClick={() => fileInputRef.current?.click()}>
+            <ImageIcon className="h-4 w-4" /> {backgroundUrl ? "Replace Photo" : "Upload Photo"}
+          </Button>
+          {backgroundUrl && (
+            <Button type="button" variant="ghost" onClick={removeBackground}>
+              <Trash2 className="h-4 w-4" /> Remove
+            </Button>
+          )}
+        </div>
       </Card>
 
       <Card className="p-5 space-y-4">

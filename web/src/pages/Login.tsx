@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { LogIn, Building2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { setRememberMe } from "../lib/supabase";
+import { supabase, setRememberMe } from "../lib/supabase";
 import { Button, Input, Modal } from "../components/ui/ui";
 
 export default function Login() {
@@ -13,6 +13,18 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
+  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("companies")
+      .select("login_background_url")
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.login_background_url) setBackgroundUrl(data.login_background_url);
+      });
+  }, []);
 
   if (!loading && session && profile) return <Navigate to="/dashboard" replace />;
 
@@ -31,8 +43,14 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-950 via-brand-800 to-brand-600 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl p-8">
+    <div
+      className={`min-h-screen flex items-center justify-center p-4 bg-cover bg-center ${
+        backgroundUrl ? "" : "bg-gradient-to-br from-brand-950 via-brand-800 to-brand-600"
+      }`}
+      style={backgroundUrl ? { backgroundImage: `url(${backgroundUrl})` } : undefined}
+    >
+      {backgroundUrl && <div className="fixed inset-0 bg-slate-900/40" />}
+      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-8">
         <div className="flex flex-col items-center gap-2 mb-6">
           <div className="h-12 w-12 rounded-xl bg-brand-600 flex items-center justify-center text-white">
             <Building2 className="h-6 w-6" />

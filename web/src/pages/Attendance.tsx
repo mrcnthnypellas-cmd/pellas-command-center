@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { Card, Badge, Spinner, EmptyState, Select, Input, Button, Modal } from "../components/ui/ui";
-import { formatDate, formatTime, todayInTZ } from "../lib/format";
+import { formatDate, formatTime, formatPunchTimestamp, todayInTZ } from "../lib/format";
 import type { Attendance as AttendanceRow, Department } from "../types";
 
 const PAGE_SIZE = 25;
@@ -73,6 +73,42 @@ export default function Attendance() {
     a.click();
   }
 
+  const [exportingLog, setExportingLog] = useState(false);
+
+  // Raw punch log: one row per Time In / Time Out event (not aggregated per
+  // day), matching the emp_code / punch_time / punch_state / punch_type
+  // column format of a biometric-device log export. Pulls every record in
+  // the date range, not just the current page.
+  async function exportPunchLog() {
+    setExportingLog(true);
+    const { data, error } = await supabase
+      .from("attendance")
+      .select("time_in, time_out, time_in_lat, time_out_lat, profiles!inner(employee_code)")
+      .gte("work_date", dateFrom)
+      .lte("work_date", dateTo)
+      .order("work_date", { ascending: true });
+    setExportingLog(false);
+    if (error) return push("error", error.message);
+
+    type PunchRow = { time_in: string | null; time_out: string | null; time_in_lat: number | null; time_out_lat: number | null; profiles: { employee_code: string | null } | null };
+    const punches: { emp_code: string; time: string; state: string; type: string }[] = [];
+    for (const r of (data ?? []) as unknown as PunchRow[]) {
+      const empCode = r.profiles?.employee_code ?? "";
+      if (r.time_in) punches.push({ emp_code: empCode, time: r.time_in, state: "Check In", type: r.time_in_lat != null ? "GPS" : "Web" });
+      if (r.time_out) punches.push({ emp_code: empCode, time: r.time_out, state: "Check Out", type: r.time_out_lat != null ? "GPS" : "Web" });
+    }
+    punches.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+    const header = ["emp_code", "punch_time", "punch_state", "punch_type"];
+    const lines = punches.map((p) => [p.emp_code, formatPunchTimestamp(p.time), p.state, p.type]);
+    const csv = [header, ...lines].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `punch_log_${dateFrom}_to_${dateTo}.csv`;
+    a.click();
+  }
+
   function openEdit(r: AttendanceRow) {
     setEditRow(r);
     setEditTimeIn(r.time_in ? toLocalInput(r.time_in) : "");
@@ -102,7 +138,10 @@ export default function Attendance() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-800">Attendance</h1>
-        <Button variant="secondary" onClick={exportCsv}><Download className="h-4 w-4" /> Export CSV</Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={exportCsv}><Download className="h-4 w-4" /> Export CSV</Button>
+          <Button variant="secondary" onClick={exportPunchLog} loading={exportingLog}><Download className="h-4 w-4" /> Export Punch Log</Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">

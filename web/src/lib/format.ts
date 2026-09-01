@@ -23,6 +23,22 @@ export function formatDateTime(iso: string | null, tz = COMPANY_TIMEZONE) {
   }).format(new Date(iso));
 }
 
+// "YYYY-MM-DD HH:MM:SS" in the company timezone — matches the punch-log export format.
+export function formatPunchTimestamp(iso: string, tz = COMPANY_TIMEZONE) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
 export function formatDate(dateStr: string | null) {
   if (!dateStr) return "—";
   const [y, m, d] = dateStr.split("-").map(Number);
