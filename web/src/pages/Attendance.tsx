@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { Card, Badge, Spinner, EmptyState, Select, Input, Button, Modal } from "../components/ui/ui";
-import { formatDate, formatTime, formatPunchTimestamp, getLogDateTimeParts, todayInTZ } from "../lib/format";
+import { formatDate, formatTime, getLogDateTimeParts, todayInTZ } from "../lib/format";
 import type { Attendance as AttendanceRow, Department } from "../types";
 
 const PAGE_SIZE = 25;
@@ -76,17 +76,15 @@ export default function Attendance() {
 
   const [exportingLog, setExportingLog] = useState(false);
 
-  // Raw punch log workbook matching the two-sheet biometric-device export
-  // format the user provided as a reference:
-  //   - "table_log": emp_code / punch_time / punch_state / punch_type
-  //   - "other_biometric_logs": Log ID / Employee ID / Name / Date / Time / Direction / Device
-  // Both sheets are built from the same underlying Time In/Out events (one
-  // row per event, not aggregated per day), just re-labeled per sheet.
+  // Punch log workbook: one row per Time In / Time Out event, columns
+  // Log No. / Employee Code / Employee Name / Date / Time / Direction —
+  // matching the layout the user asked for. Date and Time are real
+  // spreadsheet cells (not text) so they sort/filter like in Excel.
   async function exportPunchLog() {
     setExportingLog(true);
     const { data, error } = await supabase
       .from("attendance")
-      .select("time_in, time_out, time_in_lat, time_out_lat, profiles!inner(employee_code, first_name, last_name)")
+      .select("time_in, time_out, profiles!inner(employee_code, first_name, last_name)")
       .gte("work_date", dateFrom)
       .lte("work_date", dateTo)
       .order("work_date", { ascending: true });
@@ -94,60 +92,41 @@ export default function Attendance() {
     if (error) return push("error", error.message);
 
     type PunchRow = {
-      time_in: string | null; time_out: string | null; time_in_lat: number | null; time_out_lat: number | null;
+      time_in: string | null; time_out: string | null;
       profiles: { employee_code: string | null; first_name: string; last_name: string } | null;
     };
-    const punches: { emp_code: string; name: string; time: string; state: string; type: string }[] = [];
+    const punches: { emp_code: string; name: string; time: string; direction: string }[] = [];
     for (const r of (data ?? []) as unknown as PunchRow[]) {
       const empCode = r.profiles?.employee_code ?? "";
       const name = r.profiles ? `${r.profiles.first_name} ${r.profiles.last_name}` : "";
-      if (r.time_in) punches.push({ emp_code: empCode, name, time: r.time_in, state: "Check In", type: r.time_in_lat != null ? "GPS" : "Web" });
-      if (r.time_out) punches.push({ emp_code: empCode, name, time: r.time_out, state: "Check Out", type: r.time_out_lat != null ? "GPS" : "Web" });
+      if (r.time_in) punches.push({ emp_code: empCode, name, time: r.time_in, direction: "Time In" });
+      if (r.time_out) punches.push({ emp_code: empCode, name, time: r.time_out, direction: "Time Out" });
     }
     punches.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
-    const workbook = XLSX.utils.book_new();
-
-    // ===== Sheet 1: table_log =====
-    // Matches the reference file exactly: a blank row, then the header, then
-    // another blank row, then the data — every cell is plain text.
-    const sheet1Data: (string | number)[][] = [
-      [],
-      ["emp_code", "punch_time", "punch_state", "punch_type"],
-      [],
-      ...punches.map((p) => [p.emp_code, formatPunchTimestamp(p.time), p.state, p.type]),
-    ];
-    const sheet1 = XLSX.utils.aoa_to_sheet(sheet1Data);
-    sheet1["!cols"] = [{ wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(workbook, sheet1, "table_log");
-
-    // ===== Sheet 2: other_biometric_logs =====
-    // Matches the reference file's real cell types: Log ID / Employee ID are
-    // numbers, Date is a real date cell, Time is a real time-of-day cell —
-    // not just formatted text — so they behave like real spreadsheet values.
-    const header2 = ["Log ID", "Employee ID", "Name", "Date", "Time", "Direction", "Device"];
-    const sheet2 = XLSX.utils.aoa_to_sheet([header2]);
+    const header = ["Log No.", "Employee Code", "Employee Name", "Date", "Time", "Direction"];
+    const sheet = XLSX.utils.aoa_to_sheet([header]);
     punches.forEach((p, i) => {
       const rowIdx = i + 1; // 0 = header
       const { year, month, day, hour, minute, second } = getLogDateTimeParts(p.time);
-      const empIdNumeric = Number(p.emp_code);
+      const empCodeNumeric = Number(p.emp_code);
       const dayFraction = (hour * 3600 + minute * 60 + second) / 86400;
 
       const setCell = (col: number, cell: XLSX.CellObject) => {
-        sheet2[XLSX.utils.encode_cell({ r: rowIdx, c: col })] = cell;
+        sheet[XLSX.utils.encode_cell({ r: rowIdx, c: col })] = cell;
       };
       setCell(0, { t: "n", v: i + 1 });
-      setCell(1, Number.isFinite(empIdNumeric) && p.emp_code !== "" ? { t: "n", v: empIdNumeric } : { t: "s", v: p.emp_code });
+      setCell(1, Number.isFinite(empCodeNumeric) && p.emp_code !== "" ? { t: "n", v: empCodeNumeric } : { t: "s", v: p.emp_code });
       setCell(2, { t: "s", v: p.name });
-      setCell(3, { t: "d", v: new Date(year, month - 1, day), z: "dd/mm/yyyy" });
-      setCell(4, { t: "n", v: dayFraction, z: "h:mm:ss" });
-      setCell(5, { t: "s", v: p.state === "Check In" ? "Check-In" : "Check-Out" });
-      setCell(6, { t: "s", v: p.type === "GPS" ? "GPS Location" : "Web Browser" });
+      setCell(3, { t: "d", v: new Date(year, month - 1, day), z: "yyyy-mm-dd" });
+      setCell(4, { t: "n", v: dayFraction, z: "hh:mm:ss" });
+      setCell(5, { t: "s", v: p.direction });
     });
-    sheet2["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: punches.length, c: header2.length - 1 } });
-    sheet2["!cols"] = [{ wch: 8 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 16 }];
-    XLSX.utils.book_append_sheet(workbook, sheet2, "other_biometric_logs");
+    sheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: punches.length, c: header.length - 1 } });
+    sheet["!cols"] = [{ wch: 8 }, { wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 12 }];
 
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "Punch Log");
     XLSX.writeFile(workbook, `punch_log_${dateFrom}_to_${dateTo}.xlsx`);
   }
 
