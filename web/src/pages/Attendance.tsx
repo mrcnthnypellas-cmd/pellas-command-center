@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { Card, Badge, Spinner, EmptyState, Select, Input, Button, Modal } from "../components/ui/ui";
-import { formatDate, formatTime, formatPunchTimestamp, formatLogDate, formatLogTime, todayInTZ } from "../lib/format";
+import { formatDate, formatTime, formatPunchTimestamp, getLogDateTimeParts, todayInTZ } from "../lib/format";
 import type { Attendance as AttendanceRow, Department } from "../types";
 
 const PAGE_SIZE = 25;
@@ -106,29 +106,45 @@ export default function Attendance() {
     }
     punches.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
-    const tableLogRows = punches.map((p) => ({
-      emp_code: p.emp_code,
-      punch_time: formatPunchTimestamp(p.time),
-      punch_state: p.state,
-      punch_type: p.type,
-    }));
-    const otherLogRows = punches.map((p, i) => ({
-      "Log ID": i + 1,
-      "Employee ID": p.emp_code,
-      Name: p.name,
-      Date: formatLogDate(p.time),
-      Time: formatLogTime(p.time),
-      Direction: p.state === "Check In" ? "Check-In" : "Check-Out",
-      Device: p.type === "GPS" ? "GPS Location" : "Web Browser",
-    }));
-
     const workbook = XLSX.utils.book_new();
 
-    const sheet1 = XLSX.utils.json_to_sheet(tableLogRows.length > 0 ? tableLogRows : [{ emp_code: "", punch_time: "", punch_state: "", punch_type: "" }]);
+    // ===== Sheet 1: table_log =====
+    // Matches the reference file exactly: a blank row, then the header, then
+    // another blank row, then the data — every cell is plain text.
+    const sheet1Data: (string | number)[][] = [
+      [],
+      ["emp_code", "punch_time", "punch_state", "punch_type"],
+      [],
+      ...punches.map((p) => [p.emp_code, formatPunchTimestamp(p.time), p.state, p.type]),
+    ];
+    const sheet1 = XLSX.utils.aoa_to_sheet(sheet1Data);
     sheet1["!cols"] = [{ wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(workbook, sheet1, "table_log");
 
-    const sheet2 = XLSX.utils.json_to_sheet(otherLogRows.length > 0 ? otherLogRows : [{ "Log ID": "", "Employee ID": "", Name: "", Date: "", Time: "", Direction: "", Device: "" }]);
+    // ===== Sheet 2: other_biometric_logs =====
+    // Matches the reference file's real cell types: Log ID / Employee ID are
+    // numbers, Date is a real date cell, Time is a real time-of-day cell —
+    // not just formatted text — so they behave like real spreadsheet values.
+    const header2 = ["Log ID", "Employee ID", "Name", "Date", "Time", "Direction", "Device"];
+    const sheet2 = XLSX.utils.aoa_to_sheet([header2]);
+    punches.forEach((p, i) => {
+      const rowIdx = i + 1; // 0 = header
+      const { year, month, day, hour, minute, second } = getLogDateTimeParts(p.time);
+      const empIdNumeric = Number(p.emp_code);
+      const dayFraction = (hour * 3600 + minute * 60 + second) / 86400;
+
+      const setCell = (col: number, cell: XLSX.CellObject) => {
+        sheet2[XLSX.utils.encode_cell({ r: rowIdx, c: col })] = cell;
+      };
+      setCell(0, { t: "n", v: i + 1 });
+      setCell(1, Number.isFinite(empIdNumeric) && p.emp_code !== "" ? { t: "n", v: empIdNumeric } : { t: "s", v: p.emp_code });
+      setCell(2, { t: "s", v: p.name });
+      setCell(3, { t: "d", v: new Date(year, month - 1, day), z: "dd/mm/yyyy" });
+      setCell(4, { t: "n", v: dayFraction, z: "h:mm:ss" });
+      setCell(5, { t: "s", v: p.state === "Check In" ? "Check-In" : "Check-Out" });
+      setCell(6, { t: "s", v: p.type === "GPS" ? "GPS Location" : "Web Browser" });
+    });
+    sheet2["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: punches.length, c: header2.length - 1 } });
     sheet2["!cols"] = [{ wch: 8 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 16 }];
     XLSX.utils.book_append_sheet(workbook, sheet2, "other_biometric_logs");
 

@@ -52,6 +52,17 @@ export function formatLogTime(iso: string, tz = COMPANY_TIMEZONE) {
   return `${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
+// Numeric Y/M/D/H/M/S parts in the company timezone — for building real
+// spreadsheet date/time cell values (not display strings).
+export function getLogDateTimeParts(iso: string, tz = COMPANY_TIMEZONE) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour"), minute: get("minute"), second: get("second") };
+}
+
 export function formatDate(dateStr: string | null) {
   if (!dateStr) return "—";
   const [y, m, d] = dateStr.split("-").map(Number);
