@@ -39,6 +39,19 @@ export function formatPunchTimestamp(iso: string, tz = COMPANY_TIMEZONE) {
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
+// "DD/MM/YYYY" and "H:MM:SS" (no leading zero on the hour) — matches the
+// other_biometric_logs sheet's Date/Time column style.
+export function formatLogDate(iso: string, tz = COMPANY_TIMEZONE) {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("day")}/${get("month")}/${get("year")}`;
+}
+export function formatLogTime(iso: string, tz = COMPANY_TIMEZONE) {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "numeric", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
 export function formatDate(dateStr: string | null) {
   if (!dateStr) return "—";
   const [y, m, d] = dateStr.split("-").map(Number);

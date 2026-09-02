@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Download, Pencil } from "lucide-react";
+import * as XLSX from "xlsx";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { Card, Badge, Spinner, EmptyState, Select, Input, Button, Modal } from "../components/ui/ui";
-import { formatDate, formatTime, formatPunchTimestamp, todayInTZ } from "../lib/format";
+import { formatDate, formatTime, formatPunchTimestamp, formatLogDate, formatLogTime, todayInTZ } from "../lib/format";
 import type { Attendance as AttendanceRow, Department } from "../types";
 
 const PAGE_SIZE = 25;
@@ -75,38 +76,63 @@ export default function Attendance() {
 
   const [exportingLog, setExportingLog] = useState(false);
 
-  // Raw punch log: one row per Time In / Time Out event (not aggregated per
-  // day), matching the emp_code / punch_time / punch_state / punch_type
-  // column format of a biometric-device log export. Pulls every record in
-  // the date range, not just the current page.
+  // Raw punch log workbook matching the two-sheet biometric-device export
+  // format the user provided as a reference:
+  //   - "table_log": emp_code / punch_time / punch_state / punch_type
+  //   - "other_biometric_logs": Log ID / Employee ID / Name / Date / Time / Direction / Device
+  // Both sheets are built from the same underlying Time In/Out events (one
+  // row per event, not aggregated per day), just re-labeled per sheet.
   async function exportPunchLog() {
     setExportingLog(true);
     const { data, error } = await supabase
       .from("attendance")
-      .select("time_in, time_out, time_in_lat, time_out_lat, profiles!inner(employee_code)")
+      .select("time_in, time_out, time_in_lat, time_out_lat, profiles!inner(employee_code, first_name, last_name)")
       .gte("work_date", dateFrom)
       .lte("work_date", dateTo)
       .order("work_date", { ascending: true });
     setExportingLog(false);
     if (error) return push("error", error.message);
 
-    type PunchRow = { time_in: string | null; time_out: string | null; time_in_lat: number | null; time_out_lat: number | null; profiles: { employee_code: string | null } | null };
-    const punches: { emp_code: string; time: string; state: string; type: string }[] = [];
+    type PunchRow = {
+      time_in: string | null; time_out: string | null; time_in_lat: number | null; time_out_lat: number | null;
+      profiles: { employee_code: string | null; first_name: string; last_name: string } | null;
+    };
+    const punches: { emp_code: string; name: string; time: string; state: string; type: string }[] = [];
     for (const r of (data ?? []) as unknown as PunchRow[]) {
       const empCode = r.profiles?.employee_code ?? "";
-      if (r.time_in) punches.push({ emp_code: empCode, time: r.time_in, state: "Check In", type: r.time_in_lat != null ? "GPS" : "Web" });
-      if (r.time_out) punches.push({ emp_code: empCode, time: r.time_out, state: "Check Out", type: r.time_out_lat != null ? "GPS" : "Web" });
+      const name = r.profiles ? `${r.profiles.first_name} ${r.profiles.last_name}` : "";
+      if (r.time_in) punches.push({ emp_code: empCode, name, time: r.time_in, state: "Check In", type: r.time_in_lat != null ? "GPS" : "Web" });
+      if (r.time_out) punches.push({ emp_code: empCode, name, time: r.time_out, state: "Check Out", type: r.time_out_lat != null ? "GPS" : "Web" });
     }
     punches.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
-    const header = ["emp_code", "punch_time", "punch_state", "punch_type"];
-    const lines = punches.map((p) => [p.emp_code, formatPunchTimestamp(p.time), p.state, p.type]);
-    const csv = [header, ...lines].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `punch_log_${dateFrom}_to_${dateTo}.csv`;
-    a.click();
+    const tableLogRows = punches.map((p) => ({
+      emp_code: p.emp_code,
+      punch_time: formatPunchTimestamp(p.time),
+      punch_state: p.state,
+      punch_type: p.type,
+    }));
+    const otherLogRows = punches.map((p, i) => ({
+      "Log ID": i + 1,
+      "Employee ID": p.emp_code,
+      Name: p.name,
+      Date: formatLogDate(p.time),
+      Time: formatLogTime(p.time),
+      Direction: p.state === "Check In" ? "Check-In" : "Check-Out",
+      Device: p.type === "GPS" ? "GPS Location" : "Web Browser",
+    }));
+
+    const workbook = XLSX.utils.book_new();
+
+    const sheet1 = XLSX.utils.json_to_sheet(tableLogRows.length > 0 ? tableLogRows : [{ emp_code: "", punch_time: "", punch_state: "", punch_type: "" }]);
+    sheet1["!cols"] = [{ wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(workbook, sheet1, "table_log");
+
+    const sheet2 = XLSX.utils.json_to_sheet(otherLogRows.length > 0 ? otherLogRows : [{ "Log ID": "", "Employee ID": "", Name: "", Date: "", Time: "", Direction: "", Device: "" }]);
+    sheet2["!cols"] = [{ wch: 8 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(workbook, sheet2, "other_biometric_logs");
+
+    XLSX.writeFile(workbook, `punch_log_${dateFrom}_to_${dateTo}.xlsx`);
   }
 
   function openEdit(r: AttendanceRow) {
