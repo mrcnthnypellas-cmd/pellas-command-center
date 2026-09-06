@@ -14,15 +14,21 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [loginTitle, setLoginTitle] = useState("Employee Attendance System");
+  const [footerText, setFooterText] = useState("All Rights Reserved 2026 PELLAS Command Centre");
 
   useEffect(() => {
     supabase
       .from("companies")
-      .select("login_background_url")
+      .select("login_background_url, logo_url, login_title, login_footer_text")
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.login_background_url) setBackgroundUrl(data.login_background_url);
+        if (data?.logo_url) setLogoUrl(data.logo_url);
+        if (data?.login_title) setLoginTitle(data.login_title);
+        if (data?.login_footer_text) setFooterText(data.login_footer_text);
       });
   }, []);
 
@@ -52,10 +58,14 @@ export default function Login() {
       {backgroundUrl && <div className="fixed inset-0 bg-slate-900/40" />}
       <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-8">
         <div className="flex flex-col items-center gap-2 mb-6">
-          <div className="h-12 w-12 rounded-xl bg-brand-600 flex items-center justify-center text-white">
-            <Building2 className="h-6 w-6" />
-          </div>
-          <h1 className="text-xl font-bold text-slate-800">Employee Attendance System</h1>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Company logo" className="h-12 w-12 rounded-xl object-cover" />
+          ) : (
+            <div className="h-12 w-12 rounded-xl bg-brand-600 flex items-center justify-center text-white">
+              <Building2 className="h-6 w-6" />
+            </div>
+          )}
+          <h1 className="text-xl font-bold text-slate-800">{loginTitle}</h1>
           <p className="text-sm text-slate-500">Sign in to your account</p>
         </div>
 
@@ -80,9 +90,7 @@ export default function Login() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-400">
-          Demo accounts: admin1 / Admin@123 &middot; hr1 / Hr@12345 &middot; employee1 / Employee@123
-        </p>
+        <p className="mt-6 text-center text-xs text-slate-400">{footerText}</p>
       </div>
 
       <Modal open={forgotOpen} onClose={() => setForgotOpen(false)} title="Forgot Password">

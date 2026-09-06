@@ -17,6 +17,11 @@ export default function SettingsPage() {
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [uploadingBg, setUploadingBg] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [loginTitle, setLoginTitle] = useState("");
+  const [footerText, setFooterText] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -28,6 +33,9 @@ export default function SettingsPage() {
       if (c) {
         setCompanyName(c.name);
         setBackgroundUrl(c.login_background_url ?? null);
+        setLogoUrl(c.logo_url ?? null);
+        setLoginTitle(c.login_title ?? "Employee Attendance System");
+        setFooterText(c.login_footer_text ?? "All Rights Reserved 2026 PELLAS Command Centre");
       }
       if (s) setSettings(s as CompanySettings);
     }
@@ -73,11 +81,50 @@ export default function SettingsPage() {
     push("success", "Login background removed — using the default look.");
   }
 
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !profile) return;
+    if (!file.type.startsWith("image/")) {
+      push("error", "Please choose an image file.");
+      return;
+    }
+    setUploadingLogo(true);
+    const ext = file.name.split(".").pop() || "png";
+    const path = `logo/${profile.company_id}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from("branding").upload(path, file, { upsert: true });
+    if (uploadError) {
+      setUploadingLogo(false);
+      return push("error", uploadError.message);
+    }
+    const { data: publicUrlData } = supabase.storage.from("branding").getPublicUrl(path);
+    const url = publicUrlData.publicUrl;
+
+    const { error: updateError } = await supabase.from("companies").update({ logo_url: url }).eq("id", profile.company_id);
+    setUploadingLogo(false);
+    if (updateError) return push("error", updateError.message);
+
+    setLogoUrl(url);
+    await supabase.from("audit_logs").insert({
+      company_id: profile.company_id, actor_id: profile.id, actor_name: `${profile.first_name} ${profile.last_name}`,
+      action: "Logo Updated", module: "Settings", target: companyName, details: { url },
+    });
+    push("success", "Logo updated.");
+  }
+
+  async function removeLogo() {
+    if (!profile) return;
+    const { error } = await supabase.from("companies").update({ logo_url: null }).eq("id", profile.company_id);
+    if (error) return push("error", error.message);
+    setLogoUrl(null);
+    push("success", "Logo removed — using the default look.");
+  }
+
   async function save() {
     if (!profile || !settings) return;
     setSaving(true);
     const [{ error: e1 }, { error: e2 }] = await Promise.all([
-      supabase.from("companies").update({ name: companyName }).eq("id", profile.company_id),
+      supabase.from("companies").update({ name: companyName, login_title: loginTitle, login_footer_text: footerText }).eq("id", profile.company_id),
       supabase.from("company_settings").update({
         workplace_lat: settings.workplace_lat,
         workplace_lng: settings.workplace_lng,
@@ -115,6 +162,34 @@ export default function SettingsPage() {
       <Card className="p-5 space-y-4">
         <h2 className="font-semibold text-slate-700">Company</h2>
         <Input label="Company Name" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="flex items-center gap-2 font-semibold text-slate-700"><ImageIcon className="h-4 w-4" /> Login Page Branding</h2>
+        <p className="text-sm text-slate-500">Customize the logo, title, and footer text shown on the login page.</p>
+
+        <div className="flex items-center gap-4">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-16 w-16 rounded-xl border border-slate-200 object-cover" />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-slate-300 text-xs text-slate-400">No logo</div>
+          )}
+          <div className="flex gap-2">
+            <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+            <Button type="button" variant="secondary" loading={uploadingLogo} onClick={() => logoInputRef.current?.click()}>
+              <ImageIcon className="h-4 w-4" /> {logoUrl ? "Replace Logo" : "Upload Logo"}
+            </Button>
+            {logoUrl && (
+              <Button type="button" variant="ghost" onClick={removeLogo}>
+                <Trash2 className="h-4 w-4" /> Remove
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <Input label="Login Title" value={loginTitle} onChange={(e) => setLoginTitle(e.target.value)} placeholder="Employee Attendance System" />
+        <Input label="Footer Text" value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="All Rights Reserved 2026 PELLAS Command Centre" />
+        <p className="text-xs text-slate-400">Title and footer text changes are saved with the "Save Settings" button below.</p>
       </Card>
 
       <Card className="p-5 space-y-4">
