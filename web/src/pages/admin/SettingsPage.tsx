@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Save, Image as ImageIcon, Trash2 } from "lucide-react";
+import { MapPin, Save, Image as ImageIcon, Trash2, Radio } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
 import { Card, Input, Button } from "../../components/ui/ui";
 import { getPosition } from "../../lib/geo";
+import LedBanner from "../../components/layout/LedBanner";
 import type { CompanySettings } from "../../types";
 
 export default function SettingsPage() {
@@ -22,6 +23,11 @@ export default function SettingsPage() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [loginTitle, setLoginTitle] = useState("");
   const [footerText, setFooterText] = useState("");
+  const [bannerEnabled, setBannerEnabled] = useState(false);
+  const [bannerText, setBannerText] = useState("");
+  const [bannerTextColor, setBannerTextColor] = useState("#22c55e");
+  const [bannerBgColor, setBannerBgColor] = useState("#0f172a");
+  const [bannerFontSize, setBannerFontSize] = useState(18);
 
   useEffect(() => {
     async function load() {
@@ -36,6 +42,11 @@ export default function SettingsPage() {
         setLogoUrl(c.logo_url ?? null);
         setLoginTitle(c.login_title ?? "Employee Attendance System");
         setFooterText(c.login_footer_text ?? "All Rights Reserved 2026 PELLAS Command Centre");
+        setBannerEnabled(c.banner_enabled ?? false);
+        setBannerText(c.banner_text ?? "");
+        setBannerTextColor(c.banner_text_color ?? "#22c55e");
+        setBannerBgColor(c.banner_bg_color ?? "#0f172a");
+        setBannerFontSize(c.banner_font_size_px ?? 18);
       }
       if (s) setSettings(s as CompanySettings);
     }
@@ -124,7 +135,11 @@ export default function SettingsPage() {
     if (!profile || !settings) return;
     setSaving(true);
     const [{ error: e1 }, { error: e2 }] = await Promise.all([
-      supabase.from("companies").update({ name: companyName, login_title: loginTitle, login_footer_text: footerText }).eq("id", profile.company_id),
+      supabase.from("companies").update({
+        name: companyName, login_title: loginTitle, login_footer_text: footerText,
+        banner_enabled: bannerEnabled, banner_text: bannerText, banner_text_color: bannerTextColor,
+        banner_bg_color: bannerBgColor, banner_font_size_px: bannerFontSize,
+      }).eq("id", profile.company_id),
       supabase.from("company_settings").update({
         workplace_lat: settings.workplace_lat,
         workplace_lng: settings.workplace_lng,
@@ -190,6 +205,62 @@ export default function SettingsPage() {
         <Input label="Login Title" value={loginTitle} onChange={(e) => setLoginTitle(e.target.value)} placeholder="Employee Attendance System" />
         <Input label="Footer Text" value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="All Rights Reserved 2026 PELLAS Command Centre" />
         <p className="text-xs text-slate-400">Title and footer text changes are saved with the "Save Settings" button below.</p>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="flex items-center gap-2 font-semibold text-slate-700"><Radio className="h-4 w-4" /> Announcement Banner (LED Scroller)</h2>
+        <p className="text-sm text-slate-500">Scrolling banner shown at the top of the app to everyone (Admin, HR, Employees). Only Admin can edit this.</p>
+
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={bannerEnabled} onChange={(e) => setBannerEnabled(e.target.checked)} className="rounded border-slate-300" />
+          Show banner
+        </label>
+
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Announcement Message</span>
+          <textarea
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            rows={2}
+            value={bannerText}
+            onChange={(e) => setBannerText(e.target.value)}
+            placeholder="e.g. Reminder: Company outing this Saturday, 8AM at the main office."
+          />
+        </label>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Text Color</span>
+            <input type="color" value={bannerTextColor} onChange={(e) => setBannerTextColor(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Background Color</span>
+            <input type="color" value={bannerBgColor} onChange={(e) => setBannerBgColor(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300" />
+          </label>
+          <Input
+            label="Font Size (px)"
+            type="number"
+            min={12}
+            max={48}
+            value={bannerFontSize}
+            onChange={(e) => setBannerFontSize(Math.min(48, Math.max(12, Number(e.target.value) || 18)))}
+          />
+        </div>
+
+        <div>
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Preview</span>
+          <div className="overflow-hidden rounded-lg border border-slate-200">
+            <LedBanner
+              banner={{
+                banner_enabled: true,
+                banner_text: bannerText || "Your announcement will appear here…",
+                banner_text_color: bannerTextColor,
+                banner_bg_color: bannerBgColor,
+                banner_font_size_px: bannerFontSize,
+              }}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-slate-400">Banner changes are saved with the "Save Settings" button below.</p>
       </Card>
 
       <Card className="p-5 space-y-4">

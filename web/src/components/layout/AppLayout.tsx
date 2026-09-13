@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../../lib/auth";
+import LedBanner, { useBanner } from "./LedBanner";
 import type { Role } from "../../types";
 
 interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; roles: Role[] }
@@ -26,6 +27,7 @@ const NAV: NavItem[] = [
 export function ProtectedLayout() {
   const { session, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const banner = useBanner();
 
   if (loading) return <div className="flex h-screen items-center justify-center text-slate-500">Loading…</div>;
   if (!session || !profile) return <Navigate to="/login" replace />;
@@ -34,6 +36,7 @@ export function ProtectedLayout() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <LedBanner banner={banner} />
       <div className="lg:hidden flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
         <span className="font-bold text-brand-700">Attendance System</span>
         <button onClick={() => setMobileOpen((o) => !o)}>{mobileOpen ? <X /> : <Menu />}</button>
