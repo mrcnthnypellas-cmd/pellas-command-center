@@ -7,6 +7,7 @@ interface BannerData {
   banner_text_color: string;
   banner_bg_color: string;
   banner_font_size_px: number;
+  banner_speed_seconds: number;
 }
 
 export function useBanner() {
@@ -18,7 +19,7 @@ export function useBanner() {
     async function load() {
       const { data } = await supabase
         .from("companies")
-        .select("id, banner_enabled, banner_text, banner_text_color, banner_bg_color, banner_font_size_px")
+        .select("id, banner_enabled, banner_text, banner_text_color, banner_bg_color, banner_font_size_px, banner_speed_seconds")
         .limit(1)
         .maybeSingle();
       if (!data) return;
@@ -54,7 +55,7 @@ export default function LedBanner({ banner }: { banner: BannerData | null }) {
         style={{
           color: banner.banner_text_color,
           fontSize: `${banner.banner_font_size_px}px`,
-          animation: `led-scroll ${Math.max(8, banner.banner_text.length * 0.25)}s linear infinite`,
+          animation: `led-scroll ${Math.max(3, banner.banner_speed_seconds || 20)}s linear infinite`,
           paddingLeft: "100%",
         }}
       >

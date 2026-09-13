@@ -28,6 +28,7 @@ export default function SettingsPage() {
   const [bannerTextColor, setBannerTextColor] = useState("#22c55e");
   const [bannerBgColor, setBannerBgColor] = useState("#0f172a");
   const [bannerFontSize, setBannerFontSize] = useState(18);
+  const [bannerSpeed, setBannerSpeed] = useState(20);
 
   useEffect(() => {
     async function load() {
@@ -47,6 +48,7 @@ export default function SettingsPage() {
         setBannerTextColor(c.banner_text_color ?? "#22c55e");
         setBannerBgColor(c.banner_bg_color ?? "#0f172a");
         setBannerFontSize(c.banner_font_size_px ?? 18);
+        setBannerSpeed(c.banner_speed_seconds ?? 20);
       }
       if (s) setSettings(s as CompanySettings);
     }
@@ -138,7 +140,7 @@ export default function SettingsPage() {
       supabase.from("companies").update({
         name: companyName, login_title: loginTitle, login_footer_text: footerText,
         banner_enabled: bannerEnabled, banner_text: bannerText, banner_text_color: bannerTextColor,
-        banner_bg_color: bannerBgColor, banner_font_size_px: bannerFontSize,
+        banner_bg_color: bannerBgColor, banner_font_size_px: bannerFontSize, banner_speed_seconds: bannerSpeed,
       }).eq("id", profile.company_id),
       supabase.from("company_settings").update({
         workplace_lat: settings.workplace_lat,
@@ -246,6 +248,26 @@ export default function SettingsPage() {
           />
         </div>
 
+        <label className="block text-sm">
+          <span className="mb-1 flex justify-between font-medium text-slate-700">
+            <span>Scroll Speed</span>
+            <span className="font-normal text-slate-400">{bannerSpeed}s per loop</span>
+          </span>
+          <input
+            type="range"
+            min={5}
+            max={45}
+            step={1}
+            value={bannerSpeed}
+            onChange={(e) => setBannerSpeed(Number(e.target.value))}
+            className="w-full"
+          />
+          <span className="flex justify-between text-xs text-slate-400">
+            <span>Fast</span>
+            <span>Slow</span>
+          </span>
+        </label>
+
         <div>
           <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Preview</span>
           <div className="overflow-hidden rounded-lg border border-slate-200">
@@ -256,6 +278,7 @@ export default function SettingsPage() {
                 banner_text_color: bannerTextColor,
                 banner_bg_color: bannerBgColor,
                 banner_font_size_px: bannerFontSize,
+                banner_speed_seconds: bannerSpeed,
               }}
             />
           </div>
