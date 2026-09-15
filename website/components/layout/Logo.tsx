@@ -1,10 +1,9 @@
-import Link from 'next/link';
 import { company } from '@/data/company';
 import { cn } from '@/lib/utils';
 
 export function Logo({ light = true }: { light?: boolean }) {
   return (
-    <Link href="/#home" className="group flex items-center gap-3" aria-label={`${company.name} — home`}>
+    <a href="#home" className="group flex items-center gap-3" aria-label={`${company.name} — home`}>
       <span
         className={cn(
           'flex h-10 w-10 shrink-0 items-center justify-center border font-serif text-base',
@@ -26,6 +25,6 @@ export function Logo({ light = true }: { light?: boolean }) {
           {company.designation}
         </span>
       </span>
-    </Link>
+    </a>
   );
 }
