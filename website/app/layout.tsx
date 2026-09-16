@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Fraunces } from 'next/font/google';
 import '../styles/globals.css';
-import { company } from '@/data/company';
-import { contact } from '@/data/contact';
+import { getSiteContent } from '@/lib/site-content';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const fraunces = Fraunces({
@@ -13,43 +12,51 @@ const fraunces = Fraunces({
 });
 
 const siteUrl = 'http://localhost:3000';
-const title = `${company.name} | ${company.designation}`;
-const description = company.heroDescription;
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: title,
-    template: `%s | ${company.name}`,
-  },
-  description,
-  keywords: [
-    'accounting firm Philippines',
-    'CPA Philippines',
-    'tax services',
-    'audit and assurance',
-    'business registration Philippines',
-    'bookkeeping',
-    company.name,
-  ],
-  openGraph: {
-    type: 'website',
-    title,
+// Company/contact content is dashboard-editable and stored in the database —
+// force dynamic rendering so metadata and JSON-LD never go stale between builds.
+export const dynamic = 'force-dynamic';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { company } = await getSiteContent();
+  const title = `${company.name} | ${company.designation}`;
+  const description = company.heroDescription;
+
+  return {
+    metadataBase: new URL(siteUrl),
+    title: {
+      default: title,
+      template: `%s | ${company.name}`,
+    },
     description,
-    url: siteUrl,
-    siteName: company.name,
-    locale: 'en_PH',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title,
-    description,
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+    keywords: [
+      'accounting firm Philippines',
+      'CPA Philippines',
+      'tax services',
+      'audit and assurance',
+      'business registration Philippines',
+      'bookkeeping',
+      company.name,
+    ],
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      url: siteUrl,
+      siteName: company.name,
+      locale: 'en_PH',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -57,7 +64,9 @@ export const viewport: Viewport = {
   themeColor: '#0a1220',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const { company, contact } = await getSiteContent();
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'AccountingService',

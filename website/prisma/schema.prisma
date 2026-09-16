@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+// Singleton row (id is always "main") holding all dashboard-editable site content.
+model SiteSettings {
+  id                String   @id @default("main")
+  companyName       String
+  legalName         String
+  shortName         String
+  designation       String
+  tagline           String
+  taglineEyebrow    String
+  heroDescription   String
+  aboutHeadline     String
+  aboutStory        String // paragraphs joined by "\n\n"
+  addressLine1      String
+  addressLine2      String
+  addressCountry    String
+  phone1            String
+  phone2            String
+  email             String
+  hoursWeekday      String
+  hoursWeekend      String
+  facebookUrl       String
+  updatedAt         DateTime @updatedAt
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String
+  icon        String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// status is one of "NEW" | "CONTACTED" | "CLOSED" (see lib/inquiry-status.ts).
+// Plain String because SQLite has no native enum type.
+model Inquiry {
+  id            String   @id @default(cuid())
+  name          String
+  company       String?
+  email         String
+  phone         String?
+  serviceNeeded String?
+  message       String
+  status        String   @default("NEW")
+  createdAt     DateTime @default(now())
+}

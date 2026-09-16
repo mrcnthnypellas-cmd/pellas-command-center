@@ -1,9 +1,9 @@
-import { services } from '@/data/services';
+import type { Service } from '@/data/services';
 import { Container } from '@/components/ui/Container';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { ServiceCard } from '@/components/ui/ServiceCard';
 
-export function ServicesSection() {
+export function ServicesSection({ services }: { services: Service[] }) {
   return (
     <section id="services" className="bg-navy-50/40 py-24 sm:py-32">
       <Container>

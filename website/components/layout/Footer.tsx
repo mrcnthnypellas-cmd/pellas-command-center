@@ -1,12 +1,19 @@
 import { Facebook } from 'lucide-react';
-import { company } from '@/data/company';
-import { contact } from '@/data/contact';
 import { navLinks } from '@/data/nav';
-import { services } from '@/data/services';
+import type { Service } from '@/data/services';
+import type { CompanyData, ContactData } from '@/lib/site-content';
 import { Container } from '@/components/ui/Container';
 import { Logo } from './Logo';
 
-export function Footer() {
+export function Footer({
+  company,
+  contact,
+  services,
+}: {
+  company: CompanyData;
+  contact: ContactData;
+  services: Service[];
+}) {
   const year = new Date().getFullYear();
 
   return (
@@ -14,7 +21,7 @@ export function Footer() {
       <Container>
         <div className="grid grid-cols-1 gap-12 pb-16 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
-            <Logo />
+            <Logo company={company} />
             <p className="mt-5 max-w-xs text-sm leading-relaxed text-navy-300">
               {company.name} — {company.designation}. {company.heroDescription}
             </p>
@@ -22,7 +29,7 @@ export function Footer() {
               href={contact.social.facebook}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Pellas & Associates on Facebook"
+              aria-label={`${company.shortName} on Facebook`}
               className="mt-6 inline-flex h-10 w-10 items-center justify-center border border-ivory/15 text-ivory/70 transition-colors duration-200 hover:border-gold-400 hover:text-gold-400"
             >
               <Facebook size={18} strokeWidth={1.5} />

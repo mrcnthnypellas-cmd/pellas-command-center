@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { CheckCircle2 } from 'lucide-react';
-import { services } from '@/data/services';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
+import type { Service } from '@/data/services';
 
 type FormState = {
   name: string;
@@ -36,31 +36,45 @@ function validate(values: FormState): Errors {
   return errors;
 }
 
-/**
- * Client-side-only inquiry form for local development.
- *
- * No request is sent anywhere — this intentionally does NOT claim to send an email.
- * To wire this up to a real backend later, replace the body of `handleSubmit`
- * (after validation passes) with a fetch() call to your API route or form service.
- */
-export function ContactForm() {
+export function ContactForm({ services }: { services: Service[] }) {
   const [values, setValues] = useState<FormState>(initialState);
   const [errors, setErrors] = useState<Errors>({});
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   function handleChange<K extends keyof FormState>(key: K, value: FormState[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const nextErrors = validate(values);
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length === 0) {
-      // TODO: connect to a real backend (API route, email service, CRM, etc.)
-      // before relying on this in production. Nothing is sent right now.
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch('/api/inquiries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: values.name,
+          company: values.company || undefined,
+          email: values.email,
+          phone: values.phone || undefined,
+          serviceNeeded: values.service || undefined,
+          message: values.message,
+        }),
+      });
+      if (!res.ok) throw new Error('Request failed');
       setSubmitted(true);
       setValues(initialState);
+    } catch {
+      setSubmitError('Something went wrong sending your inquiry. Please try again in a moment.');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -70,8 +84,7 @@ export function ContactForm() {
         <CheckCircle2 size={40} strokeWidth={1.5} className="text-gold-500" />
         <h3 className="mt-5 font-serif text-xl text-navy-950">Thank you for reaching out</h3>
         <p className="mt-3 max-w-sm text-sm leading-relaxed text-navy-600">
-          Your inquiry has been recorded locally. This form isn&rsquo;t connected to a live backend yet — see the
-          README for how to wire it up.
+          Your inquiry has been received. We&rsquo;ll get back to you shortly.
         </p>
         <button
           type="button"
@@ -165,11 +178,18 @@ export function ContactForm() {
         </div>
       </div>
 
+      {submitError && (
+        <p className="mt-6 flex items-center gap-2 text-sm text-red-600" role="alert">
+          <AlertCircle size={16} /> {submitError}
+        </p>
+      )}
+
       <button
         type="submit"
-        className="mt-8 inline-flex items-center gap-2 bg-navy-950 px-7 py-3.5 text-sm font-medium tracking-wide text-ivory transition-colors duration-300 hover:bg-gold-500 hover:text-navy-950"
+        disabled={submitting}
+        className="mt-8 inline-flex items-center gap-2 bg-navy-950 px-7 py-3.5 text-sm font-medium tracking-wide text-ivory transition-colors duration-300 hover:bg-gold-500 hover:text-navy-950 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Send Inquiry →
+        {submitting ? 'Sending…' : 'Send Inquiry →'}
       </button>
     </form>
   );

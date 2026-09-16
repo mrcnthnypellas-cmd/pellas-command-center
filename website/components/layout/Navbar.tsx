@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { navLinks } from '@/data/nav';
+import type { CompanyData } from '@/lib/site-content';
 import { Container } from '@/components/ui/Container';
 import { Button } from '@/components/ui/Button';
 import { Logo } from './Logo';
 import { cn } from '@/lib/utils';
 
-export function Navbar() {
+export function Navbar({ company }: { company: CompanyData }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [barHeight, setBarHeight] = useState(80);
@@ -50,7 +51,7 @@ export function Navbar() {
             scrolled ? 'py-3' : 'py-5'
           )}
         >
-          <Logo />
+          <Logo company={company} />
 
           <nav className="hidden items-center gap-9 lg:flex" aria-label="Primary">
             {navLinks.map((link) => (

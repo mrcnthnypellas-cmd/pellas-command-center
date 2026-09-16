@@ -1,7 +1,7 @@
-import { company } from '@/data/company';
+import type { CompanyData } from '@/lib/site-content';
 import { cn } from '@/lib/utils';
 
-export function Logo({ light = true }: { light?: boolean }) {
+export function Logo({ company, light = true }: { company: CompanyData; light?: boolean }) {
   return (
     <a href="#home" className="group flex items-center gap-3" aria-label={`${company.name} — home`}>
       <span

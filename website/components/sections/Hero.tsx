@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-import { company } from '@/data/company';
+import type { CompanyData } from '@/lib/site-content';
 import { Container } from '@/components/ui/Container';
 import { Button } from '@/components/ui/Button';
 import { PlaceholderImage } from '@/components/ui/PlaceholderImage';
@@ -17,7 +17,7 @@ const item = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
 };
 
-export function Hero() {
+export function Hero({ company }: { company: CompanyData }) {
   return (
     <section id="home" className="relative flex min-h-[92vh] items-center overflow-hidden bg-navy-950 pt-28">
       <div className="absolute inset-0">

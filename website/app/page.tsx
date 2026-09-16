@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Hero } from '@/components/sections/Hero';
@@ -10,29 +9,31 @@ import { ProcessSection } from '@/components/sections/ProcessSection';
 import { WhyChooseUsSection } from '@/components/sections/WhyChooseUsSection';
 import { CTASection } from '@/components/sections/CTASection';
 import { ContactSection } from '@/components/sections/ContactSection';
-import { company } from '@/data/company';
+import { getSiteContent, getServicesList } from '@/lib/site-content';
 
-export const metadata: Metadata = {
-  title: `${company.name} | ${company.designation}`,
-  description: company.heroDescription,
-};
+// Content is dashboard-editable and stored in the database, so this page must
+// be rendered fresh on every request rather than frozen at build time.
+export const dynamic = 'force-dynamic';
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [{ company, contact }, services] = await Promise.all([getSiteContent(), getServicesList()]);
+  const quickServiceItems = services.slice(0, 4).map((s) => s.name);
+
   return (
     <>
-      <Navbar />
+      <Navbar company={company} />
       <main>
-        <Hero />
-        <QuickServicesBar />
-        <AboutSection />
-        <ServicesSection />
+        <Hero company={company} />
+        <QuickServicesBar items={quickServiceItems} />
+        <AboutSection company={company} />
+        <ServicesSection services={services} />
         <IndustriesSection />
         <ProcessSection />
         <WhyChooseUsSection />
         <CTASection />
-        <ContactSection />
+        <ContactSection company={company} contact={contact} services={services} />
       </main>
-      <Footer />
+      <Footer company={company} contact={contact} services={services} />
     </>
   );
 }

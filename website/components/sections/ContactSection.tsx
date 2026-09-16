@@ -1,11 +1,20 @@
 import { Mail, MapPin, Phone, Clock, Facebook, type LucideIcon } from 'lucide-react';
-import { contact } from '@/data/contact';
+import type { Service } from '@/data/services';
+import type { CompanyData, ContactData } from '@/lib/site-content';
 import { Container } from '@/components/ui/Container';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { AnimateIn } from '@/components/ui/AnimateIn';
 import { ContactForm } from './ContactForm';
 
-export function ContactSection() {
+export function ContactSection({
+  company,
+  contact,
+  services,
+}: {
+  company: CompanyData;
+  contact: ContactData;
+  services: Service[];
+}) {
   return (
     <section id="contact" className="bg-ivory py-24 sm:py-32">
       <Container>
@@ -51,7 +60,7 @@ export function ContactSection() {
                   rel="noopener noreferrer"
                   className="break-all hover:text-gold-600"
                 >
-                  Pellas & Associates Co.
+                  {company.name}
                 </a>
               </InfoRow>
             </AnimateIn>
@@ -59,7 +68,7 @@ export function ContactSection() {
 
           <div className="lg:col-span-7">
             <AnimateIn delay={0.1}>
-              <ContactForm />
+              <ContactForm services={services} />
             </AnimateIn>
           </div>
         </div>

@@ -1,10 +1,10 @@
-import { company } from '@/data/company';
 import { values } from '@/data/values';
+import type { CompanyData } from '@/lib/site-content';
 import { Container } from '@/components/ui/Container';
 import { AnimateIn } from '@/components/ui/AnimateIn';
 import { PlaceholderImage } from '@/components/ui/PlaceholderImage';
 
-export function AboutSection() {
+export function AboutSection({ company }: { company: CompanyData }) {
   const [headlineTop, headlineBottom] = company.aboutHeadline.split('\n');
 
   return (
