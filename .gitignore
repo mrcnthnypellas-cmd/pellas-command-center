@@ -31,7 +31,3 @@ next-env.d.ts
 
 .vercel
 .env*
-
-# hotel-app/: an unrelated standalone project delivered directly to the user
-# as a local download, intentionally not part of this repo's history.
-/hotel-app/
