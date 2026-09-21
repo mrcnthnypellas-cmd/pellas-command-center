@@ -30,6 +30,14 @@ export default function EmployeeDashboard() {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    getPosition();
+    navigator.mediaDevices
+      ?.getUserMedia({ video: true })
+      .then((stream) => stream.getTracks().forEach((t) => t.stop()))
+      .catch(() => {});
+  }, []);
+
   async function loadToday() {
     setLoading(true);
     const { data } = await supabase
