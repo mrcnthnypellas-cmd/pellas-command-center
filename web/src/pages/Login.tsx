@@ -50,7 +50,7 @@ export default function Login() {
 
   return (
     <div
-      className={`min-h-screen flex items-center justify-center p-4 bg-cover bg-center ${
+      className={`min-h-screen flex items-start justify-center p-4 pt-12 bg-cover bg-center ${
         backgroundUrl ? "" : "bg-gradient-to-br from-brand-950 via-brand-800 to-brand-600"
       }`}
       style={backgroundUrl ? { backgroundImage: `url(${backgroundUrl})` } : undefined}
