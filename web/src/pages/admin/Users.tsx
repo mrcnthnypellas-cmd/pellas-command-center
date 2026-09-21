@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, KeyRound, Ban, CheckCircle, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, KeyRound, Ban, CheckCircle, Pencil, Trash2, Search, ScanFace } from "lucide-react";
 import { supabase, callAdminFunction } from "../../lib/supabase";
 import { useToast } from "../../lib/toast";
 import { useAuth } from "../../lib/auth";
@@ -141,6 +141,13 @@ export default function Users() {
     }
   }
 
+  async function handleResetFace(u: UserRow) {
+    const { error } = await supabase.from("profiles").update({ face_descriptor: null, face_enrolled_at: null }).eq("id", u.id);
+    if (error) return push("error", error.message);
+    push("success", `Face ID reset for ${u.username}. They'll set it up again on their next Time In/Out.`);
+    load();
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     setSaving(true);
@@ -214,6 +221,9 @@ export default function Users() {
                     <div className="flex justify-end gap-1">
                       <IconBtn title="Edit" onClick={() => setEditUser(u)}><Pencil className="h-4 w-4" /></IconBtn>
                       <IconBtn title="Reset password" onClick={() => setResetUser(u)}><KeyRound className="h-4 w-4" /></IconBtn>
+                      {u.face_descriptor && (
+                        <IconBtn title="Reset Face ID" onClick={() => handleResetFace(u)}><ScanFace className="h-4 w-4" /></IconBtn>
+                      )}
                       <IconBtn title={u.status === "active" ? "Deactivate" : "Activate"} onClick={() => setStatusTarget(u)}>
                         {u.status === "active" ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                       </IconBtn>

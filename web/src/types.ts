@@ -23,6 +23,8 @@ export interface Profile {
   date_hired: string | null;
   schedule_id: string | null;
   photo_url: string | null;
+  face_descriptor: number[] | null;
+  face_enrolled_at: string | null;
   created_at: string;
   updated_at: string;
   departments?: { name: string } | null;
