@@ -50,47 +50,51 @@ export default function Login() {
 
   return (
     <div
-      className={`min-h-screen flex items-start justify-center p-4 pt-12 bg-cover bg-center ${
+      className={`min-h-screen p-4 bg-cover bg-center ${
         backgroundUrl ? "" : "bg-gradient-to-br from-brand-950 via-brand-800 to-brand-600"
       }`}
       style={backgroundUrl ? { backgroundImage: `url(${backgroundUrl})` } : undefined}
     >
       {backgroundUrl && <div className="fixed inset-0 bg-slate-900/40" />}
-      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-8">
-        <div className="flex flex-col items-center gap-2 mb-6">
-          {logoUrl ? (
-            <img src={logoUrl} alt="Company logo" className="h-12 w-12 rounded-xl object-cover" />
-          ) : (
-            <div className="h-12 w-12 rounded-xl bg-brand-600 flex items-center justify-center text-white">
-              <Building2 className="h-6 w-6" />
-            </div>
-          )}
-          <h1 className="text-xl font-bold text-slate-800">{loginTitle}</h1>
-          <p className="text-sm text-slate-500">Sign in to your account</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus autoComplete="username" />
-          <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-          <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 text-slate-600">
-              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded border-slate-300" />
-              Remember me
-            </label>
-            <button type="button" onClick={() => setForgotOpen(true)} className="text-brand-600 hover:underline">
-              Forgot password?
-            </button>
+      <div className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex flex-col sm:flex-row">
+          <div className="flex flex-col items-center justify-center gap-2 p-8 text-center sm:w-2/5 sm:border-r sm:border-slate-100">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Company logo" className="h-12 w-12 rounded-xl object-cover" />
+            ) : (
+              <div className="h-12 w-12 rounded-xl bg-brand-600 flex items-center justify-center text-white">
+                <Building2 className="h-6 w-6" />
+              </div>
+            )}
+            <h1 className="text-xl font-bold text-slate-800">{loginTitle}</h1>
+            <p className="text-sm text-slate-500">Sign in to your account</p>
           </div>
 
-          <Button type="submit" className="w-full" loading={submitting}>
-            <LogIn className="h-4 w-4" /> Login
-          </Button>
-        </form>
+          <div className="flex-1 p-8">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus autoComplete="username" />
+              <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
 
-        <p className="mt-6 text-center text-xs text-slate-400">{footerText}</p>
+              {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+              <div className="flex items-center justify-between text-sm">
+                <label className="flex items-center gap-2 text-slate-600">
+                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded border-slate-300" />
+                  Remember me
+                </label>
+                <button type="button" onClick={() => setForgotOpen(true)} className="text-brand-600 hover:underline">
+                  Forgot password?
+                </button>
+              </div>
+
+              <Button type="submit" className="w-full" loading={submitting}>
+                <LogIn className="h-4 w-4" /> Login
+              </Button>
+            </form>
+
+            <p className="mt-6 text-center text-xs text-slate-400">{footerText}</p>
+          </div>
+        </div>
       </div>
 
       <Modal open={forgotOpen} onClose={() => setForgotOpen(false)} title="Forgot Password">
