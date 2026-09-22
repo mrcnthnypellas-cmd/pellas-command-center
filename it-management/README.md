@@ -61,6 +61,14 @@ npm test
 
 The tests use a temporary throwaway database and cover add/edit/retire/delete, deploy/return/transfer, history, IP/network/ISP/device management, the credential vault and permissions, maintenance, warranty, audits, QR codes, search, reports and dashboard numbers.
 
+## 7. Browser preview build (optional)
+
+```bash
+npm run build:demo   # → demo/dist/it-manager.html
+```
+
+This builds a single self-contained HTML file that runs the same frontend and the same route code entirely in the browser. SQLite is compiled to JavaScript, and data is kept in that browser's storage. It exists so people can try the system without installing anything. The preview frame blocks file downloads and printing, so CSV exports appear on screen to copy, and PDF and printing only work in the local version. For real use, run the local version.
+
 ---
 
 ## What's included

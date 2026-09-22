@@ -4,3 +4,4 @@ data/*.db-*
 data/vault.key
 data/uploads/
 .env
+demo/dist/
