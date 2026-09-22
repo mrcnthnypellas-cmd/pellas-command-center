@@ -1,0 +1,26 @@
+{
+  "name": "pellas-it-management",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-first IT Asset, Inventory & Network Management System",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "db:reset": "node server/db/reset.js",
+    "db:seed": "node server/db/reset.js",
+    "test": "node --test tests/system.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "chart.js": "^4.5.1",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1",
+    "multer": "^2.4.0",
+    "pdfkit": "^0.20.2",
+    "qrcode": "^1.5.4"
+  }
+}
