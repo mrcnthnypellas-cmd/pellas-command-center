@@ -3,7 +3,9 @@ const QRCode = require('qrcode');
 const db = require('../db/connection');
 const { requirePerm } = require('../lib/auth');
 const { log, history, today } = require('../lib/activity');
-const { bad, notFound, pick, required, insert, update, diff, upload } = require('../lib/util');
+const { bad, notFound, pick, required, insert, update, diff, upload, setting } = require('../lib/util');
+const labels = require('../lib/labels');
+const { renderLabelsPdf } = require('../lib/labelsPdf');
 const { ASSET_SELECT, decorateAsset, getAsset, relationship } = require('../lib/queries');
 const { nextTag } = require('../lib/tags');
 const { normalizeMac, MAC_RE } = require('../lib/ip');
@@ -49,6 +51,35 @@ r.get('/next-tag', requirePerm('assets.view'), (req, res) => {
   res.json({ tag: nextTag(Number(req.query.category_id)) });
 });
 
+// ───────── Printable QR labels ─────────
+function labelBase(req) {
+  const b = req.query.base || req.query.origin;
+  return b && labels.BASE_RE.test(b) ? b : (setting('qr_base_url') || `${req.protocol}://${req.get('host')}`);
+}
+
+r.get('/labels/sizes', requirePerm('assets.view'), (_req, res) => {
+  res.json({ sizes: labels.SIZES, default_base: setting('qr_base_url') || null });
+});
+
+r.get('/labels.pdf', requirePerm('assets.view'), (req, res) => {
+  const ids = String(req.query.ids || '').split(',').map(Number).filter(Boolean);
+  if (!ids.length) throw bad('Select at least one asset');
+  if (ids.length > 500) throw bad('Print at most 500 assets at a time');
+  const byId = new Map(db.all(`SELECT id, asset_tag, name, serial_number FROM assets WHERE id IN (${ids.map(() => '?').join(',')})`, ...ids).map((a) => [a.id, a]));
+  const assets = ids.map((id) => byId.get(id)).filter(Boolean);
+  const size = labels.sizeByKey(req.query.size);
+  const on = (k, def) => (req.query[k] === undefined ? def : req.query[k] === '1');
+  const options = {
+    mode: req.query.mode === 'tag' ? 'tag' : 'url', base: labelBase(req),
+    company: on('company', true), name: on('name', true), serial: on('serial', false), cut: on('cut', false),
+    companyName: setting('company_name', ''),
+    copies: Math.min(Math.max(Number(req.query.copies) || 1, 1), 20),
+    skip: Math.min(Math.max(Number(req.query.skip) || 0, 0), size.cols * size.rows - 1),
+  };
+  log(req, 'Asset labels generated (PDF)', 'asset', null, `${assets.length} asset(s)`, { size: size.key, copies: options.copies });
+  renderLabelsPdf(res, { size, assets, options });
+});
+
 r.get('/:id', requirePerm('assets.view'), (req, res) => {
   const a = getAsset(req.params.id);
   if (!a) throw notFound('Asset');
@@ -75,9 +106,9 @@ r.get('/:id', requirePerm('assets.view'), (req, res) => {
 r.get('/:id/qr.svg', requirePerm('assets.view'), async (req, res) => {
   const a = getAsset(req.params.id);
   if (!a) throw notFound('Asset');
-  // QR carries only the public-safe profile URL (login still required); never credentials.
-  const origin = req.query.origin && /^https?:\/\/[^\s"<>]+$/.test(req.query.origin) ? req.query.origin : `${req.protocol}://${req.get('host')}`;
-  const svg = await QRCode.toString(`${origin}/#/assets/${encodeURIComponent(a.asset_tag)}`, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+  // QR carries only the profile link (login still required) or the bare asset number; never credentials.
+  const text = labels.qrText(a.asset_tag, { mode: req.query.mode === 'tag' ? 'tag' : 'url', base: labelBase(req) });
+  const svg = await QRCode.toString(text, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
   res.type('image/svg+xml').send(svg);
 });
 

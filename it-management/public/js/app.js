@@ -51,7 +51,7 @@ const ROUTES = [
   [/^\/settings$/, settings.render, null, 'settings'],
   [/^\/search$/, search.render, null, null],
   [/^\/print\/accountability\/(\d+)$/, print.accountability, 'employees.view', null],
-  [/^\/print\/labels$/, print.labels, 'assets.view', null],
+  [/^\/print\/labels$/, print.labels, 'assets.view', 'labels'],
 ];
 
 const NAV = [
@@ -59,6 +59,7 @@ const NAV = [
   { label: 'Assets', items: [
     ['assets', '#/assets', 'All Assets', 'box', 'assets.view'],
     ['assets-new', '#/assets/new', 'Add Asset', 'plus', 'assets.create'],
+    ['labels', '#/print/labels', 'QR Labels', 'qr', 'assets.view'],
     ['categories', '#/categories', 'Categories', 'tag', 'assets.view'],
     ['audits', '#/audits', 'Audit', 'clipboard', 'audits.view'],
   ] },

@@ -47,6 +47,8 @@ const PANES = {
       { name: 'tag_padding', label: 'Number of digits', type: 'number', help: '4 → LAP-0001, 3 → LAP-001' },
       { name: 'tag_separator', label: 'Separator', help: 'Usually a dash' },
       { name: 'preview', label: 'Preview', type: 'static', html: `<b class="mono" data-preview>${esc(preview())}</b>` },
+      { type: 'section', label: 'QR labels', help: 'Address phones open when they scan an asset sticker. Use this computer\'s network address, not localhost.' },
+      { name: 'qr_base_url', label: 'QR link address', placeholder: 'http://192.168.1.50:4000', span: 2 },
       { type: 'section', label: 'Alerts' },
       { name: 'warranty_alert_days', label: 'Warranty “expiring soon” (days)', type: 'number' },
       { name: 'contract_alert_days', label: 'ISP contract “expiring soon” (days)', type: 'number' },

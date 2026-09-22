@@ -160,6 +160,28 @@ test('asset filters, search and QR code', async () => {
   assert.deepEqual(lap.relationship.devices.map((d) => d.device_type), ['Access Point', 'Managed Switch', 'Router']);
 });
 
+test('printable QR asset labels', async () => {
+  const a = await login('itstaff', 'itstaff123');
+  const meta = ok(await a.get('/assets/labels/sizes'));
+  assert.ok(meta.sizes.some((z) => z.key === 'a4-21'));
+  // QR can carry the bare asset number or a profile link; never anything secret.
+  const tagQr = await a.get('/assets/1/qr.svg?mode=tag');
+  assert.match(tagQr.text, /<svg/);
+  assert.equal((await a.get('/assets/labels.pdf')).status, 400, 'no assets selected');
+  for (const size of meta.sizes) {
+    const r = await fetch(`${base}/api/assets/labels.pdf?ids=1,2,3&size=${size.key}&serial=1&cut=1&copies=2&skip=1`, { headers: { Cookie: a.cookie } });
+    assert.equal(r.status, 200, size.key);
+    assert.equal(r.headers.get('content-type'), 'application/pdf');
+    const pdf = Buffer.from(await r.arrayBuffer());
+    assert.equal(pdf.subarray(0, 4).toString(), '%PDF');
+    const pages = (pdf.toString('latin1').match(/\/Type \/Page\b/g) || []).length;
+    const expected = Math.ceil((1 + 3 * 2) / (size.cols * size.rows));
+    assert.equal(pages, size.cols * size.rows === 1 ? 6 : expected, `${size.key} page count`);
+  }
+  const logs = ok(await a.get('/activity?q=labels'));
+  assert.ok(logs.some((l) => l.action === 'Asset labels generated (PDF)'));
+});
+
 test('IP, network, ISP and network device management', async () => {
   const a = await login('admin', 'admin123');
   const net = ok(await a.post('/network/networks', { name: 'CCTV Network', cidr: '10.10.30.0/24', gateway: '10.10.30.1', dhcp_start: '10.10.30.100', dhcp_end: '10.10.30.150' }));

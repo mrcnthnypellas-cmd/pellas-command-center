@@ -9,7 +9,7 @@ const r = express.Router();
 const manage = requirePerm('settings.manage');
 
 const COMPANY_KEYS = ['company_name', 'company_address', 'company_phone', 'company_email', 'company_website',
-  'tag_padding', 'tag_separator', 'warranty_alert_days', 'contract_alert_days', 'currency_symbol'];
+  'tag_padding', 'tag_separator', 'warranty_alert_days', 'contract_alert_days', 'currency_symbol', 'qr_base_url'];
 
 r.get('/company', requireAuth, (_req, res) => {
   const out = Object.fromEntries(COMPANY_KEYS.map((k) => [k, setting(k)]));
@@ -20,6 +20,7 @@ r.get('/company', requireAuth, (_req, res) => {
 r.put('/company', manage, upload.single('logo'), (req, res) => {
   const d = pick(req.body, COMPANY_KEYS);
   if (d.tag_padding && !(Number(d.tag_padding) >= 2 && Number(d.tag_padding) <= 8)) throw bad('Tag number padding must be 2–8 digits');
+  if (d.qr_base_url && !/^https?:\/\/[^\s"<>#?]+$/.test(d.qr_base_url)) throw bad('QR link address must look like http://192.168.1.50:4000');
   db.tx(() => {
     for (const [k, v] of Object.entries(d)) db.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', k, v);
     if (req.file) db.run("INSERT INTO settings (key, value) VALUES ('company_logo', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", req.file.filename);

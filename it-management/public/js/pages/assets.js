@@ -15,7 +15,7 @@ function warrantyBadge(a) {
 
 // Row action menu used in the asset table and elsewhere.
 export function assetActions(a) {
-  const items = [['view', 'View']];
+  const items = [['view', 'View'], ['label', 'Print QR label']];
   if (can('assets.edit')) items.push(['edit', 'Edit']);
   if (can('assets.assign')) {
     if (a.status === 'Available') items.push(['assign', 'Assign / Deploy']);
@@ -42,6 +42,7 @@ export function bindAssetActions(root, getAsset) {
     const k = b.dataset.act;
     if (k === 'view') location.hash = `#/assets/${a.id}`;
     if (k === 'edit') location.hash = `#/assets/${a.id}/edit`;
+    if (k === 'label') location.hash = `#/print/labels?ids=${a.id}`;
     if (k === 'assign') deployModal({ assetId: a.id });
     if (k === 'transfer') transferModal({ assetId: a.id });
     if (k === 'return') returnModal({ assetId: a.id });
@@ -55,7 +56,7 @@ export async function list(el, _m, params) {
   setTitle('Assets');
   const L = await loadLookups();
   el.innerHTML = `<div class="page-head"><div><h1>All Assets</h1><p>Every IT asset, who has it, where it is and what IP it uses.</p></div>
-    <div class="page-actions"><a class="btn" href="#/print/labels" title="Print QR labels">${icon('printer').replace('<svg', '<svg width="15" height="15"')} QR labels</a>
+    <div class="page-actions"><a class="btn" href="#/print/labels" title="Print QR stickers for assets">${icon('qr').replace('<svg', '<svg width="15" height="15"')} Print QR labels</a>
     ${can('reports.export') ? '<a class="btn" href="/api/reports/inventory?format=csv">Export CSV</a>' : ''}
     ${can('assets.create') ? '<a class="btn primary" href="#/assets/new">+ Add Asset</a>' : ''}</div></div>
     <section class="card">${filterBar([
@@ -243,9 +244,9 @@ export async function profile(el, [idOrTag], params) {
         ['Warranty', a.warranty_end ? `${fmtDate(a.warranty_start)} → ${fmtDate(a.warranty_end)} ${badge(a.warranty_status)}` : ''],
         ...a.warranties.slice(1).map((w) => [`Extra warranty`, `${esc(w.warranty_type)} · ${esc(w.provider || '')} until ${fmtDate(w.end_date)}`]),
       ]))}</div>
-      <div class="stack">${card('QR code', `<div class="qr-box"><img src="/api/assets/${a.id}/qr.svg?origin=${encodeURIComponent(location.origin)}" alt="QR code for ${esc(a.asset_tag)}"><div class="mono" style="margin-top:6px"><b>${esc(a.asset_tag)}</b></div>
+      <div class="stack">${card('QR code', `<div class="qr-box"><img src="/api/assets/${a.id}/qr.svg" alt="QR code for ${esc(a.asset_tag)}"><div class="mono" style="margin-top:6px"><b>${esc(a.asset_tag)}</b></div>
         <div class="cell-sub">Scan to open this profile (sign-in required). No credentials are encoded.</div>
-        <a class="btn sm" style="margin-top:8px" href="#/print/labels?ids=${a.id}">Print label</a></div>`)}
+        <a class="btn sm" style="margin-top:8px" href="#/print/labels?ids=${a.id}">Print QR sticker</a></div>`)}
       ${card('Relationship', relationshipHtml(a.relationship))}</div></div>`,
     assignment: () => {
       const cur = a.assignments.find((x) => x.status === 'Active');

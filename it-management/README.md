@@ -78,6 +78,7 @@ This builds a single self-contained HTML file that runs the same frontend and th
 | Dashboard: asset, employee, network and alert cards, 4 charts, ISP status, recent activity | Dashboard |
 | Assets: table with filters, add/edit form, full profile (Overview / Assignment / History / Maintenance / Network / Documents), QR code, retire/delete | Assets → All Assets / Add Asset |
 | Automatic asset tags (`LAP-0001`, `MON-0001`, `NET-0001` …) from category prefixes | Assets → Categories, Settings → Numbering |
+| **Printable QR asset stickers**: QR + large asset number, sized for A4 label sheets (21 / 14 / 65 per page) or 50×25 / 62×29 mm roll printers; Print or exact-size PDF, copies, skip used labels | Assets → QR Labels, or “Print QR label” on any asset |
 | Employees with profile, assigned assets, history, printable accountability form | Employees |
 | Deploy, Return (with condition/photo/status), Transfer (history is never deleted) | Assignments |
 | Inventory audits: generated checklist, Found / Missing / Damaged, completion updates statuses, PDF/CSV report | Assets → Audit |
@@ -132,7 +133,7 @@ it-management/
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `PORT` | `4000` | HTTP port |
-| `HOST` | `127.0.0.1` | Set to `0.0.0.0` to open it from phones on your LAN (e.g. to scan QR labels) |
+| `HOST` | `127.0.0.1` | Set to `0.0.0.0` to open it from phones on your LAN (e.g. to scan QR labels). Also set Settings → Numbering → **QR link address** to this PC's network address, e.g. `http://192.168.1.50:4000` |
 | `ITMS_DATA_DIR` | `./data` | Where the database, key and uploads live |
 | `ITMS_VAULT_KEY` | auto file | 64-hex-char encryption key for the vault |
 | `ITMS_SESSION_HOURS` | `12` | Login session length |
