@@ -25,6 +25,7 @@ export interface Profile {
   photo_url: string | null;
   face_descriptor: number[] | null;
   face_enrolled_at: string | null;
+  face_recognition_required: boolean;
   created_at: string;
   updated_at: string;
   departments?: { name: string } | null;

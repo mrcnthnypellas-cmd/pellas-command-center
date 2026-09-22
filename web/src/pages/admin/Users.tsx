@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, KeyRound, Ban, CheckCircle, Pencil, Trash2, Search, ScanFace } from "lucide-react";
+import { Plus, KeyRound, Ban, CheckCircle, Pencil, Trash2, Search, ScanFace, ToggleLeft, ToggleRight } from "lucide-react";
 import { supabase, callAdminFunction } from "../../lib/supabase";
 import { useToast } from "../../lib/toast";
 import { useAuth } from "../../lib/auth";
@@ -148,6 +148,14 @@ export default function Users() {
     load();
   }
 
+  async function handleToggleFaceRequired(u: UserRow) {
+    const next = !u.face_recognition_required;
+    const { error } = await supabase.from("profiles").update({ face_recognition_required: next }).eq("id", u.id);
+    if (error) return push("error", error.message);
+    push("success", `Face ID verification ${next ? "enabled" : "disabled"} for ${u.username}.`);
+    load();
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     setSaving(true);
@@ -224,6 +232,12 @@ export default function Users() {
                       {u.face_descriptor && (
                         <IconBtn title="Reset Face ID" onClick={() => handleResetFace(u)}><ScanFace className="h-4 w-4" /></IconBtn>
                       )}
+                      <IconBtn
+                        title={u.face_recognition_required ? "Face ID required — click to make optional" : "Face ID optional — click to require it"}
+                        onClick={() => handleToggleFaceRequired(u)}
+                      >
+                        {u.face_recognition_required ? <ToggleRight className="h-4 w-4 text-emerald-600" /> : <ToggleLeft className="h-4 w-4 text-slate-400" />}
+                      </IconBtn>
                       <IconBtn title={u.status === "active" ? "Deactivate" : "Activate"} onClick={() => setStatusTarget(u)}>
                         {u.status === "active" ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                       </IconBtn>

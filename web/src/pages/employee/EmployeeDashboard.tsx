@@ -78,6 +78,10 @@ export default function EmployeeDashboard() {
   }
 
   function requestClock(kind: "in" | "out") {
+    if (profile?.face_recognition_required === false) {
+      handleClock(kind);
+      return;
+    }
     setPendingKind(kind);
     setFaceStatus({ kind: "idle" });
     setFaceMode(profile?.face_descriptor ? "verify" : "enroll");
@@ -176,7 +180,11 @@ export default function EmployeeDashboard() {
 
       <p className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
         <ScanFace className="h-3.5 w-3.5" />
-        {profile.face_descriptor ? "Face ID is set up for Time In/Out verification." : "You'll set up Face ID on your next Time In/Out."}
+        {profile.face_recognition_required === false
+          ? "Face ID verification is turned off for your account."
+          : profile.face_descriptor
+          ? "Face ID is set up for Time In/Out verification."
+          : "You'll set up Face ID on your next Time In/Out."}
       </p>
 
       <Card className="p-5">
