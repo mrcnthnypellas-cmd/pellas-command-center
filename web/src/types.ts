@@ -29,7 +29,7 @@ export interface Profile {
   created_at: string;
   updated_at: string;
   departments?: { name: string } | null;
-  work_schedules?: { name: string; start_time: string; end_time: string } | null;
+  work_schedules?: { name: string; start_time: string; end_time: string; work_days: number[] } | null;
 }
 
 export interface Department {

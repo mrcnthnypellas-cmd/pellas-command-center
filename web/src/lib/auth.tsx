@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadProfile(userId: string) {
     const { data } = await supabase
       .from("profiles")
-      .select("*, departments(name), work_schedules(name, start_time, end_time)")
+      .select("*, departments(name), work_schedules(name, start_time, end_time, work_days)")
       .eq("id", userId)
       .single();
     setProfile((data as unknown as Profile) ?? null);

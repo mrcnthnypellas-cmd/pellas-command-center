@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { LogIn, LogOut, CheckCircle2, Clock, ScanFace } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { LogIn, LogOut, CheckCircle2, Clock, ScanFace, CalendarDays } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
@@ -8,6 +8,7 @@ import { formatDate, formatTime, todayInTZ } from "../../lib/format";
 import { getPosition, friendlyClockError } from "../../lib/geo";
 import { euclideanDistance, FACE_MATCH_THRESHOLD } from "../../lib/faceRecognition";
 import FaceCapture from "../../components/face/FaceCapture";
+import AttendanceCalendar from "../../components/employee/AttendanceCalendar";
 import type { Attendance } from "../../types";
 
 export default function EmployeeDashboard() {
@@ -24,6 +25,7 @@ export default function EmployeeDashboard() {
   const [pendingKind, setPendingKind] = useState<"in" | "out" | null>(null);
   const [faceBusy, setFaceBusy] = useState(false);
   const [faceStatus, setFaceStatus] = useState<{ kind: "idle" | "success" | "error"; text?: string }>({ kind: "idle" });
+  const [monthRecords, setMonthRecords] = useState<Attendance[]>([]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -52,6 +54,25 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     if (profile) loadToday();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
+
+  useEffect(() => {
+    async function loadMonth() {
+      if (!profile) return;
+      const now = new Date();
+      const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const { data } = await supabase
+        .from("attendance")
+        .select("*")
+        .eq("employee_id", profile.id)
+        .gte("work_date", from)
+        .lte("work_date", to);
+      setMonthRecords((data as Attendance[]) ?? []);
+    }
+    loadMonth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
@@ -119,6 +140,8 @@ export default function EmployeeDashboard() {
       setFaceBusy(false);
     }
   }
+
+  const calendarMonth = useMemo(() => new Date(now.getFullYear(), now.getMonth(), 1), [now.getFullYear(), now.getMonth()]);
 
   if (!profile) return null;
 
@@ -206,6 +229,13 @@ export default function EmployeeDashboard() {
         ) : (
           <p className="text-sm text-slate-400">You haven't timed in yet today.</p>
         )}
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <CalendarDays className="h-4 w-4" /> {new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "Asia/Manila" }).format(calendarMonth)}
+        </h2>
+        <AttendanceCalendar month={calendarMonth} records={monthRecords} workDays={profile.work_schedules?.work_days ?? [1, 2, 3, 4, 5]} />
       </Card>
 
       <Modal
