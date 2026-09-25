@@ -152,6 +152,8 @@ export default function Reports() {
   function exportCsv() {
     const header = ["Employee", "ID", "Department", "Present Days", "Late Days", "Absent Days", "Overtime Days", "Undertime Days", "Total Hours"];
     const lines = rows.map((r) => [r.name, r.employee_code ?? "", r.department, r.presentDays, r.lateDays, r.absentDays, r.overtimeDays, r.undertimeDays, r.totalHours.toFixed(2)]);
+    const t = totals();
+    lines.push(["TOTAL", "", "", t.presentDays, t.lateDays, t.absentDays, t.overtimeDays, t.undertimeDays, t.totalHours.toFixed(2)]);
     const csv = [header, ...lines].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
@@ -159,6 +161,20 @@ export default function Reports() {
     a.href = URL.createObjectURL(blob);
     a.download = `attendance_report_${suffix}.csv`;
     a.click();
+  }
+
+  function totals() {
+    return rows.reduce(
+      (acc, r) => ({
+        presentDays: acc.presentDays + r.presentDays,
+        lateDays: acc.lateDays + r.lateDays,
+        absentDays: acc.absentDays + r.absentDays,
+        overtimeDays: acc.overtimeDays + r.overtimeDays,
+        undertimeDays: acc.undertimeDays + r.undertimeDays,
+        totalHours: acc.totalHours + r.totalHours,
+      }),
+      { presentDays: 0, lateDays: 0, absentDays: 0, overtimeDays: 0, undertimeDays: 0, totalHours: 0 }
+    );
   }
 
   return (
@@ -224,6 +240,17 @@ export default function Reports() {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-700">
+                <td className="px-4 py-3" colSpan={3}>TOTAL</td>
+                <td className="px-4 py-3">{totals().presentDays}</td>
+                <td className="px-4 py-3">{totals().lateDays}</td>
+                <td className="px-4 py-3">{totals().absentDays}</td>
+                <td className="px-4 py-3">{totals().overtimeDays}</td>
+                <td className="px-4 py-3">{totals().undertimeDays}</td>
+                <td className="px-4 py-3">{totals().totalHours.toFixed(2)}</td>
+              </tr>
+            </tfoot>
           </table>
         )}
       </Card>
