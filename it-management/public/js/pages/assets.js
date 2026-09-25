@@ -57,7 +57,8 @@ export async function list(el, _m, params) {
   const L = await loadLookups();
   el.innerHTML = `<div class="page-head"><div><h1>All Assets</h1><p>Every IT asset, who has it, where it is and what IP it uses.</p></div>
     <div class="page-actions"><a class="btn" href="#/print/labels" title="Print QR stickers for assets">${icon('qr').replace('<svg', '<svg width="15" height="15"')} Print QR labels</a>
-    ${can('reports.export') ? '<a class="btn" href="/api/reports/inventory?format=csv">Export CSV</a>' : ''}
+    ${can('assets.create') || can('assets.edit') ? `<a class="btn" href="#/assets/import">${icon('upload').replace('<svg', '<svg width="15" height="15"')} Import</a>` : ''}
+    ${can('reports.export') ? `<a class="btn" data-export href="/api/assets/export">${icon('download').replace('<svg', '<svg width="15" height="15"')} Export to Excel</a>` : ''}
     ${can('assets.create') ? '<a class="btn primary" href="#/assets/new">+ Add Asset</a>' : ''}</div></div>
     <section class="card">${filterBar([
     { type: 'search', name: 'q', placeholder: 'Search tag, name, serial, brand, employee, IP…' },
@@ -92,6 +93,7 @@ export async function list(el, _m, params) {
   const load = async () => {
     const f = readFilters(el);
     history.replaceState(null, '', `#/assets${qs(f)}`);
+    el.querySelector('[data-export]')?.setAttribute('href', `/api/assets/export${qs(f)}`); // export what is filtered
     rows = await api.get(`/assets${qs(f)}`);
     table.update(rows);
   };

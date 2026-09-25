@@ -9,7 +9,7 @@ const SHIMS = path.join(__dirname, 'shims');
 const OUT = path.join(__dirname, 'dist');
 
 // Node-only modules → browser stand-ins.
-const PACKAGE_SHIMS = { fs: 'fs.js', path: 'path.js', crypto: 'crypto.js', express: 'express.js', multer: 'multer.js', 'cookie-parser': 'cookie-parser.js' };
+const PACKAGE_SHIMS = { fs: 'fs.js', path: 'path.js', crypto: 'crypto.js', express: 'express.js', multer: 'multer.js', 'cookie-parser': 'cookie-parser.js', exceljs: 'exceljs.js' };
 const FILE_SHIMS = {
   [path.join(ROOT, 'server/db/connection.js')]: 'connection.js',
   [path.join(ROOT, 'server/lib/vault.js')]: 'vault.js',

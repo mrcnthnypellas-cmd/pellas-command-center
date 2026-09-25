@@ -19,6 +19,7 @@
     "better-sqlite3": "^12.11.1",
     "chart.js": "^4.5.1",
     "cookie-parser": "^1.4.7",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "multer": "^2.4.0",
     "pdfkit": "^0.20.2",
@@ -29,5 +30,8 @@
     "@noble/hashes": "^2.4.0",
     "esbuild": "^0.28.2",
     "sql.js": "^1.14.2"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

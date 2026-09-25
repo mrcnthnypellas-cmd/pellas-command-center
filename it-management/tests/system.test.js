@@ -182,6 +182,105 @@ test('printable QR asset labels', async () => {
   assert.ok(logs.some((l) => l.action === 'Asset labels generated (PDF)'));
 });
 
+test('asset import and export (Excel and CSV)', async () => {
+  const ExcelJS = require('exceljs');
+  const a = await login('admin', 'admin123');
+  const upload = async (name, content, fields = {}) => {
+    const f = new FormData();
+    f.append('file', new Blob([content]), name);
+    for (const [k, v] of Object.entries(fields)) f.append(k, v);
+    const r = await fetch(`${base}/api/assets/import`, { method: 'POST', headers: { Cookie: a.cookie, 'X-Requested-With': 'itms' }, body: f });
+    return { status: r.status, data: await r.json() };
+  };
+
+  // Export → import back unchanged: nothing to do.
+  const xr = await fetch(`${base}/api/assets/export?format=xlsx`, { headers: { Cookie: a.cookie } });
+  assert.match(xr.headers.get('content-type'), /spreadsheetml/);
+  const xbuf = Buffer.from(await xr.arrayBuffer());
+  const wb = new ExcelJS.Workbook(); await wb.xlsx.load(xbuf);
+  assert.deepEqual(wb.worksheets.map((w) => w.name), ['Assets', 'Lists']);
+  const count = ok(await a.get('/assets')).length;
+  assert.equal(wb.getWorksheet('Assets').actualRowCount, count + 1);
+  const round = await upload('assets.xlsx', xbuf);
+  assert.equal(round.status, 200, JSON.stringify(round.data));
+  assert.equal(round.data.summary.unchanged, count, JSON.stringify(round.data.rows.filter((r) => r.action !== 'unchanged').slice(0, 3)));
+  assert.equal(round.data.summary.errors, 0);
+
+  // Edit the exported workbook in "Excel": change one asset, add one new, then import.
+  const ws = wb.getWorksheet('Assets');
+  const headers = ws.getRow(1).values;
+  const col = (h) => headers.indexOf(h);
+  ws.getRow(2).getCell(col('Notes')).value = 'Updated from Excel';
+  ws.addRow(Object.assign([], { [col('Asset Name')]: 'Epson EcoTank L3250', [col('Category')]: 'Printer', [col('Purchase Date')]: new Date(Date.UTC(2026, 8, 1)), [col('Purchase Cost')]: 9990, [col('Location')]: 'Branch Office - Cebu' }));
+  const edited = Buffer.from(await wb.xlsx.writeBuffer());
+  const check = await upload('assets.xlsx', edited);
+  assert.equal(check.data.summary.update, 1);
+  assert.equal(check.data.summary.create, 1);
+  assert.deepEqual(check.data.new_lookups.locations, ['Branch Office - Cebu']);
+  const created = check.data.rows.find((r) => r.action === 'create');
+  assert.equal(created.asset_tag, 'PRN-0003');
+  assert.equal((await a.get('/assets/PRN-0003')).status, 404, 'the check step must not write anything');
+  const done = await upload('assets.xlsx', edited, { commit: '1' });
+  assert.deepEqual(done.data.result, { created: 1, updated: 1, assigned: 0, failed: 0 });
+  const prn = ok(await a.get('/assets/PRN-0003'));
+  assert.equal(prn.location, 'Branch Office - Cebu');
+  assert.equal(prn.purchase_date, '2026-09-01');
+  assert.ok(prn.history.some((h) => h.description.includes('imported from assets.xlsx')));
+
+  // CSV (semicolon-separated, as saved by Excel in some regions) with aliases, errors and an assignment.
+  const csv = '﻿Tag;Item Name;Type;Serial;Assigned To;Purchase Date;Cost;Status\n'
+    + ';"Lenovo ThinkPad E14; Gen 5";Laptop;LNV-E14-01;EMP-005;01/15/2026;"₱55,000.00";\n'
+    + ';Mystery Box;Gadget;;;;;\n'
+    + ';HP Mouse;Keyboard;;;2026-13-40;;\n'
+    + 'LAP-0004;;;;EMP-007;;;\n'
+    + 'MON-0001;;;;;;;Lost\n';
+  const c1 = await upload('list.csv', csv, { create_lookups: '0' });
+  assert.equal(c1.status, 200, JSON.stringify(c1.data));
+  const byRow = Object.fromEntries(c1.data.rows.map((r) => [r.row, r]));
+  assert.equal(byRow[2].action, 'create');
+  assert.match(byRow[2].asset_tag, /^LAP-\d{4}$/);
+  const newTag = byRow[2].asset_tag;
+  assert.equal(byRow[2].assign_to, 'Mark Villanueva (EMP-005)');
+  assert.match(byRow[3].errors.join(), /Unknown category “Gadget”/);
+  assert.match(byRow[4].errors.join(), /not a real date/);
+  assert.equal(byRow[5].action, 'update');
+  assert.equal(byRow[5].assign_to, 'Rosa Mercado (EMP-007)');
+  assert.deepEqual([byRow[6].action, byRow[6].changes], ['update', ['Status']], 'an assigned asset can be marked Lost');
+  const c2 = await upload('list.csv', csv, { create_lookups: '0', commit: '1' });
+  assert.deepEqual(c2.data.result, { created: 1, updated: 2, assigned: 2, failed: 0 });
+  // Available/Retired while still assigned is refused, same as the edit form.
+  const c4 = await upload('y.csv', 'Asset Tag,Status\nLAP-0001,Available\n');
+  assert.match(c4.data.rows[0].errors.join(), /still assigned/);
+  const lap6 = ok(await a.get(`/assets/${newTag}`));
+  assert.equal(lap6.name, 'Lenovo ThinkPad E14; Gen 5');
+  assert.equal(lap6.purchase_cost, 55000);
+  assert.equal(lap6.employee_name, 'Mark Villanueva');
+  assert.equal(lap6.status, 'Deployed');
+  assert.equal(ok(await a.get('/assets/LAP-0004')).employee_name, 'Rosa Mercado');
+
+  // "Add new only" skips existing tags; bad files are rejected clearly.
+  // A new location used only by a row with errors is not created.
+  const c5 = await upload('z.csv', 'Asset Name,Category,Location\nThing,Gadget,Nowhere Annex\n');
+  assert.deepEqual(c5.data.new_lookups.locations, []);
+  const c3 = await upload('x.csv', 'Asset Tag,Asset Name,Category\nLAP-0001,Changed name,Laptop\n', { mode: 'create_only' });
+  assert.equal(c3.data.summary.skip, 1);
+  assert.equal((await upload('x.csv', 'foo,bar\n1,2\n')).status, 400);
+  assert.equal((await upload('x.xls', 'junk')).status, 400);
+  assert.equal((await upload('x.xlsx', 'not really excel')).status, 400);
+
+  // CSV export neutralises spreadsheet formulas; template downloads; viewer can't import.
+  ok(await a.put(`/assets/${lap6.id}`, { notes: '=HYPERLINK("http://evil")' }));
+  const ecsv = await a.get(`/assets/export?format=csv&q=${newTag}`);
+  assert.ok(ecsv.text.includes("'=HYPERLINK"));
+  const t = await fetch(`${base}/api/assets/import/template`, { headers: { Cookie: a.cookie } });
+  const twb = new ExcelJS.Workbook(); await twb.xlsx.load(Buffer.from(await t.arrayBuffer()));
+  assert.deepEqual(twb.worksheets.map((w) => w.name), ['Assets', 'How to import', 'Lists']);
+  const viewer = await login('viewer', 'viewer123');
+  const vf = new FormData(); vf.append('file', new Blob(['a']), 'x.csv');
+  assert.equal((await fetch(`${base}/api/assets/import`, { method: 'POST', headers: { Cookie: viewer.cookie, 'X-Requested-With': 'itms' }, body: vf })).status, 403);
+  assert.equal((await viewer.get('/assets/export')).status, 403);
+});
+
 test('IP, network, ISP and network device management', async () => {
   const a = await login('admin', 'admin123');
   const net = ok(await a.post('/network/networks', { name: 'CCTV Network', cidr: '10.10.30.0/24', gateway: '10.10.30.1', dhcp_start: '10.10.30.100', dhcp_end: '10.10.30.150' }));

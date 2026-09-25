@@ -3,6 +3,7 @@ import { api, state, esc, can, toast, openModal, formHtml, readForm, loadLookups
 import { icon } from './icons.js';
 import * as dashboard from './pages/dashboard.js';
 import * as assets from './pages/assets.js';
+import * as assetImport from './pages/assetImport.js';
 import * as employees from './pages/employees.js';
 import * as assignments from './pages/assignments.js';
 import * as maintenance from './pages/maintenance.js';
@@ -23,6 +24,7 @@ const ROUTES = [
   [/^\/dashboard$/, dashboard.render, 'dashboard.view', 'dashboard'],
   [/^\/assets$/, assets.list, 'assets.view', 'assets'],
   [/^\/assets\/new$/, assets.form, 'assets.create', 'assets-new'],
+  [/^\/assets\/import$/, assetImport.page, 'assets.view', 'assets-import'],
   [/^\/assets\/([^/]+)\/edit$/, assets.form, 'assets.edit', 'assets'],
   [/^\/assets\/([^/]+)$/, assets.profile, 'assets.view', 'assets'],
   [/^\/categories$/, assets.categories, 'assets.view', 'categories'],
@@ -59,6 +61,7 @@ const NAV = [
   { label: 'Assets', items: [
     ['assets', '#/assets', 'All Assets', 'box', 'assets.view'],
     ['assets-new', '#/assets/new', 'Add Asset', 'plus', 'assets.create'],
+    ['assets-import', '#/assets/import', 'Import / Export', 'upload', 'assets.view'],
     ['labels', '#/print/labels', 'QR Labels', 'qr', 'assets.view'],
     ['categories', '#/categories', 'Categories', 'tag', 'assets.view'],
     ['audits', '#/audits', 'Audit', 'clipboard', 'audits.view'],
@@ -131,6 +134,7 @@ function renderShell() {
     const items = g.items.filter(([key, , , , perm]) => {
       if (key === 'credentials') return can('credentials.view') || u.role !== 'Viewer';
       if (key === 'settings') return can('settings.manage') || can('users.manage');
+      if (key === 'assets-import') return can('assets.create') || can('assets.edit') || can('reports.export');
       return !perm || can(perm);
     });
     if (!items.length) return '';

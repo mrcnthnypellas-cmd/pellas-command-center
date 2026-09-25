@@ -5,6 +5,7 @@ const { requirePerm } = require('../lib/auth');
 const { log, history, today } = require('../lib/activity');
 const { bad, notFound, pick, required, insert, update, upload, fileUrl } = require('../lib/util');
 const { getAsset } = require('../lib/queries');
+const { deployAsset } = require('../lib/assetService');
 
 const r = express.Router();
 
@@ -35,24 +36,7 @@ r.post('/deploy', requirePerm('assets.assign'), (req, res) => {
   required(d, { asset_id: 'Asset', employee_id: 'Employee' });
   const a = getAsset(d.asset_id);
   if (!a) throw notFound('Asset');
-  if (a.assignment_id) throw bad(`${a.asset_tag} is already assigned to ${a.employee_name}. Use Transfer instead.`);
-  if (a.status !== 'Available') throw bad(`${a.asset_tag} is ${a.status} and cannot be deployed`);
-  const e = employee(d.employee_id);
-  if (e.status !== 'Active') throw bad(`${e.full_name} is ${e.status}`);
-  d.assigned_date = d.assigned_date || today();
-  d.department_id = d.department_id || e.department_id;
-  d.location_id = d.location_id || e.location_id || a.location_id;
-  d.issued_by = d.issued_by || req.user.full_name;
-  d.status = 'Active';
-  d.created_by = req.user.id;
-
-  const id = db.tx(() => {
-    const aid = insert('asset_assignments', d);
-    update('assets', a.id, { status: 'Deployed', department_id: d.department_id, location_id: d.location_id });
-    history(req, a.id, 'Assigned', `Assigned to ${e.full_name} (${e.employee_code})${d.condition_on_assign ? ` — condition: ${d.condition_on_assign}` : ''}`, d.assigned_date);
-    log(req, 'Asset assigned', 'asset', a.id, a.asset_tag, { to: e.full_name });
-    return aid;
-  });
+  const id = deployAsset(req, a, employee(d.employee_id), d);
   res.status(201).json({ id, asset: getAsset(a.id) });
 });
 

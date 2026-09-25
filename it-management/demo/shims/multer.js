@@ -12,6 +12,10 @@ function multer(opts = {}) {
       if (opts.fileFilter) opts.fileFilter(req, { mimetype: f.type, originalname: f.name }, check);
       const ext = (f.name.match(/\.[a-z0-9]{1,8}$/i) || [''])[0].toLowerCase();
       const stored = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('') + ext;
+      if (opts.storage && opts.storage.memory) {
+        req.file = { originalname: f.name, mimetype: f.type, size: f.size, buffer: f.bytes };
+        return next();
+      }
       fs.saveFile(stored, f.type, f.bytes);
       req.file = { filename: stored, originalname: f.name, mimetype: f.type, size: f.size };
       next();
@@ -19,4 +23,5 @@ function multer(opts = {}) {
   };
 }
 multer.diskStorage = (o) => o;
+multer.memoryStorage = () => ({ memory: true });
 module.exports = multer;
