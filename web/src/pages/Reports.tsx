@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Download, FileBarChart } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Card, Select, Input, Button, Spinner, EmptyState } from "../components/ui/ui";
+import EmployeeMultiSelect, { type EmployeeOption } from "../components/ui/EmployeeMultiSelect";
 import { todayInTZ } from "../lib/format";
 import type { Department, WorkSchedule } from "../types";
 
@@ -60,11 +61,19 @@ export default function Reports() {
   const [cutoffHalf, setCutoffHalf] = useState<"1" | "2">("1");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [deptFilter, setDeptFilter] = useState("all");
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     supabase.from("departments").select("*").order("name").then(({ data }) => setDepartments((data as Department[]) ?? []));
+    supabase
+      .from("profiles")
+      .select("id, first_name, last_name")
+      .in("employment_status", ["active", "on_leave"])
+      .order("first_name")
+      .then(({ data }) => setEmployees(((data as { id: string; first_name: string; last_name: string }[]) ?? []).map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }))));
   }, []);
 
   useEffect(() => {
@@ -101,6 +110,7 @@ export default function Reports() {
       .select("id, first_name, last_name, employee_code, department_id, date_hired, schedule_id, departments(name)")
       .in("employment_status", ["active", "on_leave"]);
     if (deptFilter !== "all") profileQuery = profileQuery.eq("department_id", deptFilter);
+    if (employeeFilter.length > 0) profileQuery = profileQuery.in("id", employeeFilter);
 
     const [{ data: profilesData, error: profilesError }, { data: schedulesData }, { data: attendanceData, error: attendanceError }] = await Promise.all([
       profileQuery,
@@ -208,6 +218,7 @@ export default function Reports() {
             <option value="all">All Departments</option>
             {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </Select>
+          <EmployeeMultiSelect options={employees} selected={employeeFilter} onChange={setEmployeeFilter} className="w-56" />
           <Button onClick={generate} loading={loading}><FileBarChart className="h-4 w-4" /> Generate</Button>
           {rows.length > 0 && <Button variant="secondary" onClick={exportCsv}><Download className="h-4 w-4" /> Export CSV</Button>}
         </div>

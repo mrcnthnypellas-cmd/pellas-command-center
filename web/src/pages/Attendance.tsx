@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { Card, Badge, Spinner, EmptyState, Select, Input, Button, Modal, StatCard } from "../components/ui/ui";
+import EmployeeMultiSelect, { type EmployeeOption } from "../components/ui/EmployeeMultiSelect";
 import { formatDate, formatTime, getLogDateTimeParts, todayInTZ } from "../lib/format";
 import type { Attendance as AttendanceRow, Department, WorkSchedule } from "../types";
 
@@ -37,6 +38,8 @@ export default function Attendance() {
   const [dateTo, setDateTo] = useState(todayInTZ());
   const [status, setStatus] = useState("all");
   const [deptFilter, setDeptFilter] = useState("all");
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"date" | "name">("date");
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
@@ -63,6 +66,7 @@ export default function Attendance() {
 
     if (status !== "all") query = query.eq("status", status);
     if (deptFilter !== "all") query = query.eq("profiles.department_id", deptFilter);
+    if (employeeFilter.length > 0) query = query.in("employee_id", employeeFilter);
 
     const from = page * PAGE_SIZE;
     const { data, count } = await query.range(from, from + PAGE_SIZE - 1);
@@ -80,6 +84,7 @@ export default function Attendance() {
       .eq("status", "late")
       .in("profiles.employment_status", ["active", "on_leave"]);
     if (deptFilter !== "all") lateQuery = lateQuery.eq("profiles.department_id", deptFilter);
+    if (employeeFilter.length > 0) lateQuery = lateQuery.in("employee_id", employeeFilter);
     const { count: lateTotal } = await lateQuery;
     setLateCount(lateTotal ?? 0);
 
@@ -88,6 +93,7 @@ export default function Attendance() {
       .select("id, date_hired, schedule_id")
       .in("employment_status", ["active", "on_leave"]);
     if (deptFilter !== "all") profileQuery = profileQuery.eq("department_id", deptFilter);
+    if (employeeFilter.length > 0) profileQuery = profileQuery.in("id", employeeFilter);
 
     const [{ data: profilesData }, { data: schedulesData }, { data: attendanceData }] = await Promise.all([
       profileQuery,
@@ -115,21 +121,53 @@ export default function Attendance() {
 
   useEffect(() => {
     supabase.from("departments").select("*").order("name").then(({ data }) => setDepartments((data as Department[]) ?? []));
+    supabase
+      .from("profiles")
+      .select("id, first_name, last_name")
+      .in("employment_status", ["active", "on_leave"])
+      .order("first_name")
+      .then(({ data }) => setEmployees(((data as { id: string; first_name: string; last_name: string }[]) ?? []).map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }))));
   }, []);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, dateTo, status, deptFilter, sortBy, page]);
+  }, [dateFrom, dateTo, status, deptFilter, employeeFilter, sortBy, page]);
 
   useEffect(() => {
     loadSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, dateTo, deptFilter]);
+  }, [dateFrom, dateTo, deptFilter, employeeFilter]);
 
-  function exportCsv() {
+  const [exportingCsv, setExportingCsv] = useState(false);
+
+  // Exports ALL rows matching the current filters (not just the current
+  // page shown on screen), so "Export CSV" always reflects the selected
+  // employees/date range/status/department in full.
+  async function exportCsv() {
+    setExportingCsv(true);
+    let query = supabase
+      .from("attendance")
+      .select("*, profiles!inner(first_name, last_name, employee_code, department_id)")
+      .gte("work_date", dateFrom)
+      .lte("work_date", dateTo);
+
+    if (sortBy === "name") {
+      query = query.order("first_name", { foreignTable: "profiles", ascending: true }).order("last_name", { foreignTable: "profiles", ascending: true });
+    } else {
+      query = query.order("work_date", { ascending: false });
+    }
+    if (status !== "all") query = query.eq("status", status);
+    if (deptFilter !== "all") query = query.eq("profiles.department_id", deptFilter);
+    if (employeeFilter.length > 0) query = query.in("employee_id", employeeFilter);
+
+    const { data, error } = await query;
+    setExportingCsv(false);
+    if (error) return push("error", error.message);
+
+    const list = (data as unknown as AttendanceRow[]) ?? [];
     const header = ["Employee", "ID", "Date", "Time In", "Time Out", "Hours", "Status"];
-    const lines = rows.map((r) => [
+    const lines = list.map((r) => [
       `${r.profiles?.first_name} ${r.profiles?.last_name}`,
       r.profiles?.employee_code ?? "",
       r.work_date,
@@ -154,12 +192,14 @@ export default function Attendance() {
   // spreadsheet cells (not text) so they sort/filter like in Excel.
   async function exportPunchLog() {
     setExportingLog(true);
-    const { data, error } = await supabase
+    let punchQuery = supabase
       .from("attendance")
       .select("time_in, time_out, profiles!inner(employee_code, first_name, last_name)")
       .gte("work_date", dateFrom)
       .lte("work_date", dateTo)
       .order("work_date", { ascending: true });
+    if (employeeFilter.length > 0) punchQuery = punchQuery.in("employee_id", employeeFilter);
+    const { data, error } = await punchQuery;
     setExportingLog(false);
     if (error) return push("error", error.message);
 
@@ -232,7 +272,7 @@ export default function Attendance() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-800">Attendance</h1>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={exportCsv}><Download className="h-4 w-4" /> Export CSV</Button>
+          <Button variant="secondary" onClick={exportCsv} loading={exportingCsv}><Download className="h-4 w-4" /> Export CSV</Button>
           <Button variant="secondary" onClick={exportPunchLog} loading={exportingLog}><Download className="h-4 w-4" /> Export Punch Log</Button>
         </div>
       </div>
@@ -257,6 +297,7 @@ export default function Attendance() {
           <option value="all">All Departments</option>
           {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </Select>
+        <EmployeeMultiSelect options={employees} selected={employeeFilter} onChange={(ids) => { setEmployeeFilter(ids); setPage(0); }} className="w-56" />
         <Select label="Sort By" value={sortBy} onChange={(e) => { setSortBy(e.target.value as "date" | "name"); setPage(0); }} className="w-44">
           <option value="date">Date (Newest First)</option>
           <option value="name">Employee Name (A–Z)</option>
