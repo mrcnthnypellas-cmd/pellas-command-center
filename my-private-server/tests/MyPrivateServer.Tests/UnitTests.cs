@@ -308,3 +308,15 @@ public class ProcessRunnerTests
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
     }
 }
+
+public class CloudflareHostnameTests
+{
+    [Theory]
+    [InlineData("nas.example.com", "nas.example.com")]
+    [InlineData(" https://NAS.Example.com/ ", "nas.example.com")]
+    [InlineData("qmarc-nas", null)]
+    [InlineData("", null)]
+    [InlineData("nas example.com", null)]
+    public void Normalizes_public_hostname(string input, string? expected) =>
+        Assert.Equal(expected, CloudflareQuickTunnelProvider.NormalizeHostname(input));
+}

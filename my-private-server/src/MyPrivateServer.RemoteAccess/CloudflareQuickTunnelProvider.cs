@@ -29,8 +29,8 @@ public sealed partial class CloudflareQuickTunnelProvider(IProcessRunner runner,
             (named ? "" : "Quick-tunnel addresses change each time the tunnel restarts and have no uptime guarantee."),
             ["cloudflared client on this PC"],
             [
-                new("tunnelToken", "Tunnel token (optional)", "For a permanent address on your own domain. Leave empty for a free quick tunnel.", Secret: true),
-                new("publicHostname", "Public hostname (with token)", "The hostname you routed to this tunnel in Cloudflare.", Placeholder: "server.example.com"),
+                new("tunnelToken", "Tunnel token", "For a permanent address on your own domain. Leave empty for a free quick tunnel.", Secret: true),
+                new("publicHostname", "Public hostname (with token)", "The full hostname you routed to this tunnel in Cloudflare (subdomain + your domain).", Placeholder: "nas.example.com"),
             ],
             SupportsDirect: false, SupportsRelay: true, Encryption: "HTTPS (TLS to Cloudflare edge)",
             new ExternalServiceDisclosure("remote.cloudflare", "Cloudflare Tunnel", false,
@@ -53,7 +53,7 @@ public sealed partial class CloudflareQuickTunnelProvider(IProcessRunner runner,
             _proc.Start(exe, ["tunnel", "--no-autoupdate", "--url", $"http://127.0.0.1:{port}"]);
         else
         {
-            _url = o.GetValueOrDefault("publicHostname") is { Length: > 0 } h ? "https://" + h : null;
+            _url = NormalizeHostname(o.GetValueOrDefault("publicHostname")) is { } h ? "https://" + h : null;
             _proc.Start(exe, ["tunnel", "--no-autoupdate", "run", "--token", token], redact: [token]);
         }
         return GetStatusAsync(o, ct);
@@ -72,6 +72,10 @@ public sealed partial class CloudflareQuickTunnelProvider(IProcessRunner runner,
         if (!_proc.IsRunning)
             return Task.FromResult(RemoteStatus.Simple(_proc.LastExitCode is null ? RemoteState.Disabled : RemoteState.Error, Id, Name,
                 _proc.LastExitCode is null ? "Tunnel is not running." : "The tunnel stopped: " + (_proc.Log(3).LastOrDefault(l => !l.Contains("[process exited")) ?? "unknown error")));
+        var named = !string.IsNullOrWhiteSpace(o.GetValueOrDefault("tunnelToken"));
+        if (named && NormalizeHostname(o.GetValueOrDefault("publicHostname")) is null)
+            return Task.FromResult(RemoteStatus.Simple(RemoteState.NeedsSetup, Id, Name,
+                "Enter the full public hostname you set up in Cloudflare, for example nas.example.com (not just the tunnel name)."));
         var connected = _proc.Log(300).Any(l => l.Contains("Registered tunnel connection", StringComparison.OrdinalIgnoreCase));
         if (!connected || _url is null)
             return Task.FromResult(RemoteStatus.Simple(RemoteState.Starting, Id, Name, "Connecting to Cloudflare…"));
@@ -96,6 +100,15 @@ public sealed partial class CloudflareQuickTunnelProvider(IProcessRunner runner,
             catch (Exception ex) { checks.Add(new("Round trip through the Internet", CheckOutcome.Fail, ex.Message)); }
         }
         return checks;
+    }
+
+    /// <summary>"https://NAS.Example.com/" → "nas.example.com"; null unless it looks like a full host name.</summary>
+    internal static string? NormalizeHostname(string? value)
+    {
+        var h = (value ?? "").Trim().ToLowerInvariant();
+        if (h.StartsWith("https://")) h = h[8..]; else if (h.StartsWith("http://")) h = h[7..];
+        h = h.TrimEnd('/');
+        return h.Contains('.') && Uri.CheckHostName(h) == UriHostNameType.Dns ? h : null;
     }
 
     public void Dispose() => _proc.Dispose();
