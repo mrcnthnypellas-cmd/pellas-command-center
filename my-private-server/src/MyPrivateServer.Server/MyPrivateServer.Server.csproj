@@ -26,4 +26,11 @@
   <PropertyGroup>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- The dashboard is served from the output folder so the Windows service works from its install directory. -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

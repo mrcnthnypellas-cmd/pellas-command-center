@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* Design tokens (same palette as the approved Phase 1 prototype). Accent and sidebar can be
+   overridden at runtime from Settings → Appearance. */
+:root {
+  --bg: #edf0f2; --surface: #ffffff; --surface-2: #f5f7f8; --surface-3: #e7ebee;
+  --line: #dbe1e5; --line-2: #c7d0d6;
+  --ink: #14202a; --ink-2: #44545f; --muted: #72818c;
+  --accent: #0d7680; --accent-2: #0a5f67; --accent-ink: #ffffff; --accent-soft: #dcefef;
+  --ok: #1d8048; --ok-soft: #def2e5; --warn: #a2680f; --warn-soft: #fbefd6;
+  --bad: #bf3b35; --bad-soft: #fbe3e1; --info: #2d64a8; --info-soft: #e1ebf7;
+  --vio: #6d4fb3; --vio-soft: #ece6f8; --folder: #d39a2c;
+  --side: #0f1b23; --side-2: #15252e; --side-3: #1b2f3a; --side-ink: #c8d3da; --side-muted: #7d8f9a; --side-line: #1d2e38;
+  --side-accent: #3cc4cc; --logo-a: #1a8f99; --logo-b: #0b5a61;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1115; --surface: #121a20; --surface-2: #162028; --surface-3: #1d2831; --line: #233039; --line-2: #2f3e48;
+    --ink: #e1e8ed; --ink-2: #a8b6c0; --muted: #73838e;
+    --accent: #35b6bf; --accent-2: #5fcbd2; --accent-ink: #04272a; --accent-soft: #0f2d32;
+    --ok: #44c07d; --ok-soft: #11291d; --warn: #e2aa4c; --warn-soft: #2c2313; --bad: #ee6a63; --bad-soft: #321716;
+    --info: #6ea5e8; --info-soft: #13233a; --vio: #a48ae6; --vio-soft: #221b37; --folder: #d9a441;
+    --side: #080e12; --side-2: #0f1a21; --side-3: #15252e; --side-line: #16242c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1115; --surface: #121a20; --surface-2: #162028; --surface-3: #1d2831; --line: #233039; --line-2: #2f3e48;
+  --ink: #e1e8ed; --ink-2: #a8b6c0; --muted: #73838e;
+  --accent: #35b6bf; --accent-2: #5fcbd2; --accent-ink: #04272a; --accent-soft: #0f2d32;
+  --ok: #44c07d; --ok-soft: #11291d; --warn: #e2aa4c; --warn-soft: #2c2313; --bad: #ee6a63; --bad-soft: #321716;
+  --info: #6ea5e8; --info-soft: #13233a; --vio: #a48ae6; --vio-soft: #221b37; --folder: #d9a441;
+  --side: #080e12; --side-2: #0f1a21; --side-3: #15252e; --side-line: #16242c;
+}
+
+@theme inline {
+  --color-bg: var(--bg); --color-surface: var(--surface); --color-surface-2: var(--surface-2); --color-surface-3: var(--surface-3);
+  --color-line: var(--line); --color-line-2: var(--line-2);
+  --color-ink: var(--ink); --color-ink-2: var(--ink-2); --color-muted: var(--muted);
+  --color-accent: var(--accent); --color-accent-2: var(--accent-2); --color-accent-ink: var(--accent-ink); --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok); --color-ok-soft: var(--ok-soft); --color-warn: var(--warn); --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad); --color-bad-soft: var(--bad-soft); --color-info: var(--info); --color-info-soft: var(--info-soft);
+  --color-vio: var(--vio); --color-vio-soft: var(--vio-soft); --color-folder: var(--folder);
+  --color-side: var(--side); --color-side-2: var(--side-2); --color-side-3: var(--side-3); --color-side-ink: var(--side-ink);
+  --color-side-muted: var(--side-muted); --color-side-line: var(--side-line); --color-side-accent: var(--side-accent);
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+html, body, #root { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-sans); -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.logo { background: linear-gradient(160deg, var(--logo-a), var(--logo-b)); }
+.num { font-variant-numeric: tabular-nums; }
+.pulse { animation: pulse 2s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgb(29 128 72 / .45) } 70% { box-shadow: 0 0 0 8px rgb(29 128 72 / 0) } 100% { box-shadow: 0 0 0 0 rgb(29 128 72 / 0) } }
+.blink { animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: .2 } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
