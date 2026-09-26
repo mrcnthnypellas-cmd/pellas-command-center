@@ -10,4 +10,7 @@
     <Product>My Private Server</Product>
     <Version>0.2.0-prototype</Version>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MyPrivateServer.Tests" />
+  </ItemGroup>
 </Project>

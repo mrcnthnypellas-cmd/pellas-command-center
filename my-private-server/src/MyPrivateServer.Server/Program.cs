@@ -142,11 +142,12 @@ var otel = builder.Services.AddOpenTelemetry().WithMetrics(m =>
 builder.Services.AddAuthentication(SessionAuthHandler.Scheme)
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SessionAuthHandler>(SessionAuthHandler.Scheme, null);
 builder.Services.AddAuthorization();
+var loginPerMinute = builder.Configuration.GetValue("RateLimits:LoginPerMinute", 10);
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = 429;
     o.OnRejected = async (ctx, ct) => await ctx.HttpContext.Response.WriteAsJsonAsync(new { error = "Too many requests. Wait a moment and try again." }, ct);
-    o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(ctx.ClientIp(), _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+    o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(ctx.ClientIp(), _ => new FixedWindowRateLimiterOptions { PermitLimit = loginPerMinute, Window = TimeSpan.FromMinutes(1) }));
     o.AddPolicy("data", ctx => RateLimitPartition.GetTokenBucketLimiter(ctx.Request.Headers["apikey"].ToString() is { Length: > 0 } k ? k : ctx.ClientIp(),
         _ => new TokenBucketRateLimiterOptions { TokenLimit = 200, TokensPerPeriod = 20, ReplenishmentPeriod = TimeSpan.FromSeconds(1) }));
     o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx => RateLimitPartition.GetTokenBucketLimiter(ctx.ClientIp(),
