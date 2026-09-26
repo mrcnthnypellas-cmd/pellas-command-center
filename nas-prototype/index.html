@@ -206,6 +206,20 @@ a{color:var(--accent)}
 .empty{padding:40px 16px;text-align:center;color:var(--muted)}
 .empty .ic{color:var(--line-2);margin-bottom:8px}
 
+/* digital clock */
+.clock-card{display:flex;align-items:center;gap:20px 32px;flex-wrap:wrap;padding:18px 22px;margin-bottom:16px;background:linear-gradient(110deg,var(--accent-soft),var(--surface) 55%)}
+.clock-main{flex:1 1 320px;min-width:0}
+.clock-time{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:clamp(40px,6vw,64px);font-weight:600;line-height:1;letter-spacing:-.02em;color:var(--ink);display:flex;align-items:baseline;flex-wrap:wrap}
+.clock-colon{animation:blink 1s steps(1) infinite;color:var(--accent)}
+@keyframes blink{50%{opacity:.2}}
+.clock-sec{font-size:.45em;color:var(--muted);margin-left:6px}
+.clock-ampm{font-family:var(--font);font-size:.3em;font-weight:700;letter-spacing:.08em;color:var(--accent);margin-left:10px;align-self:center}
+.clock-date{margin-top:8px;font-size:15px;font-weight:500;color:var(--ink-2)}
+.clock-side{display:grid;gap:8px;justify-items:end;text-align:right}
+.clock-greet{font-size:16px;font-weight:600}
+.clock-tz{font-size:12.5px;color:var(--muted)}
+@media (max-width:720px){.clock-side{justify-items:start;text-align:left}}
+
 /* banner */
 .banner{display:flex;align-items:center;gap:14px;background:linear-gradient(100deg,var(--accent-soft),var(--surface) 70%);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:16px}
 .banner .b-ic{width:38px;height:38px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none}
@@ -1147,7 +1161,14 @@ PAGES.dashboard = () => {
   const lastDev = [...S.devices].sort((a, b) => b.since - a.since)[0];
   const banner = S.bannerHidden ? '' : `<div class="banner"><div class="b-ic">${ic('wand', 20)}</div><div class="b-t"><b>Try the first-time setup</b><span>Walk through what installing this server on a Windows PC will look like: naming, drive detection, admin account and remote access.</span></div><div class="btn-row"><button class="btn primary" data-act="wizard-open">Start setup wizard</button><button class="btn ghost" data-act="hide-banner" aria-label="Dismiss">${ic('x', 16)}</button></div></div>`;
 
-  return banner + `<div class="grid g-4">
+  const c = clockParts();
+  const clock = `<section class="card clock-card" aria-label="Server clock">
+    <div class="clock-main"><div class="clock-time" role="timer" aria-live="off"><span data-clock="hh">${c.hh}</span><span class="clock-colon">:</span><span data-clock="mm">${c.mm}</span><span class="clock-sec" data-clock="ss">${c.ss}</span>${S.clock24 ? '' : `<span class="clock-ampm" data-clock="ampm">${c.ampm}</span>`}</div>
+      <div class="clock-date" data-clock="date">${c.date}</div></div>
+    <div class="clock-side"><div class="clock-greet" data-clock="greet">${c.greet}</div><div class="clock-tz">Server time · ${esc(c.tz)}</div>
+      <div class="seg" role="group" aria-label="Clock format"><button class="${S.clock24 ? '' : 'on'}" data-act="clock-fmt" data-v="12">12-hour</button><button class="${S.clock24 ? 'on' : ''}" data-act="clock-fmt" data-v="24">24-hour</button></div></div>
+  </section>`;
+  return clock + banner + `<div class="grid g-4">
     ${card('Server status', `<div class="card-b"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="dot-s ok pulse"></span><span class="big-stat" style="font-size:24px">Online</span></div>
       <dl class="kv"><dt>Server name</dt><dd>${esc(serverName())}</dd><dt>Server ID</dt><dd class="mono">${S.server.id}</dd><dt>Uptime</dt><dd class="num" data-live="uptime">${uptime()}</dd>
       <dt>CPU usage</dt><dd class="num" data-live="cpu">${cpu.toFixed(0)}%</dd><dt>RAM usage</dt><dd class="num" data-live="ramText">${(ram*.16).toFixed(1)} / 16 GB</dd><dt>Network</dt><dd><span class="pill ok"><span class="dot-s ok"></span>Connected</span></dd></dl></div>`, { icon:'server' })}
@@ -2056,6 +2077,7 @@ const A = {
     { label:'Setup wizard', icon:'wand', fn: wizOpen }, '-',
     { label:'Sign out', icon:'logout', fn: () => { addLog('login', 'User signed out', 'This browser', 'info'); lockScreen('You have signed out.'); } },
   ]),
+  'clock-fmt': el => { S.clock24 = el.dataset.v === '24'; try { localStorage.setItem('nas-clock24', S.clock24 ? '1' : '0'); } catch (e) {} render(); },
   'hide-banner': () => { S.bannerHidden = true; render(); },
   'wizard-open': () => wizOpen(),
   'modal-close': closeModal,
@@ -2282,8 +2304,32 @@ function tick() {
 }
 setInterval(tick, 2000);
 
+/* digital clock: uses this device's own clock */
+function clockParts() {
+  const d = new Date(), h = d.getHours();
+  const off = -d.getTimezoneOffset(), sign = off >= 0 ? '+' : '−', a = Math.abs(off);
+  let zone = ''; try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+  const me = S.users.find(u => u.username === S.session.user);
+  return {
+    hh: String(S.clock24 ? h : (h % 12) || 12).padStart(2, '0'),
+    mm: String(d.getMinutes()).padStart(2, '0'),
+    ss: String(d.getSeconds()).padStart(2, '0'),
+    ampm: h < 12 ? 'AM' : 'PM',
+    date: d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' }),
+    greet: `${h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'}, ${me ? me.username : 'admin'}`,
+    tz: `UTC${sign}${String(Math.floor(a / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}${zone ? ' · ' + zone.replace(/_/g, ' ') : ''}`,
+  };
+}
+function updateClock() {
+  if (S.page !== 'dashboard') return;
+  const c = clockParts();
+  for (const k of ['hh', 'mm', 'ss', 'ampm', 'date', 'greet']) { const e = document.querySelector(`[data-clock="${k}"]`); if (e && e.textContent !== c[k]) e.textContent = c[k]; }
+}
+setInterval(updateClock, 1000);
+
 /* ---------- boot ---------- */
 S.ap = loadAp(); applyAppearance();
+try { S.clock24 = localStorage.getItem('nas-clock24') === '1'; } catch (e) { S.clock24 = false; }
 S.setDraft = structuredClone(S.settings);
 { const h = (location.hash || '').slice(1); if (PAGES[h]) S.page = h; }
 render();
