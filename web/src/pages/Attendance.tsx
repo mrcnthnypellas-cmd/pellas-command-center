@@ -11,6 +11,9 @@ import type { Attendance as AttendanceRow, Department, WorkSchedule } from "../t
 
 const PAGE_SIZE = 25;
 const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5]; // Mon–Fri, 8:00–17:00 default coverage
+const DEFAULT_START_TIME = "08:00:00";
+const DEFAULT_END_TIME = "17:00:00";
+const DEFAULT_BREAK_MINUTES = 60;
 
 // Counts scheduled work days (per workDays) within [from, to], capped at `today`
 // and not starting before the employee's date_hired.
@@ -26,6 +29,26 @@ function countScheduledWorkdays(from: string, to: string, workDays: number[], da
     cursor.setDate(cursor.getDate() + 1);
   }
   return count;
+}
+
+function toMinutes(t: string) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Paid hours in one scheduled workday (shift span minus unpaid break).
+function shiftHours(schedule?: WorkSchedule) {
+  const start = schedule?.start_time ?? DEFAULT_START_TIME;
+  const end = schedule?.end_time ?? DEFAULT_END_TIME;
+  const breakMinutes = schedule?.break_minutes ?? DEFAULT_BREAK_MINUTES;
+  return Math.max(0, (toMinutes(end) - toMinutes(start) - breakMinutes) / 60);
+}
+
+// How many hours late a single time-in was, vs. the scheduled start time.
+function lateHoursForRow(timeIn: string, scheduleStartTime: string) {
+  const { hour, minute } = getLogDateTimeParts(timeIn);
+  const actualMinutes = hour * 60 + minute;
+  return Math.max(0, (actualMinutes - toMinutes(scheduleStartTime)) / 60);
 }
 
 export default function Attendance() {
@@ -45,6 +68,8 @@ export default function Attendance() {
   const [total, setTotal] = useState(0);
   const [lateCount, setLateCount] = useState(0);
   const [absentCount, setAbsentCount] = useState(0);
+  const [lateHours, setLateHours] = useState(0);
+  const [absentHours, setAbsentHours] = useState(0);
   const [editRow, setEditRow] = useState<AttendanceRow | null>(null);
   const [editTimeIn, setEditTimeIn] = useState("");
   const [editTimeOut, setEditTimeOut] = useState("");
@@ -78,15 +103,13 @@ export default function Attendance() {
   async function loadSummary() {
     let lateQuery = supabase
       .from("attendance")
-      .select("id, profiles!inner(department_id, employment_status)", { count: "exact", head: true })
+      .select("employee_id, time_in, profiles!inner(department_id, employment_status)")
       .gte("work_date", dateFrom)
       .lte("work_date", dateTo)
       .eq("status", "late")
       .in("profiles.employment_status", ["active", "on_leave"]);
     if (deptFilter !== "all") lateQuery = lateQuery.eq("profiles.department_id", deptFilter);
     if (employeeFilter.length > 0) lateQuery = lateQuery.in("employee_id", employeeFilter);
-    const { count: lateTotal } = await lateQuery;
-    setLateCount(lateTotal ?? 0);
 
     let profileQuery = supabase
       .from("profiles")
@@ -95,28 +118,47 @@ export default function Attendance() {
     if (deptFilter !== "all") profileQuery = profileQuery.eq("department_id", deptFilter);
     if (employeeFilter.length > 0) profileQuery = profileQuery.in("id", employeeFilter);
 
-    const [{ data: profilesData }, { data: schedulesData }, { data: attendanceData }] = await Promise.all([
+    const [{ data: lateRows }, { data: profilesData }, { data: schedulesData }, { data: attendanceData }] = await Promise.all([
+      lateQuery,
       profileQuery,
       supabase.from("work_schedules").select("*"),
       supabase.from("attendance").select("employee_id, work_date").gte("work_date", dateFrom).lte("work_date", dateTo),
     ]);
 
     const scheduleMap = new Map<string, WorkSchedule>(((schedulesData as WorkSchedule[]) ?? []).map((s) => [s.id, s]));
+    const employeeScheduleId = new Map<string, string | null>(
+      ((profilesData as { id: string; schedule_id: string | null }[]) ?? []).map((p) => [p.id, p.schedule_id])
+    );
+
+    const lateList = (lateRows as { employee_id: string; time_in: string | null }[]) ?? [];
+    setLateCount(lateList.length);
+    let lateHoursTotal = 0;
+    for (const r of lateList) {
+      if (!r.time_in) continue;
+      const schedule = scheduleMap.get(employeeScheduleId.get(r.employee_id) ?? "");
+      lateHoursTotal += lateHoursForRow(r.time_in, schedule?.start_time ?? DEFAULT_START_TIME);
+    }
+    setLateHours(lateHoursTotal);
+
     const attCountByEmployee = new Map<string, number>();
     for (const a of (attendanceData as { employee_id: string }[]) ?? []) {
       attCountByEmployee.set(a.employee_id, (attCountByEmployee.get(a.employee_id) ?? 0) + 1);
     }
 
     const today = todayInTZ();
-    let absentTotal = 0;
+    let absentDaysTotal = 0;
+    let absentHoursTotal = 0;
     for (const p of (profilesData as any[]) ?? []) {
       const schedule = p.schedule_id ? scheduleMap.get(p.schedule_id) : undefined;
       const workDays = schedule?.work_days ?? DEFAULT_WORK_DAYS;
       const scheduledDays = countScheduledWorkdays(dateFrom, dateTo, workDays, p.date_hired, today);
       const present = attCountByEmployee.get(p.id) ?? 0;
-      absentTotal += Math.max(0, scheduledDays - present);
+      const absentDays = Math.max(0, scheduledDays - present);
+      absentDaysTotal += absentDays;
+      absentHoursTotal += absentDays * shiftHours(schedule);
     }
-    setAbsentCount(absentTotal);
+    setAbsentCount(absentDaysTotal);
+    setAbsentHours(absentHoursTotal);
   }
 
   useEffect(() => {
@@ -279,7 +321,9 @@ export default function Attendance() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Total Late" value={lateCount} accent="bg-amber-500" />
+        <StatCard label="Total Late (Hours)" value={`${lateHours.toFixed(1)}h`} accent="bg-amber-600" />
         <StatCard label="Total Absent" value={absentCount} accent="bg-red-500" />
+        <StatCard label="Total Absent (Hours)" value={`${absentHours.toFixed(1)}h`} accent="bg-red-600" />
       </div>
 
       <div className="flex flex-wrap gap-3">
