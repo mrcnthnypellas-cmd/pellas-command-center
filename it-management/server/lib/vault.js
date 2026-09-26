@@ -23,21 +23,26 @@ function loadKey() {
   return key;
 }
 
-function encrypt(plain) {
+function encryptWith(key, plain) {
   if (plain === null || plain === undefined || plain === '') return null;
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', loadKey(), iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   const data = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
   return ['v1', iv.toString('base64'), cipher.getAuthTag().toString('base64'), data.toString('base64')].join(':');
 }
 
-function decrypt(blob) {
+function decryptWith(key, blob) {
   if (!blob) return '';
   const [v, iv, tag, data] = blob.split(':');
   if (v !== 'v1') throw new Error('Unknown ciphertext version');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', loadKey(), Buffer.from(iv, 'base64'));
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64'));
   decipher.setAuthTag(Buffer.from(tag, 'base64'));
   return Buffer.concat([decipher.update(Buffer.from(data, 'base64')), decipher.final()]).toString('utf8');
 }
 
-module.exports = { encrypt, decrypt };
+const encrypt = (plain) => encryptWith(loadKey(), plain);
+const decrypt = (blob) => decryptWith(loadKey(), blob);
+// Used by backup/restore to carry secrets from one installation's key to another's.
+const keyHex = () => loadKey().toString('hex');
+
+module.exports = { encrypt, decrypt, encryptWith, decryptWith, keyHex };

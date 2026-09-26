@@ -24,6 +24,7 @@ const MOUNTS = [
   ['/api/settings', require('../server/routes/settings')],
   ['/api/users', require('../server/routes/users')],
   ['/api/documents', require('../server/routes/documents')],
+  ['/api/backup', require('../server/routes/backup')],
 ];
 
 const DB_KEY = 'itms-demo-db-v1';
@@ -139,8 +140,8 @@ async function request({ method = 'GET', url, body, files }) {
     }
   } catch (err) {
     const status = err.status || 500;
-    if (status >= 500) console.error(err);
-    res.status(status).json({ error: status >= 500 ? `Unexpected error: ${err.message}` : err.message });
+    if (status === 500) console.error(err);
+    res.status(status).json({ error: status === 500 ? `Unexpected error: ${err.message}` : err.message });
   }
   if (method !== 'GET' && res.statusCode < 400) persist();
   return { status: res.statusCode, headers: res.headers, body: res.body };

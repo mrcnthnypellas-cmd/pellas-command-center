@@ -5,3 +5,4 @@ data/vault.key
 data/uploads/
 .env
 demo/dist/
+data/backups/

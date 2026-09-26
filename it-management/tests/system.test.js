@@ -495,6 +495,75 @@ test('branding: editable names and sign-in background', async () => {
   ok(await a.put('/settings/branding', { company_name: 'Pellas Corporation', system_name: 'IT Management System', dashboard_title: 'Dashboard' }));
 });
 
+test('backup on one PC, restore on another', async () => {
+  const { spawn } = require('child_process');
+  const a = await login('admin', 'admin123');
+  // Data that only exists on "PC 1": a new asset with a photo and a new saved password.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  const fa = new FormData();
+  fa.append('name', 'Only-on-PC1 Laptop'); fa.append('category_id', '1'); fa.append('photo', new Blob([png], { type: 'image/png' }), 'p.png');
+  const made = await (await fetch(`${base}/api/assets`, { method: 'POST', headers: { Cookie: a.cookie, 'X-Requested-With': 'itms' }, body: fa })).json();
+  const cred = ok(await a.post('/vault/credentials', { name: 'PC1 NAS', credential_type: 'Server', username: 'nas', password: 'Moved#Across-PCs1' }));
+
+  const dl = await fetch(`${base}/api/backup/download`, { method: 'POST', headers: { Cookie: a.cookie, 'X-Requested-With': 'itms', 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'backup-pass-123', confirm: 'backup-pass-123' }) });
+  assert.equal(dl.status, 200);
+  assert.match(dl.headers.get('content-disposition'), /\.itmsbackup"/);
+  const file = Buffer.from(await dl.arrayBuffer());
+  assert.equal(file.subarray(0, 8).toString(), 'ITMSBAK1');
+  assert.ok(!file.includes(Buffer.from('Only-on-PC1')), 'backup contents are encrypted');
+  assert.equal((await a.post('/backup/download', { password: 'short' })).status, 400);
+  const viewer = await login('viewer', 'viewer123');
+  assert.equal((await viewer.post('/backup/download', { password: 'backup-pass-123' })).status, 403);
+
+  // "PC 2": a separate installation with its own data folder and its own encryption key.
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'itms-pc2-'));
+  const port2 = 40000 + Math.floor(Math.random() * 20000);
+  const pc2 = spawn(process.execPath, [path.join(__dirname, '../server/index.js')], { env: { ...process.env, PORT: String(port2), ITMS_DATA_DIR: dir2, ITMS_DB_FILE: path.join(dir2, 'itms.db') }, stdio: 'pipe' });
+  try {
+    await new Promise((resolve, reject) => { pc2.stdout.on('data', (d) => { if (String(d).includes('running at')) resolve(); }); pc2.on('exit', reject); setTimeout(() => reject(new Error('PC2 did not start')), 20000); });
+    const b2 = `http://127.0.0.1:${port2}`;
+    assert.notEqual(fs.readFileSync(path.join(dir2, 'vault.key'), 'utf8'), fs.readFileSync(path.join(tmp, 'vault.key'), 'utf8'), 'different key');
+    const login2 = async (u, p) => {
+      const res = await fetch(`${b2}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+      return res.status === 200 ? res.headers.get('set-cookie').split(';')[0] : null;
+    };
+    const send = async (cookie, pathname, fields) => {
+      const f = new FormData();
+      f.append('file', new Blob([fields.file ?? file]), 'backup.itmsbackup');
+      for (const [k, v] of Object.entries(fields)) if (k !== 'file') f.append(k, v);
+      const res = await fetch(`${b2}/api/backup/${pathname}`, { method: 'POST', headers: { Cookie: cookie, 'X-Requested-With': 'itms' }, body: f });
+      return { status: res.status, data: await res.json() };
+    };
+    const c2 = await login2('admin', 'admin123');
+    assert.equal((await send(c2, 'check', { password: 'wrong-password-1' })).status, 400);
+    const tampered = Buffer.from(file); tampered[tampered.length - 5] ^= 0xff;
+    assert.match((await send(c2, 'check', { password: 'backup-pass-123', file: tampered })).data.error, /Wrong backup password|damaged/);
+    assert.match((await send(c2, 'check', { password: 'backup-pass-123', file: Buffer.from('hello world, not a backup at all ........................................') })).data.error, /not a backup/);
+    const check = await send(c2, 'check', { password: 'backup-pass-123' });
+    assert.equal(check.status, 200);
+    assert.ok(check.data.summary.counts.assets >= 23 && check.data.summary.files >= 1);
+    assert.equal((await send(c2, 'restore', { password: 'backup-pass-123' })).status, 400, 'needs the RESTORE confirmation');
+    const restored = await send(c2, 'restore', { password: 'backup-pass-123', confirm: 'RESTORE' });
+    assert.equal(restored.status, 200, JSON.stringify(restored.data));
+    assert.ok(fs.existsSync(path.join(dir2, restored.data.safety_copy.replace(/^data\//, ''))) || fs.readdirSync(path.join(dir2, 'backups')).length === 1, 'safety copy kept');
+    // Old PC2 sign-in no longer works; PC1's accounts do.
+    assert.equal((await fetch(`${b2}/api/auth/me`, { headers: { Cookie: c2 } })).status, 401);
+    const c2b = await login2('admin', 'admin123');
+    const get2 = async (u) => (await fetch(`${b2}/api${u}`, { headers: { Cookie: c2b } })).json();
+    const asset = await get2(`/assets/${made.id}`);
+    assert.equal(asset.name, 'Only-on-PC1 Laptop');
+    const photo = await fetch(`${b2}${asset.photo_url}`, { headers: { Cookie: c2b } });
+    assert.equal(photo.status, 200, 'uploaded photo moved too');
+    const secret = await (await fetch(`${b2}/api/vault/credentials/${cred.id}/secret`, { method: 'POST', headers: { Cookie: c2b, 'X-Requested-With': 'itms', 'Content-Type': 'application/json' }, body: '{"purpose":"reveal"}' })).json();
+    assert.equal(secret.password, 'Moved#Across-PCs1', 'saved passwords re-locked with PC2 key');
+    const log = await get2('/activity?q=restored');
+    assert.ok(log.some((l) => l.action === 'System restored from backup'));
+  } finally {
+    pc2.kill();
+    fs.rmSync(dir2, { recursive: true, force: true });
+  }
+});
+
 test('employees and settings CRUD', async () => {
   const a = await login('admin', 'admin123');
   const code = ok(await a.get('/employees/next-code')).code;

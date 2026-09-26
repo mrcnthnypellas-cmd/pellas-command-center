@@ -13,6 +13,7 @@ export async function render(el, _m, params) {
     can('settings.manage') && ['numbering', 'Numbering & Alerts'],
     can('users.manage') && ['users', 'Users'],
     can('users.manage') && ['roles', 'Roles & Permissions'],
+    can('settings.manage') && can('users.manage') && ['backup', 'Backup & Restore'],
     ['system', 'System'],
   ].filter(Boolean);
   const tab = tabs.find((t) => t[0] === params.tab) ? params.tab : tabs[0][0];
@@ -23,7 +24,106 @@ export async function render(el, _m, params) {
   await PANES[tab](pane);
 }
 
+const fmtWhen = (iso) => (iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Never');
+
 const PANES = {
+  async backup(el) {
+    const st = await api.get('/backup/status');
+    el.innerHTML = `<div class="grid split-2-1">
+      <div class="stack">
+        <form class="card" data-make novalidate><div class="card-head"><h3>Create a backup</h3><span class="muted">Last backup: ${esc(fmtWhen(st.last_backup_at))}</span></div><div class="card-body">
+          <p style="margin-top:0">Downloads <b>one file</b> with everything in this system: assets, employees, assignments and history, IPs, networks, ISPs, maintenance, audits, users and permissions, settings, saved passwords, and all uploaded photos and documents.</p>
+          <div class="alert warn">The file contains your saved passwords, so it is locked with a <b>backup password</b>. You'll need it to restore. It can't be recovered if forgotten.</div>
+          ${formHtml([
+            { name: 'password', label: 'Backup password (min 8 characters)', type: 'password', required: true },
+            { name: 'confirm', label: 'Type it again', type: 'password', required: true },
+          ])}
+        </div><div class="form-actions"><button class="btn primary" type="submit">Download backup</button></div></form>
+
+        <form class="card" data-restore novalidate><div class="card-head"><h3>Restore from a backup</h3><span class="muted">Last restore: ${esc(fmtWhen(st.last_restore_at))}</span></div><div class="card-body">
+          <div class="alert err">Restoring <b>replaces everything</b> in this system with the backup's data, including users. A safety copy of the current data is saved first in the <code>data/backups</code> folder.</div>
+          ${formHtml([
+            { name: 'file', label: 'Backup file (.itmsbackup)', type: 'file', accept: '.itmsbackup', span: 2 },
+            { name: 'password', label: 'Backup password', type: 'password', required: true, span: 2 },
+          ])}
+          <div data-check-result></div>
+        </div><div class="form-actions"><button class="btn" type="submit">Check backup</button></div></form>
+      </div>
+      <section class="card"><div class="card-head"><h3>Moving to another PC</h3></div><div class="card-body">
+        <ol class="steps">
+          <li><b>On this PC:</b> create a backup and copy the file to a USB drive or shared folder.</li>
+          <li><b>On the new PC:</b> install and start the system (<code>npm install</code>, then <code>npm start</code>).</li>
+          <li>Sign in with the default admin account, then open <b>Settings → Backup &amp; Restore</b>.</li>
+          <li>Choose the backup file, enter the backup password, check it, then restore.</li>
+          <li>Sign in again with your usual accounts. Everything is there.</li>
+        </ol>
+        <p class="cell-sub" style="margin-bottom:0">Tip: make a backup regularly (for example every Friday) and keep a copy off this PC.</p>
+      </div></section>
+    </div>`;
+
+    const make = el.querySelector('[data-make]');
+    make.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const b = readForm(make);
+      if (b.password.length < 8) { toast('The backup password must be at least 8 characters', 'err'); return; }
+      if (b.password !== b.confirm) { toast('The two passwords do not match', 'err'); return; }
+      const btn = make.querySelector('button[type=submit]');
+      btn.disabled = true; btn.textContent = 'Preparing backup…';
+      try {
+        const res = await fetch('/api/backup/download', { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'itms', 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Backup failed');
+        const name = (res.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'backup.itmsbackup';
+        const url = URL.createObjectURL(await res.blob());
+        const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        make.reset();
+        toast(`Backup saved: ${name}`);
+      } catch (ex) { toast(ex.message, 'err'); } finally { btn.disabled = false; btn.textContent = 'Download backup'; }
+    });
+
+    const rf = el.querySelector('[data-restore]');
+    const out = rf.querySelector('[data-check-result]');
+    const send = async (path, extra = {}) => {
+      const f = rf.querySelector('input[type=file]').files[0];
+      if (!f) throw new Error('Choose a backup file');
+      const fd = new FormData();
+      fd.append('file', f); fd.append('password', rf.querySelector('input[name=password]').value);
+      for (const [k, v] of Object.entries(extra)) fd.append(k, v);
+      return api.form('POST', `/backup/${path}`, fd);
+    };
+    // Clear old results only when another file is picked (clearing on every change shifts the button away mid-click).
+    rf.querySelector('input[type=file]').addEventListener('change', () => { out.innerHTML = ''; });
+    rf.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = rf.querySelector('button[type=submit]');
+      btn.disabled = true; btn.textContent = 'Checking…';
+      try {
+        const { summary: S } = await send('check');
+        const C = S.counts;
+        out.innerHTML = `<div class="backup-summary"><div><b>Backup is valid.</b> ${esc(S.company_name || '')} · made ${esc(fmtWhen(S.created_at))}</div>
+          <div class="backup-counts">${[['Assets', C.assets], ['Employees', C.employees], ['Assignments', C.asset_assignments], ['IP addresses', C.ip_addresses], ['Network devices', C.network_devices], ['ISPs', C.isps], ['Saved passwords', C.credentials + C.wifi_networks], ['Users', C.users], ['Files', S.files]]
+            .map(([l, n]) => `<span><b>${n}</b> ${l}</span>`).join('')}</div>
+          <div class="field" style="margin-top:12px"><label for="restore-confirm">Type <b>RESTORE</b> to replace this system's data with this backup</label><input id="restore-confirm" autocomplete="off" autocapitalize="characters"></div>
+          <button type="button" class="btn danger" data-go style="margin-top:10px" disabled>Restore now</button></div>`;
+        const input = out.querySelector('#restore-confirm');
+        const go = out.querySelector('[data-go]');
+        input.addEventListener('input', () => { go.disabled = input.value.trim() !== 'RESTORE'; });
+        go.addEventListener('click', async () => {
+          go.disabled = true; go.textContent = 'Restoring…';
+          try {
+            const r = await send('restore', { confirm: 'RESTORE' });
+            openModal({
+              title: 'Restore complete',
+              body: `<p style="margin-top:0">This system now has the data from the backup made ${esc(fmtWhen(r.summary.created_at))}.</p>
+                <p>Sign in again with an account from the backup. A copy of the previous data was saved in <code>${esc(r.safety_copy)}</code>.</p>`,
+              submitLabel: 'Go to sign-in',
+              onSubmit: () => { location.hash = '#/dashboard'; location.reload(); },
+            });
+          } catch (ex) { toast(ex.message, 'err'); go.disabled = false; go.textContent = 'Restore now'; }
+        });
+      } catch (ex) { out.innerHTML = `<div class="alert err" style="margin:12px 0 0">${esc(ex.message)}</div>`; } finally { btn.disabled = false; btn.textContent = 'Check backup'; }
+    });
+  },
   async appearance(el) {
     const b = await api.get('/settings/branding');
     [b.login_bg_url, b.logo_url] = await Promise.all([resolveImage(b.login_bg_url), resolveImage(b.logo_url)]);

@@ -53,7 +53,19 @@ npm run db:reset
 
 This deletes `data/itms.db` and uploaded files, then loads fresh sample data. Stop the server first, then start it again afterwards.
 
-## 6. Run the automated tests
+## 6. Back up, or move to another PC
+
+**Settings → Backup & Restore** (Admin):
+
+1. **Create a backup.** Choose a backup password and download one `.itmsbackup` file. It contains everything: all records, users, settings, saved passwords, and uploaded photos and documents. The file is encrypted with your backup password (AES-256-GCM), so keep the password safe. It can't be recovered.
+2. **On the other PC:** install and start the system, sign in with the default `admin` account, and open **Settings → Backup & Restore**.
+3. **Restore.** Choose the file, enter the backup password, click **Check backup** to see what's inside, type `RESTORE`, and confirm. Everything is replaced with the backup's data, including users; sign in again with your usual accounts.
+
+Saved passwords are re-locked with the new PC's own encryption key during restore. Before anything is replaced, a safety copy of the current data is written to `data/backups/before-restore-…/`.
+
+*Manual alternative:* with the system stopped, copying the whole `data/` folder (`itms.db`, `vault.key`, `uploads/`) to the same place on the other PC also moves everything.
+
+## 7. Run the automated tests
 
 ```bash
 npm test
@@ -61,7 +73,7 @@ npm test
 
 The tests use a temporary throwaway database and cover add/edit/retire/delete, deploy/return/transfer, history, IP/network/ISP/device management, the credential vault and permissions, maintenance, warranty, audits, QR codes, search, reports and dashboard numbers.
 
-## 7. Browser preview build (optional)
+## 8. Browser preview build (optional)
 
 ```bash
 npm run build:demo   # → demo/dist/it-manager.html
@@ -94,6 +106,7 @@ This builds a single self-contained HTML file that runs the same frontend and th
 | **Appearance**: editable company name, system name and dashboard title (also via ✎ on the dashboard); sign-in page colour theme, background photo and welcome message | Settings → Appearance |
 | Live digital clock with date and greeting | Dashboard |
 | Company profile/logo, departments, locations, categories, numbering, users, roles and per-user permissions | Settings |
+| **Backup & restore** of the whole system (one password-protected file), for safekeeping or moving to another PC | Settings → Backup & Restore |
 | Global search by tag, serial, employee, IP, MAC, device, ISP, network or location | Top search bar |
 
 ## Security (local MVP)
@@ -150,4 +163,4 @@ The architecture already leaves room for these:
 - **Real-time ping/SNMP monitoring:** ISPs and devices already have `status_source`, `monitor_enabled`, `monitor_target` and `snmp_community_ref` fields. Today status is `manual`, and the UI says so.
 - **Email notifications and reminders for warranty/contract expiry:** the alert queries already exist in `routes/dashboard.js`.
 - **Topology map:** the relationship data is already served by `GET /api/network/topology`.
-- **Also possible later:** QR scanner/mobile app and employee portal (every screen is backed by a JSON API), cloud document storage (the uploads live behind `lib/util.js`), SSO (it only needs to set the same session in `lib/auth.js`), approval workflow, and backup/restore.
+- **Also possible later:** QR scanner/mobile app and employee portal (every screen is backed by a JSON API), cloud document storage (the uploads live behind `lib/util.js`), SSO (it only needs to set the same session in `lib/auth.js`) and approval workflow.

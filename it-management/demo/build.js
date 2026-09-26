@@ -16,6 +16,7 @@ const FILE_SHIMS = {
   [path.join(ROOT, 'server/lib/passwords.js')]: 'passwords.js',
   [path.join(ROOT, 'server/lib/pdf.js')]: 'pdf.js',
   [path.join(ROOT, 'server/lib/labelsPdf.js')]: 'pdf.js',
+  [path.join(ROOT, 'server/lib/backup.js')]: 'backup.js',
 };
 
 const shimPlugin = {
