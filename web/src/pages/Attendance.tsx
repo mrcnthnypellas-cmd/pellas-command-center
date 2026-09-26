@@ -15,6 +15,16 @@ const DEFAULT_START_TIME = "08:00:00";
 const DEFAULT_END_TIME = "17:00:00";
 const DEFAULT_BREAK_MINUTES = 60;
 
+interface EmployeeLateAbsent {
+  employee_id: string;
+  name: string;
+  employee_code: string | null;
+  lateCount: number;
+  lateHours: number;
+  absentDays: number;
+  absentHours: number;
+}
+
 // Counts scheduled work days (per workDays) within [from, to], capped at `today`
 // and not starting before the employee's date_hired.
 function countScheduledWorkdays(from: string, to: string, workDays: number[], dateHired: string | null, today: string) {
@@ -100,7 +110,10 @@ export default function Attendance() {
     setLoading(false);
   }
 
-  async function loadSummary() {
+  // Late/Absent totals for the current date range + department + employee
+  // filters, broken down per employee (used by the stat cards and by the
+  // per-employee rows in the CSV export, so both always agree).
+  async function getLateAbsentByEmployee(): Promise<EmployeeLateAbsent[]> {
     let lateQuery = supabase
       .from("attendance")
       .select("employee_id, time_in, profiles!inner(department_id, employment_status)")
@@ -113,7 +126,7 @@ export default function Attendance() {
 
     let profileQuery = supabase
       .from("profiles")
-      .select("id, date_hired, schedule_id")
+      .select("id, first_name, last_name, employee_code, date_hired, schedule_id")
       .in("employment_status", ["active", "on_leave"]);
     if (deptFilter !== "all") profileQuery = profileQuery.eq("department_id", deptFilter);
     if (employeeFilter.length > 0) profileQuery = profileQuery.in("id", employeeFilter);
@@ -130,15 +143,16 @@ export default function Attendance() {
       ((profilesData as { id: string; schedule_id: string | null }[]) ?? []).map((p) => [p.id, p.schedule_id])
     );
 
-    const lateList = (lateRows as { employee_id: string; time_in: string | null }[]) ?? [];
-    setLateCount(lateList.length);
-    let lateHoursTotal = 0;
-    for (const r of lateList) {
+    const lateByEmployee = new Map<string, { count: number; hours: number }>();
+    for (const r of (lateRows as { employee_id: string; time_in: string | null }[]) ?? []) {
       if (!r.time_in) continue;
       const schedule = scheduleMap.get(employeeScheduleId.get(r.employee_id) ?? "");
-      lateHoursTotal += lateHoursForRow(r.time_in, schedule?.start_time ?? DEFAULT_START_TIME);
+      const hrs = lateHoursForRow(r.time_in, schedule?.start_time ?? DEFAULT_START_TIME);
+      const cur = lateByEmployee.get(r.employee_id) ?? { count: 0, hours: 0 };
+      cur.count += 1;
+      cur.hours += hrs;
+      lateByEmployee.set(r.employee_id, cur);
     }
-    setLateHours(lateHoursTotal);
 
     const attCountByEmployee = new Map<string, number>();
     for (const a of (attendanceData as { employee_id: string }[]) ?? []) {
@@ -146,19 +160,42 @@ export default function Attendance() {
     }
 
     const today = todayInTZ();
-    let absentDaysTotal = 0;
-    let absentHoursTotal = 0;
+    const result: EmployeeLateAbsent[] = [];
     for (const p of (profilesData as any[]) ?? []) {
       const schedule = p.schedule_id ? scheduleMap.get(p.schedule_id) : undefined;
       const workDays = schedule?.work_days ?? DEFAULT_WORK_DAYS;
       const scheduledDays = countScheduledWorkdays(dateFrom, dateTo, workDays, p.date_hired, today);
       const present = attCountByEmployee.get(p.id) ?? 0;
       const absentDays = Math.max(0, scheduledDays - present);
-      absentDaysTotal += absentDays;
-      absentHoursTotal += absentDays * shiftHours(schedule);
+      const late = lateByEmployee.get(p.id) ?? { count: 0, hours: 0 };
+      result.push({
+        employee_id: p.id,
+        name: `${p.first_name} ${p.last_name}`,
+        employee_code: p.employee_code ?? null,
+        lateCount: late.count,
+        lateHours: late.hours,
+        absentDays,
+        absentHours: absentDays * shiftHours(schedule),
+      });
     }
-    setAbsentCount(absentDaysTotal);
-    setAbsentHours(absentHoursTotal);
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async function loadSummary() {
+    const breakdown = await getLateAbsentByEmployee();
+    const totals = breakdown.reduce(
+      (acc, e) => ({
+        lateCount: acc.lateCount + e.lateCount,
+        lateHours: acc.lateHours + e.lateHours,
+        absentCount: acc.absentCount + e.absentDays,
+        absentHours: acc.absentHours + e.absentHours,
+      }),
+      { lateCount: 0, lateHours: 0, absentCount: 0, absentHours: 0 }
+    );
+    setLateCount(totals.lateCount);
+    setLateHours(totals.lateHours);
+    setAbsentCount(totals.absentCount);
+    setAbsentHours(totals.absentHours);
   }
 
   useEffect(() => {
@@ -204,8 +241,12 @@ export default function Attendance() {
     if (employeeFilter.length > 0) query = query.in("employee_id", employeeFilter);
 
     const { data, error } = await query;
+    if (error) {
+      setExportingCsv(false);
+      return push("error", error.message);
+    }
+    const breakdown = await getLateAbsentByEmployee();
     setExportingCsv(false);
-    if (error) return push("error", error.message);
 
     const list = (data as unknown as AttendanceRow[]) ?? [];
     const header = ["Employee", "ID", "Date", "Time In", "Time Out", "Hours", "Status"];
@@ -218,13 +259,32 @@ export default function Attendance() {
       r.hours_worked ?? "",
       r.status,
     ]);
+
+    const perEmployeeHeader = ["Employee", "ID", "Total Late", "Total Late Hours", "Total Absent", "Total Absent Hours"];
+    const perEmployeeLines = breakdown.map((e) => [
+      e.name,
+      e.employee_code ?? "",
+      e.lateCount,
+      e.lateHours.toFixed(1),
+      e.absentDays,
+      e.absentHours.toFixed(1),
+    ]);
+    const grandTotal = breakdown.reduce(
+      (acc, e) => ({
+        lateCount: acc.lateCount + e.lateCount,
+        lateHours: acc.lateHours + e.lateHours,
+        absentDays: acc.absentDays + e.absentDays,
+        absentHours: acc.absentHours + e.absentHours,
+      }),
+      { lateCount: 0, lateHours: 0, absentDays: 0, absentHours: 0 }
+    );
     const summaryRows = [
       [],
-      ["Summary (selected filters)"],
-      ["Total Late", lateCount],
-      ["Total Late Hours", lateHours.toFixed(1)],
-      ["Total Absent", absentCount],
-      ["Total Absent Hours", absentHours.toFixed(1)],
+      ["Per-Employee Late & Absent (selected filters)"],
+      perEmployeeHeader,
+      ...perEmployeeLines,
+      [],
+      ["TOTAL", "", grandTotal.lateCount, grandTotal.lateHours.toFixed(1), grandTotal.absentDays, grandTotal.absentHours.toFixed(1)],
     ];
     const csv = [header, ...lines, ...summaryRows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
