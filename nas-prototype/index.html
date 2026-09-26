@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Private Server Console</title>
+<title>QMARC NASH Server</title>
 <style>
 /* ==========================================================================
    PRIVATE SERVER — PHASE 1 PROTOTYPE
@@ -19,6 +19,7 @@
   --vio:#6d4fb3; --vio-soft:#ece6f8; --org:#bb5519; --org-soft:#fbe8dc;
   --folder:#d39a2c; --folder-2:#e8b64f;
   --side:#0f1b23; --side-2:#15252e; --side-3:#1b2f3a; --side-ink:#c8d3da; --side-muted:#7d8f9a; --side-line:#1d2e38;
+  --side-accent:#3cc4cc; --logo-a:#1a8f99; --logo-b:#0b5a61;
   --shadow:0 1px 2px rgba(15,30,40,.06),0 2px 8px rgba(15,30,40,.04);
   --shadow-lg:0 20px 60px rgba(8,20,28,.30);
   --scrim:rgba(9,18,24,.52);
@@ -75,24 +76,24 @@ a{color:var(--accent)}
 .app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100%}
 .sidebar{background:var(--side);color:var(--side-ink);position:sticky;top:0;height:100vh;height:100dvh;display:flex;flex-direction:column;border-right:1px solid var(--side-line);z-index:40}
 .brand{display:flex;align-items:center;gap:12px;padding:18px 18px 16px;border-bottom:1px solid var(--side-line)}
-.logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(160deg,#1a8f99,#0b5a61);display:grid;place-content:center;gap:3px;padding:0 8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(160deg,var(--logo-a),var(--logo-b));display:grid;place-content:center;gap:3px;padding:0 8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
 .logo i{display:block;width:18px;height:4px;border-radius:2px;background:rgba(255,255,255,.9);position:relative}
 .logo i::after{content:"";position:absolute;right:2px;top:1px;width:2px;height:2px;border-radius:50%;background:#7ff0c0}
 .brand-t{min-width:0}
-.brand-t b{display:block;font-size:13.5px;letter-spacing:.2px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-t b{display:block;font-size:13.5px;line-height:1.25;letter-spacing:.2px;color:#fff;overflow-wrap:anywhere}
 .brand-t span{display:block;font-size:11.5px;color:var(--side-muted)}
 .nav{flex:1;overflow-y:auto;padding:10px 10px 12px}
 .nav-sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--side-muted);padding:14px 10px 6px}
 .nav-i{display:flex;align-items:center;gap:11px;width:100%;border:0;background:none;color:var(--side-ink);padding:8px 10px;border-radius:7px;text-align:left;font-size:13.5px;position:relative}
 .nav-i:hover{background:var(--side-2);color:#fff}
 .nav-i.on{background:var(--side-3);color:#fff}
-.nav-i.on::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:#3cc4cc}
+.nav-i.on::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--side-accent)}
 .nav-i .ic{opacity:.85}
 .nav-i .badge{margin-left:auto;font-size:11px;background:#23414d;color:#bfe9ec;border-radius:10px;padding:0 7px;line-height:18px}
 .side-foot{border-top:1px solid var(--side-line);padding:14px 16px 16px;display:grid;gap:12px}
 .side-meter{font-size:12px;color:var(--side-muted);display:grid;gap:6px}
 .side-meter .bar{height:5px;border-radius:3px;background:var(--side-3);overflow:hidden}
-.side-meter .bar i{display:block;height:100%;background:#3cc4cc;border-radius:3px}
+.side-meter .bar i{display:block;height:100%;background:var(--side-accent);border-radius:3px}
 .side-btn{display:flex;align-items:center;gap:8px;justify-content:center;border:1px solid #28414d;background:transparent;color:var(--side-ink);border-radius:7px;padding:7px 10px;font-size:12.5px}
 .side-btn:hover{background:var(--side-2);color:#fff}
 .scrim{display:none}
@@ -406,8 +407,40 @@ button.fname:hover span{color:var(--accent);text-decoration:underline}
 .save-bar{position:sticky;bottom:0;display:flex;gap:8px;align-items:center;padding:12px 18px;border-top:1px solid var(--line);background:var(--surface);border-radius:0 0 var(--r) var(--r)}
 .save-bar .sp{flex:1}
 
+/* appearance */
+.swatches{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.swatch{width:30px;height:30px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line-2);padding:0;display:grid;place-items:center;color:#fff}
+.swatch:hover{transform:scale(1.08)}
+.swatch.on{box-shadow:0 0 0 2px var(--ink)}
+.color-in{width:34px;height:34px;padding:2px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);cursor:pointer}
+.color-lbl{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.ap-block{padding:16px 18px;border-top:1px solid var(--line);display:grid;gap:14px}
+.ap-block h3{margin:0;font-size:13.5px}
+.ap-block>p{margin:-8px 0 0;font-size:12.5px;color:var(--muted)}
+.bg-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.bg-tile{height:72px;border-radius:9px;border:2px solid transparent;box-shadow:0 0 0 1px var(--line-2);display:flex;align-items:flex-end;padding:6px 8px;color:#fff;font-size:12px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.6);text-align:left;gap:5px}
+.bg-tile.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.bg-tile.dash{background:var(--surface-2);color:var(--ink-2);text-shadow:none;border:2px dashed var(--line-2);box-shadow:none;align-items:center;justify-content:center;flex-direction:column}
+.bg-tile.dash.on{border-color:var(--accent);border-style:solid}
+.ap-inline{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center}
+.ap-inline input[type=range]{accent-color:var(--accent);width:160px}
+.login-prev{height:230px;border-radius:10px;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line);padding:16px}
+.mini{width:220px;max-width:100%;background:rgba(18,30,37,.86);border:1px solid #21363f;border-radius:10px;padding:14px;color:#e1e8ed;display:grid;gap:7px;font-size:11px;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.mini .mh{display:flex;gap:8px;align-items:center}
+.mini .mh .logo{width:22px;height:22px;border-radius:5px;padding:0 5px;gap:2px}
+.mini .mh .logo i{width:12px;height:2.5px}
+.mini .mh .logo i::after{display:none}
+.mini b{font-size:12px}
+.mini span{color:#8ea0aa}
+.mini i.f{display:block;height:18px;border-radius:5px;background:#0e181d;border:1px solid #2a3f49}
+.mini i.b{display:block;height:20px;border-radius:5px;background:var(--accent)}
+.login-custom{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:8px}
+.login-custom .btn{background:rgba(10,18,22,.6);border-color:rgba(255,255,255,.18);color:#e1e8ed;backdrop-filter:blur(6px)}
+.login-custom .btn:hover{background:rgba(10,18,22,.8)}
+.login .msg{color:#c9d6dd;font-size:13.5px}
+
 /* ---------- Overlays ---------- */
-.modal-back{position:fixed;inset:0;background:var(--scrim);z-index:100;display:grid;place-items:center;padding:16px;animation:fade .15s}
+.modal-back{position:fixed;inset:0;background:var(--scrim);z-index:160;display:grid;place-items:center;padding:16px;animation:fade .15s}
 @keyframes fade{from{opacity:0}}
 .modal{background:var(--surface);border-radius:12px;box-shadow:var(--shadow-lg);width:100%;max-width:520px;max-height:calc(100dvh - 32px);display:flex;flex-direction:column;animation:rise .18s ease}
 .modal.wide{max-width:760px}
@@ -416,12 +449,12 @@ button.fname:hover span{color:var(--accent);text-decoration:underline}
 .modal-h h3{margin:0;font-size:16px;flex:1}
 .modal-b{padding:18px;overflow-y:auto}
 .modal-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
-.menu{position:fixed;z-index:120;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow-lg);padding:5px;min-width:180px}
+.menu{position:fixed;z-index:170;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow-lg);padding:5px;min-width:180px}
 .menu button{display:flex;align-items:center;gap:9px;width:100%;border:0;background:none;padding:7px 10px;border-radius:6px;font-size:13px;text-align:left}
 .menu button:hover{background:var(--surface-2)}
 .menu button.danger{color:var(--bad)}
 .menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
-.pop{position:fixed;z-index:110;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);width:340px;max-width:calc(100vw - 32px)}
+.pop{position:fixed;z-index:165;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);width:340px;max-width:calc(100vw - 32px)}
 .pop-h{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);gap:8px}
 .pop-h b{flex:1}
 .toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:200;display:grid;gap:8px;justify-items:center;pointer-events:none;width:calc(100% - 32px);max-width:440px}
@@ -446,7 +479,7 @@ button.fname:hover span{color:var(--accent);text-decoration:underline}
 .wiz-steps li{display:flex;align-items:center;gap:11px;padding:8px 8px;border-radius:7px;font-size:13.5px;color:var(--side-muted)}
 .wiz-steps li i{width:24px;height:24px;border-radius:50%;border:1.5px solid #2b4552;display:grid;place-items:center;font-style:normal;font-size:11.5px;font-weight:600;flex:none}
 .wiz-steps li.on{background:var(--side-3);color:#fff}
-.wiz-steps li.on i{border-color:#3cc4cc;color:#3cc4cc}
+.wiz-steps li.on i{border-color:var(--side-accent);color:var(--side-accent)}
 .wiz-steps li.done{color:var(--side-ink)}
 .wiz-steps li.done i{background:#1f7f5a;border-color:#1f7f5a;color:#fff}
 .wiz-main{display:flex;flex-direction:column;min-width:0}
@@ -483,7 +516,7 @@ button.fname:hover span{color:var(--accent);text-decoration:underline}
 .login h2{margin:0;font-size:20px}
 .login p{margin:0;color:#8ea0aa;font-size:13px}
 .restart{display:grid;justify-items:center;gap:14px;text-align:center}
-.spinner{width:42px;height:42px;border-radius:50%;border:3px solid #24404b;border-top-color:#3cc4cc;animation:spin .9s linear infinite}
+.spinner{width:42px;height:42px;border-radius:50%;border:3px solid #24404b;border-top-color:var(--side-accent);animation:spin .9s linear infinite}
 
 /* ---------- Responsive ---------- */
 @media (max-width:1280px){
@@ -630,9 +663,9 @@ const S = {
     ],
   },
   settings: {
-    general:{ serverName:'MY OFFICE SERVER', description:'Main file server — front office', timezone:'Automatic (from Windows)', language:'English', dateFormat:'Sep 26, 2026' },
+    general:{ serverName:'QMARC NASH SERVER', description:'Main file server — front office', timezone:'Automatic (from Windows)', language:'English', dateFormat:'Sep 26, 2026' },
     storage:{ recycleBin:true, recycleDays:30, defaultQuota:'100 GB', lowSpaceAlert:85, indexing:true, smartCheck:'Daily' },
-    network:{ hostname:'office-server', ipMode:'Automatic (DHCP)', webPort:443, bandwidth:'Unlimited', discovery:true },
+    network:{ hostname:'qmarc-nash', ipMode:'Automatic (DHCP)', webPort:443, bandwidth:'Unlimited', discovery:true },
     remote:{ enabled:true, relay:'Automatic (nearest region)', approveNew:true, guestRemote:false, autoReconnect:true },
     users:{ minPassword:10, complex:true, require2faAdmins:false, sessionTimeout:'30 minutes' },
     security:{ forceHttps:true, autoBlock:true, blockThreshold:5, blockMinutes:30, firewall:'Protected (recommended)', loginAlerts:true },
@@ -646,6 +679,7 @@ const S = {
   m: { cpu:[], ram:[], down:[], up:[], temp:41 },
   logFilter: 'all', logQuery: '', logRange: 'all',
   wiz: null,
+  ap: null,
 };
 
 /* ---------- demo file tree ---------- */
@@ -854,6 +888,7 @@ const P = {
   mail:'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
   link:'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
   zap:'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+  palette:'M12 22a10 10 0 1 1 10-10c0 2.5-2 3.5-3.5 3.5H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22zM7.5 10.5h.01M12 7h.01M16.5 10.5h.01',
   eye:'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   sliders:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
   home:'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
@@ -912,6 +947,113 @@ function toast(msg, kind = 'ok') {
   el.innerHTML = ic(kind === 'bad' ? 'alert' : kind === 'warn' ? 'alert' : kind === 'info' ? 'info' : 'check', 16) + `<span>${esc(msg)}</span>`;
   document.getElementById('toasts').appendChild(el);
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
+}
+
+/* ==========================================================================
+   APPEARANCE — theme mode, accent, sidebar and sign-in background.
+   Saved only in this browser (localStorage) as a viewer preference.
+   ========================================================================== */
+const ACCENTS = [['Teal','#0d7680'],['Blue','#2563c9'],['Indigo','#4f46e5'],['Green','#1d8048'],['Amber','#b7791f'],['Orange','#c2571a'],['Red','#c0392b'],['Pink','#c02672'],['Slate','#475569']];
+const SIDEBARS = [['Midnight','#0f1b23'],['Graphite','#18191d'],['Navy','#0d1830'],['Plum','#1c1226'],['Forest','#0e1c16'],['Espresso','#1e1611'],['Steel','#243240']];
+const LOGIN_PRESETS = [
+  ['aurora','Aurora','radial-gradient(1200px 600px at 20% 0%,#16323b,#0a1216 60%)'],
+  ['ocean','Ocean','radial-gradient(900px 600px at 80% 10%,#1d4f8a,transparent 60%),linear-gradient(160deg,#0b1a33,#06101f)'],
+  ['sunset','Sunset','linear-gradient(150deg,#3b1d3f 0%,#7a2e3a 45%,#c0602b 100%)'],
+  ['forest','Forest','radial-gradient(1000px 600px at 10% 90%,#1f5a3a,transparent 60%),linear-gradient(180deg,#0c1a14,#07110c)'],
+  ['royal','Royal','radial-gradient(900px 600px at 70% 20%,#4b2a86,transparent 60%),linear-gradient(160deg,#17112b,#0a0814)'],
+  ['slate','Slate','linear-gradient(160deg,#2a2f38,#14171c)'],
+  ['sky','Sky','linear-gradient(160deg,#8fb6d9,#3d6e9e)'],
+];
+const AP_DEFAULT = { mode:'system', accent:'#0d7680', sidebar:'#0f1b23', login:{ kind:'preset', preset:'aurora', c1:'#1d3b6a', c2:'#0a1020', image:'', dim:35, message:'Sign in to manage your server.' } };
+function loadAp() {
+  let ap = structuredClone(AP_DEFAULT);
+  try {
+    const raw = localStorage.getItem('nas-appearance');
+    if (raw) { const v = JSON.parse(raw); ap = { ...ap, ...v, login: { ...ap.login, ...(v.login || {}) } }; }
+    else { const t = localStorage.getItem('nas-theme'); if (t === 'dark' || t === 'light') ap.mode = t; }
+  } catch (e) {}
+  return ap;
+}
+function saveAp() {
+  try { localStorage.setItem('nas-appearance', JSON.stringify(S.ap)); return true; }
+  catch (e) { return false; }
+}
+function hexRgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function rgbHex(r) { return '#' + r.map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join(''); }
+function mix(a, b, t) { const x = hexRgb(a), y = hexRgb(b); return rgbHex(x.map((v, i) => v + (y[i] - v) * t)); }
+function lum(h) { const c = hexRgb(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; }
+const AP_VARS = ['--accent','--accent-2','--accent-ink','--accent-soft','--side-accent','--logo-a','--logo-b','--side','--side-2','--side-3','--side-line'];
+function applyAppearance() {
+  const root = document.documentElement, ap = S.ap;
+  if (ap.mode === 'system') delete root.dataset.theme; else root.dataset.theme = ap.mode;
+  AP_VARS.forEach(v => root.style.removeProperty(v));
+  const dark = isDark();
+  if (ap.accent.toLowerCase() !== AP_DEFAULT.accent) {
+    const c = ap.accent;
+    let a, a2, soft, ink;
+    if (dark) { a = lum(c) < .3 ? mix(c, '#ffffff', .32) : c; a2 = mix(a, '#ffffff', .18); soft = mix(a, '#121a20', .8); ink = lum(a) > .4 ? '#06181b' : '#ffffff'; }
+    else { a = lum(c) > .45 ? mix(c, '#000000', .3) : c; a2 = mix(a, '#000000', .18); soft = mix(a, '#ffffff', .86); ink = lum(a) > .5 ? '#0b1a20' : '#ffffff'; }
+    root.style.setProperty('--accent', a); root.style.setProperty('--accent-2', a2); root.style.setProperty('--accent-soft', soft); root.style.setProperty('--accent-ink', ink);
+    root.style.setProperty('--side-accent', lum(c) < .35 ? mix(c, '#ffffff', .4) : c);
+    root.style.setProperty('--logo-a', mix(c, '#ffffff', .12)); root.style.setProperty('--logo-b', mix(c, '#000000', .3));
+  }
+  if (ap.sidebar.toLowerCase() !== AP_DEFAULT.sidebar) {
+    const b = lum(ap.sidebar) > .12 ? mix(ap.sidebar, '#000000', .55) : ap.sidebar;
+    root.style.setProperty('--side', b); root.style.setProperty('--side-2', mix(b, '#ffffff', .06));
+    root.style.setProperty('--side-3', mix(b, '#ffffff', .11)); root.style.setProperty('--side-line', mix(b, '#ffffff', .07));
+  }
+}
+function loginBg() {
+  const l = S.ap.login;
+  if (l.kind === 'image' && l.image) { const d = l.dim / 100; return `linear-gradient(rgba(0,0,0,${d}),rgba(0,0,0,${d})), url('${l.image}') center / cover no-repeat`; }
+  if (l.kind === 'color') return `linear-gradient(160deg,${l.c1},${l.c2})`;
+  return (LOGIN_PRESETS.find(p => p[0] === l.preset) || LOGIN_PRESETS[0])[2];
+}
+function paintBg() {
+  document.querySelectorAll('[data-login-bg]').forEach(e => e.style.background = loginBg());
+  document.querySelectorAll('[data-img-tile]').forEach(e => e.style.background = S.ap.login.image ? `linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.25)), url('${S.ap.login.image}') center / cover` : '');
+  document.querySelectorAll('[data-ap-msg]').forEach(e => e.textContent = S.ap.login.message);
+}
+function isHexIn(list, v) { return list.some(x => x[1].toLowerCase() === v.toLowerCase()); }
+function loginBgControls(ctx) {
+  const l = S.ap.login;
+  return `<div class="stack" style="gap:14px" id="ap-login-ctl-${ctx}">
+    <div class="bg-tiles">
+      ${LOGIN_PRESETS.map(([k, n, css]) => `<button class="bg-tile ${l.kind === 'preset' && l.preset === k ? 'on' : ''}" style="background:${css}" data-act="ap-bg" data-k="${k}" aria-pressed="${l.kind === 'preset' && l.preset === k}">${l.kind === 'preset' && l.preset === k ? ic('check', 13, 3) : ''}${n}</button>`).join('')}
+      <button class="bg-tile ${l.kind === 'color' ? 'on' : ''}" style="background:linear-gradient(160deg,${l.c1},${l.c2})" data-act="ap-bg" data-k="color" aria-pressed="${l.kind === 'color'}">${l.kind === 'color' ? ic('check', 13, 3) : ''}Custom colors</button>
+      <button class="bg-tile ${l.image ? '' : 'dash'} ${l.kind === 'image' ? 'on' : ''}" data-img-tile data-act="ap-bg" data-k="image" aria-pressed="${l.kind === 'image'}">${l.image ? (l.kind === 'image' ? ic('check', 13, 3) : '') + 'My picture' : ic('upload', 18) + '<span>Upload picture</span>'}</button>
+    </div>
+    ${l.kind === 'color' ? `<div class="ap-inline"><label class="color-lbl">Top color <input type="color" class="color-in" id="ap-c1-${ctx}" value="${l.c1}" data-apinput="c1"></label><label class="color-lbl">Bottom color <input type="color" class="color-in" id="ap-c2-${ctx}" value="${l.c2}" data-apinput="c2"></label></div>` : ''}
+    ${l.kind === 'image' && l.image ? `<div class="ap-inline"><button class="btn sm" data-act="ap-img-pick" data-ctx="${ctx}">${ic('upload', 14)} Change picture</button><button class="btn sm danger" data-act="ap-img-remove">${ic('trash', 14)} Remove picture</button><label class="color-lbl">Darken <input type="range" min="0" max="80" value="${l.dim}" id="ap-dim-${ctx}" data-apinput="dim" aria-label="Darken picture"></label></div>` : ''}
+    <input type="file" accept="image/*" id="ap-file-${ctx}" data-change="ap-file" hidden>
+    <div class="field"><label for="ap-msg-${ctx}">Welcome message</label><input class="input" id="ap-msg-${ctx}" value="${esc(l.message)}" maxlength="80" data-apinput="message"></div>
+  </div>`;
+}
+function refreshAp(full = true) {
+  applyAppearance();
+  if (!saveAp() && S.ap.login.image) toast('Picture is too large to keep after a reload, but it works for now', 'warn');
+  const m = document.getElementById('ap-login-ctl-modal'); if (m) m.outerHTML = loginBgControls('modal');
+  if (full && S.page === 'settings' && S.setSection === 'appearance') render(); else { renderTop(); renderSide(); }
+  paintBg();
+}
+function readPicture(file) {
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { toast('Choose an image file (JPG, PNG or WebP)', 'warn'); return; }
+  if (file.size > 15 * MB) { toast('That picture is over 15 MB. Choose a smaller one.', 'warn'); return; }
+  const r = new FileReader();
+  r.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1920 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      S.ap.login.image = c.toDataURL('image/jpeg', .82); S.ap.login.kind = 'image';
+      refreshAp(); toast('Sign-in background updated');
+    };
+    img.onerror = () => toast('That picture could not be opened', 'bad');
+    img.src = r.result;
+  };
+  r.readAsDataURL(file);
 }
 
 /* ==========================================================================
@@ -979,7 +1121,7 @@ function render() {
   const a = document.activeElement, id = a && a.id, pos = a && 'selectionStart' in a ? a.selectionStart : null;
   renderSide(); renderTop();
   document.getElementById('view').innerHTML = PAGES[S.page]();
-  renderDock();
+  renderDock(); paintBg();
   if (id) { const el = document.getElementById(id); if (el) { el.focus(); try { if (pos !== null) el.setSelectionRange(pos, pos); } catch (e) {} } }
 }
 function go(page) {
@@ -1425,6 +1567,7 @@ PAGES.system = () => {
 /* ---------- Settings ---------- */
 const SET_SECTIONS = [
   ['general','General','settings','Server name, time zone and language'],
+  ['appearance','Appearance','palette','Changes apply instantly and are remembered in this browser'],
   ['storage','Storage','storage','Recycle bin, quotas and drive checks'],
   ['network','Network','wifi','Hostname, local address and bandwidth'],
   ['remote','Remote Access','globe','How devices reach this server'],
@@ -1440,6 +1583,19 @@ function sInput(path, type = 'text') { const id = 'set-' + path.replace('.', '-'
 function sSelect(path, opts) { const id = 'set-' + path.replace('.', '-'); const v = gp(path); return `<select class="select" id="${id}" data-change="set" data-path="${path}" aria-label="${path}">${opts.map(o => `<option ${String(o) === String(v) ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`; }
 function sToggle(path) { return sw(gp(path), 'set-toggle', `data-path="${path}"`); }
 const SET_BODY = {
+  appearance: () => {
+    const ap = S.ap;
+    const accCustom = !isHexIn(ACCENTS, ap.accent), sideCustom = !isHexIn(SIDEBARS, ap.sidebar);
+    return `<div class="set-row"><div class="lbl"><b>Theme</b><span>Light, dark, or follow the device setting</span></div><div class="ctl"><div class="seg" role="group" aria-label="Theme">${[['light','Light','sun'],['dark','Dark','moon'],['system','System','monitor']].map(([k, l, i]) => `<button class="${ap.mode === k ? 'on' : ''}" data-act="ap-mode" data-v="${k}">${ic(i, 14)}${l}</button>`).join('')}</div></div></div>
+    <div class="set-row"><div class="lbl"><b>Accent color</b><span>Buttons, highlights, charts and links</span></div><div class="ctl"><div class="swatches">${ACCENTS.map(([n, h]) => `<button class="swatch ${ap.accent.toLowerCase() === h ? 'on' : ''}" style="background:${h}" data-act="ap-accent" data-v="${h}" title="${n}" aria-label="${n}" aria-pressed="${ap.accent.toLowerCase() === h}">${ap.accent.toLowerCase() === h ? ic('check', 14, 3) : ''}</button>`).join('')}<label class="color-lbl" title="Pick any color"><input type="color" class="color-in" id="ap-accent" value="${ap.accent}" data-apinput="accent" aria-label="Custom accent color" style="${accCustom ? 'outline:2px solid var(--ink);outline-offset:1px' : ''}">Custom</label></div></div></div>
+    <div class="set-row"><div class="lbl"><b>Sidebar color</b><span>Background of the navigation menu</span></div><div class="ctl"><div class="swatches">${SIDEBARS.map(([n, h]) => `<button class="swatch ${ap.sidebar.toLowerCase() === h ? 'on' : ''}" style="background:${h}" data-act="ap-side" data-v="${h}" title="${n}" aria-label="${n}" aria-pressed="${ap.sidebar.toLowerCase() === h}">${ap.sidebar.toLowerCase() === h ? ic('check', 14, 3) : ''}</button>`).join('')}<label class="color-lbl" title="Pick any color"><input type="color" class="color-in" id="ap-side" value="${ap.sidebar}" data-apinput="side" aria-label="Custom sidebar color" style="${sideCustom ? 'outline:2px solid var(--ink);outline-offset:1px' : ''}">Custom</label></div></div></div>
+    <div class="ap-block"><h3>Sign-in screen background</h3><p>Choose a preset, your own two colors, or upload a picture.</p>
+      <div class="grid g-2" style="align-items:start">${loginBgControls('set')}
+        <div class="stack" style="gap:10px"><div class="login-prev" data-login-bg><div class="mini"><div class="mh"><div class="logo"><i></i><i></i><i></i></div><div><b>${esc(serverName())}</b><br><span>Private Server</span></div></div><span data-ap-msg>${esc(ap.login.message)}</span><i class="f"></i><i class="f"></i><i class="b"></i></div></div>
+          <button class="btn" data-act="ap-preview-login">${ic('eye', 15)} Preview sign-in screen</button></div></div>
+    </div>
+    <div class="set-row"><div class="lbl"><b>Reset appearance</b><span>Go back to the default theme, colors and background</span></div><div class="ctl"><button class="btn danger" data-act="ap-reset">${ic('restore', 15)} Reset</button></div></div>`;
+  },
   general: () => sRow('Server name', 'Shown in the console and to connected devices', sInput('general.serverName')) + sRow('Description', '', sInput('general.description')) + sRow('Time zone', '', sSelect('general.timezone', ['Automatic (from Windows)','(UTC+00:00) UTC','(UTC+01:00) Central Europe','(UTC+08:00) Manila / Singapore','(UTC−05:00) Eastern Time','(UTC−08:00) Pacific Time'])) + sRow('Language', '', sSelect('general.language', ['English','Filipino','Español','Deutsch','Français'])) + sRow('Date format', '', sSelect('general.dateFormat', ['Sep 26, 2026','26/09/2026','09/26/2026','2026-09-26'])),
   storage: () => sRow('Recycle bin', 'Deleted files can be recovered', sToggle('storage.recycleBin')) + sRow('Keep deleted files for', 'Days before the recycle bin empties', sSelect('storage.recycleDays', [7, 14, 30, 60, 90])) + sRow('Default user quota', 'Applied to new users', sSelect('storage.defaultQuota', ['10 GB','50 GB','100 GB','250 GB','500 GB','No limit'])) + sRow('Low space warning', 'Alert when a drive is this full (%)', sSelect('storage.lowSpaceAlert', [75, 80, 85, 90, 95])) + sRow('File search index', 'Faster search across all folders', sToggle('storage.indexing')) + sRow('Drive health check', '', sSelect('storage.smartCheck', ['Hourly','Daily','Weekly'])),
   network: () => sRow('Hostname', 'Name on the local network', sInput('network.hostname')) + sRow('Local IP address', `Currently ${S.server.lanIp}`, sSelect('network.ipMode', ['Automatic (DHCP)','Fixed (reserved by router)'])) + sRow('Web interface port', 'HTTPS port on this PC', sSelect('network.webPort', [443, 8443, 5001])) + sRow('Bandwidth limit', 'For remote transfers', sSelect('network.bandwidth', ['Unlimited','100 Mbps','50 Mbps','20 Mbps'])) + sRow('Local network discovery', 'Let other PCs find this server', sToggle('network.discovery')),
@@ -1458,7 +1614,7 @@ PAGES.settings = () => {
     <nav class="card set-nav" aria-label="Settings sections">${SET_SECTIONS.map(([k, l, i]) => `<button class="${S.setSection === k ? 'on' : ''}" data-act="set-sec" data-k="${k}">${ic(i, 17)}${l}</button>`).join('')}</nav>
     <section class="card"><div class="set-sec-h"><span class="f-ic t-acc" style="width:38px;height:38px;border-radius:9px;display:grid;place-items:center">${ic(sec[2], 19)}</span><div><h2>${sec[1]}</h2><p>${sec[3]}</p></div></div>
       <div>${SET_BODY[sec[0]]()}</div>
-      <div class="save-bar"><span class="muted" style="font-size:12.5px" id="dirty-t">${dirty ? '<span style="color:var(--warn);font-weight:600">Unsaved changes</span>' : 'All changes saved'}</span><span class="sp"></span><button class="btn" data-act="set-discard" id="set-discard" ${dirty ? '' : 'disabled'}>Discard</button><button class="btn primary" data-act="set-save" id="set-save" ${dirty ? '' : 'disabled'}>Save changes</button></div>
+      ${S.setSection === 'appearance' ? '' : `<div class="save-bar"><span class="muted" style="font-size:12.5px" id="dirty-t">${dirty ? '<span style="color:var(--warn);font-weight:600">Unsaved changes</span>' : 'All changes saved'}</span><span class="sp"></span><button class="btn" data-act="set-discard" id="set-discard" ${dirty ? '' : 'disabled'}>Discard</button><button class="btn primary" data-act="set-save" id="set-save" ${dirty ? '' : 'disabled'}>Save changes</button></div>`}
     </section></div>`;
 };
 function updateDirty() {
@@ -1757,7 +1913,7 @@ function renderWiz() {
     nextLabel = 'Get started';
   } else if (st === 1) {
     body = `<h2>Name your server</h2><p class="lead">This name appears in the console and on every connected device.</p>
-      <div class="field"><label for="wz-name">Server name</label><input class="input" id="wz-name" value="${esc(w.name)}" maxlength="40" data-input="wz-name" style="font-size:16px;padding:11px 13px">${w.err.name ? `<div class="err-t">${w.err.name}</div>` : '<span class="hint">For example: MY OFFICE SERVER</span>'}</div>
+      <div class="field"><label for="wz-name">Server name</label><input class="input" id="wz-name" value="${esc(w.name)}" maxlength="40" data-input="wz-name" style="font-size:16px;padding:11px 13px">${w.err.name ? `<div class="err-t">${w.err.name}</div>` : '<span class="hint">For example: QMARC NASH SERVER</span>'}</div>
       <div class="card" style="padding:14px 16px;display:flex;gap:12px;align-items:center;background:var(--surface-2)"><div class="logo" style="flex:none"><i></i><i></i><i></i></div><div><b id="wz-prev">${esc(w.name || 'Untitled server')}</b><div class="muted" style="font-size:12px">Private Server · ${S.server.id}</div></div></div>`;
   } else if (st === 2) {
     const lines = ['Checking storage controllers…', 'SATA port 1: device found', 'Reading drive information (DATA)…', 'NVMe slot 1: device found', 'Reading drive information (BACKUP)…', 'Checking drive health (SMART)…', 'Scan complete: 2 drives detected'];
@@ -1846,20 +2002,23 @@ function showNotes(anchor) {
 }
 function lockScreen(msg) {
   closeModal(); closeMenu(); closePop();
-  document.getElementById('full-root').innerHTML = `<div class="fullscreen dark"><form class="login" id="login-f">
+  document.getElementById('full-root').innerHTML = `<div class="fullscreen dark" data-login-bg><form class="login" id="login-f">
     <div style="display:flex;align-items:center;gap:12px"><div class="logo"><i></i><i></i><i></i></div><div><h2>${esc(serverName())}</h2><p>Private Server · ${S.server.id}</p></div></div>
+    <p class="msg" data-ap-msg>${esc(S.ap.login.message)}</p>
     ${msg ? `<p style="color:#9fd9c0">${esc(msg)}</p>` : ''}
     <div class="field"><label for="li-u">Username</label><input class="input" id="li-u" value="${esc(S.session.user)}" autocomplete="off"></div>
     <div class="field"><label for="li-p">Password</label><input class="input" id="li-p" type="password" placeholder="Any password works in the demo"></div>
     <button class="btn primary" type="submit" style="padding:10px">Sign in</button>
-    <p style="font-size:12px">${ic('lock', 13)} Secure connection · demo sign-in, no real authentication</p></form></div>`;
+    <p style="font-size:12px">${ic('lock', 13)} Secure connection · demo sign-in, no real authentication</p></form>
+    <div class="login-custom"><button class="btn sm" type="button" data-act="ap-login-modal">${ic('palette', 15)} Background</button></div></div>`;
+  paintBg();
   setTimeout(() => document.getElementById('li-p')?.focus(), 30);
 }
 function simulateRestart(shutdown) {
   closeModal();
   const root = document.getElementById('full-root');
   let n = shutdown ? 0 : 5;
-  const paint = () => root.innerHTML = `<div class="fullscreen dark"><div class="restart">${shutdown ? `<div style="width:56px;height:56px;border-radius:50%;border:2px solid #2d4955;display:grid;place-items:center;color:#8ea0aa">${ic('power', 26)}</div><h2 style="margin:0">Server is shut down</h2><p style="margin:0;color:#8ea0aa;max-width:360px">In the real product the PC would stop serving files until it is turned back on. This is a simulation.</p><button class="btn primary" data-act="power-on">${ic('power', 16)} Power on (simulated)</button>` : `<div class="spinner"></div><h2 style="margin:0">Restarting ${esc(serverName())}…</h2><p style="margin:0;color:#8ea0aa">Back in ${n} s · simulation only</p>`}</div></div>`;
+  const paint = () => { root.innerHTML = `<div class="fullscreen dark" data-login-bg><div class="restart">${shutdown ? `<div style="width:56px;height:56px;border-radius:50%;border:2px solid #2d4955;display:grid;place-items:center;color:#8ea0aa">${ic('power', 26)}</div><h2 style="margin:0">Server is shut down</h2><p style="margin:0;color:#8ea0aa;max-width:360px">In the real product the PC would stop serving files until it is turned back on. This is a simulation.</p><button class="btn primary" data-act="power-on">${ic('power', 16)} Power on (simulated)</button>` : `<div class="spinner"></div><h2 style="margin:0">Restarting ${esc(serverName())}…</h2><p style="margin:0;color:#8ea0aa">Back in ${n} s · simulation only</p>`}</div></div>`; paintBg(); };
   paint();
   if (!shutdown) { const iv = setInterval(() => { n--; if (n <= 0) { clearInterval(iv); root.innerHTML = ''; S.server.startTs = Date.now(); addLog('system', 'Server restarted', 'Restart requested from console', 'info'); render(); toast('Server restarted'); } else paint(); }, 1000); }
 }
@@ -1875,12 +2034,25 @@ const A = {
   nav: el => go(el.dataset.page),
   'open-nav': () => document.getElementById('app').classList.add('nav-open'),
   'close-nav': () => document.getElementById('app').classList.remove('nav-open'),
-  theme: () => { document.documentElement.dataset.theme = isDark() ? 'light' : 'dark'; try { localStorage.setItem('nas-theme', document.documentElement.dataset.theme); } catch (e) {} renderTop(); },
+  theme: () => { S.ap.mode = isDark() ? 'light' : 'dark'; refreshAp(); },
+  'ap-mode': el => { S.ap.mode = el.dataset.v; refreshAp(); },
+  'ap-accent': el => { S.ap.accent = el.dataset.v; refreshAp(); },
+  'ap-side': el => { S.ap.sidebar = el.dataset.v; refreshAp(); },
+  'ap-bg': el => { const k = el.dataset.k, l = S.ap.login;
+    if (k === 'image') { if (!l.image) { const f = el.closest('[id^="ap-login-ctl-"]').querySelector('input[type=file]'); f.click(); return; } l.kind = 'image'; }
+    else if (k === 'color') l.kind = 'color'; else { l.kind = 'preset'; l.preset = k; }
+    refreshAp(); },
+  'ap-img-pick': el => document.getElementById('ap-file-' + el.dataset.ctx).click(),
+  'ap-img-remove': () => { S.ap.login.image = ''; S.ap.login.kind = 'preset'; refreshAp(); toast('Picture removed'); },
+  'ap-reset': () => confirmBox('Reset appearance?', 'Theme, colors and the sign-in background go back to their defaults.', 'Reset', () => { S.ap = structuredClone(AP_DEFAULT); refreshAp(); toast('Appearance reset'); }),
+  'ap-preview-login': () => lockScreen('Preview: sign in with any password to return.'),
+  'ap-login-modal': () => openModal({ title:'Sign-in background', wide:true, body: loginBgControls('modal'), buttons:[{ label:'Done', cls:'primary', fn: closeModal }] }),
   notes: el => showNotes(el),
   'notes-read': () => { S.notes.forEach(n => n.read = true); closePop(); renderTop(); },
   'user-menu': el => openMenu(el, [
     { label:'My account', icon:'user', fn: () => { const u = S.users.find(x => x.username === S.session.user); if (u) userModal(u); } },
     { label:'Switch theme', icon:'moon', fn: A.theme },
+    { label:'Appearance', icon:'palette', fn: () => { S.setSection = 'appearance'; go('settings'); } },
     { label:'Setup wizard', icon:'wand', fn: wizOpen }, '-',
     { label:'Sign out', icon:'logout', fn: () => { addLog('login', 'User signed out', 'This browser', 'info'); lockScreen('You have signed out.'); } },
   ]),
@@ -2032,7 +2204,17 @@ document.addEventListener('click', e => {
   if (fn) { if (el.tagName === 'A') e.preventDefault(); fn(el, e); }
 });
 document.addEventListener('input', e => {
-  const el = e.target, k = el.dataset.input; if (!k) return;
+  const el = e.target;
+  const ak = el.dataset.apinput;
+  if (ak) {
+    if (ak === 'accent') S.ap.accent = el.value; else if (ak === 'side') S.ap.sidebar = el.value;
+    else if (ak === 'dim') S.ap.login.dim = Number(el.value); else S.ap.login[ak] = el.value;
+    applyAppearance(); paintBg();
+    if (ak === 'c1' || ak === 'c2') document.querySelectorAll('.bg-tile[data-k="color"]').forEach(t => t.style.background = `linear-gradient(160deg,${S.ap.login.c1},${S.ap.login.c2})`);
+    if (ak === 'message') saveAp();
+    return;
+  }
+  const k = el.dataset.input; if (!k) return;
   if (k === 'file-q') { S.fileQuery = el.value; S.sel.clear(); render(); }
   else if (k === 'log-q') { S.logQuery = el.value; render(); }
   else if (k === 'set') { const [a, b] = el.dataset.path.split('.'); S.setDraft[a][b] = el.type === 'number' ? Number(el.value) : el.value; updateDirty(); }
@@ -2047,6 +2229,8 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const el = e.target, k = el.dataset.change;
+  if (el.dataset.apinput && el.dataset.apinput !== 'message') { refreshAp(); return; }
+  if (k === 'ap-file') { readPicture(el.files && el.files[0]); el.value = ''; return; }
   if (el.name === 'rs-dest') { document.getElementById('rs-o1').classList.toggle('on', el.value === 'orig'); document.getElementById('rs-o2').classList.toggle('on', el.value === 'new'); }
   if (!k) return;
   if (k === 'file-sort') { S.fileSort = { key: el.value, dir: 1 }; render(); }
@@ -2075,7 +2259,7 @@ document.addEventListener('keydown', e => {
 });
 addEventListener('resize', closeMenu);
 addEventListener('scroll', closeMenu, true);
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => renderTop());
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { applyAppearance(); renderTop(); });
 
 /* ==========================================================================
    LIVE SIMULATION TICK — updates numbers in place without re-rendering pages
@@ -2099,7 +2283,7 @@ function tick() {
 setInterval(tick, 2000);
 
 /* ---------- boot ---------- */
-try { const t = localStorage.getItem('nas-theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}
+S.ap = loadAp(); applyAppearance();
 S.setDraft = structuredClone(S.settings);
 { const h = (location.hash || '').slice(1); if (PAGES[h]) S.page = h; }
 render();
