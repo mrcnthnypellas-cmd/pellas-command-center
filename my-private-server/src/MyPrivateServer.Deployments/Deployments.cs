@@ -89,7 +89,13 @@ public sealed class DeploymentService : BackgroundService
         if (parts.Length != 2 || parts.Any(p => !System.Text.RegularExpressions.Regex.IsMatch(p, "^[A-Za-z0-9_.-]{1,100}$")))
             throw new UserFacingException("Enter the repository as owner/name, for example my-company/website.");
         _sites.Get(site);
-        var info = await _github.RepositoryAsync(parts[0], parts[1], string.IsNullOrWhiteSpace(token) ? null : token.Trim(), ct);
+        RepoInfo info;
+        try { info = await _github.RepositoryAsync(parts[0], parts[1], string.IsNullOrWhiteSpace(token) ? null : token.Trim(), ct); }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException || ex is UserFacingException { StatusCode: 429 })
+        {
+            // GitHub API unavailable or rate-limited: fall back to the git protocol.
+            info = await GitRemoteInfoAsync(parts[0], parts[1], string.IsNullOrWhiteSpace(token) ? null : token.Trim(), ct);
+        }
         var br = string.IsNullOrWhiteSpace(branch) ? info.DefaultBranch : branch.Trim();
         if (!info.Branches.Contains(br)) throw new UserFacingException($"Branch “{br}” does not exist. Available: {string.Join(", ", info.Branches.Take(10))}");
         if (outputDir is not null && (outputDir.Contains("..") || Path.IsPathRooted(outputDir))) throw new UserFacingException("Output folder must be relative to the repository.");
@@ -130,7 +136,41 @@ public sealed class DeploymentService : BackgroundService
         _audit.Write(actor, "github", "Repository disconnected", $"{r.Owner}/{r.Repo}", null, AuditSeverity.Warning);
     }
 
-    public Task<CommitInfo> LatestCommitAsync(string id, CancellationToken ct) { var r = GetRepo(id); return _github.LatestCommitAsync(r.Owner, r.Repo, r.Branch, Token(r), ct); }
+    public async Task<CommitInfo> LatestCommitAsync(string id, CancellationToken ct)
+    {
+        var r = GetRepo(id);
+        try { return await _github.LatestCommitAsync(r.Owner, r.Repo, r.Branch, Token(r), ct); }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException || ex is UserFacingException { StatusCode: 429 })
+        {
+            var sha = await GitHeadAsync(r, ct);
+            return new CommitInfo(sha, "(details unavailable: GitHub API unreachable)", "", DateTimeOffset.UtcNow);
+        }
+    }
+
+    List<string> AuthArgs(string? token) => token is null ? [] : ["-c", "http.extraHeader=AUTHORIZATION: basic " + Convert.ToBase64String(Encoding.ASCII.GetBytes("x-access-token:" + token))];
+
+    async Task<string> LsRemoteAsync(string owner, string repo, string? token, IEnumerable<string> extra, CancellationToken ct)
+    {
+        var r = await _runner.RunAsync("git", [.. AuthArgs(token), "ls-remote", .. extra, $"https://github.com/{owner}/{repo}.git"],
+            new ProcessOptions { Timeout = TimeSpan.FromSeconds(30), Environment = new Dictionary<string, string?> { ["GIT_TERMINAL_PROMPT"] = "0" }, Redact = token is null ? [] : [token] }, ct);
+        if (r.ExitCode != 0) throw new UserFacingException("Could not reach the repository. Check the name, and add a token for private repositories.", 404);
+        return r.Output;
+    }
+
+    async Task<RepoInfo> GitRemoteInfoAsync(string owner, string repo, string? token, CancellationToken ct)
+    {
+        var heads = await LsRemoteAsync(owner, repo, token, ["--heads", "--symref"], ct);
+        var head = await LsRemoteAsync(owner, repo, token, ["--symref"], ct);
+        var def = head.Split('\n').FirstOrDefault(l => l.StartsWith("ref: refs/heads/"))?.Split('\t')[0]["ref: refs/heads/".Length..] ?? "main";
+        var branches = heads.Split('\n').Where(l => l.Contains("refs/heads/")).Select(l => l[(l.IndexOf("refs/heads/") + 11)..].Trim()).Distinct().ToList();
+        return new RepoInfo($"{owner}/{repo}", def, token is not null, null, branches);
+    }
+
+    async Task<string> GitHeadAsync(RepoConnection r, CancellationToken ct)
+    {
+        var o = await LsRemoteAsync(r.Owner, r.Repo, Token(r), ["--heads"], ct);
+        return o.Split('\n').FirstOrDefault(l => l.EndsWith("refs/heads/" + r.Branch))?.Split('\t')[0] ?? throw new UserFacingException("Branch not found.");
+    }
 
     public bool VerifyWebhook(string id, byte[] body, string? signature)
     {
@@ -214,7 +254,7 @@ public sealed class DeploymentService : BackgroundService
             {
                 try
                 {
-                    var head = await _github.LatestCommitAsync(r.Owner, r.Repo, r.Branch, Token(r), ct);
+                    var head = await LatestCommitAsync(r.Id, ct);
                     if (head.Sha != r.LastDeployedCommit && History(r.Id, 1).FirstOrDefault()?.Status is not (DeployStatus.Queued or DeployStatus.Running))
                         Enqueue(r.Id, "auto (new commit)", "system");
                 }
@@ -254,7 +294,7 @@ public sealed class DeploymentService : BackgroundService
         {
             var ws = Workspace(repo);
             var url = $"https://github.com/{repo.Owner}/{repo.Repo}.git";
-            var auth = token is null ? new List<string>() : ["-c", "http.extraHeader=AUTHORIZATION: basic " + Convert.ToBase64String(Encoding.ASCII.GetBytes("x-access-token:" + token))];
+            var auth = AuthArgs(token);
             var gitEnv = new Dictionary<string, string?> { ["GIT_TERMINAL_PROMPT"] = "0" };
             if (!Directory.Exists(Path.Combine(ws, ".git")))
             {
