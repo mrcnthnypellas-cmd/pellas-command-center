@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using MyPrivateServer.Backup;
@@ -97,6 +98,8 @@ builder.Services.AddSingleton<FileService>();
 builder.Services.AddSingleton<PostgresProvider>();
 builder.Services.AddSingleton<IDatabaseProvider>(sp => sp.GetRequiredService<PostgresProvider>());
 builder.Services.AddSingleton<AppService>();
+builder.Services.AddSingleton<ManagedPostgres>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ManagedPostgres>());
 builder.Services.AddSingleton<DataApi>();
 
 builder.Services.AddSingleton<CaddyManager>();
@@ -163,6 +166,10 @@ if (!settingsStore.Get().SetupCompleted && !File.Exists(paths.SetupTokenFile))
 if (!settingsStore.Get().SetupCompleted)
     Log.Information("Setup required. Open http://localhost:{Port} on this PC, or use the setup token in {File} from another device.", settings.Network.HttpPort, paths.SetupTokenFile);
 
+// Remote tunnels (cloudflared) connect from this PC and forward the real client address and https scheme.
+// Only loopback proxies are trusted (the default), so remote clients cannot spoof these headers.
+var fwd = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto, ForwardLimit = 1 };
+app.UseForwardedHeaders(fwd);
 app.Use(SecurityHeaders.Middleware);
 app.Use(ErrorHandling.Middleware);
 app.UseRateLimiter();

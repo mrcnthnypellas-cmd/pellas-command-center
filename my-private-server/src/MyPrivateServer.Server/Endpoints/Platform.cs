@@ -167,7 +167,7 @@ public static class PlatformEndpoints
                 server = new { name = settings.ServerName, id = settings.ServerId, online = true, uptime = m.ServerUptime.TotalSeconds, version = "0.2.0-prototype" },
                 cpu = cur.CpuPercent, memory = new { used = cur.MemoryUsedBytes, total = cur.MemoryTotalBytes },
                 storage = st,
-                remote = new { remote.Status.State, remote.Status.Method, remote.Status.Reason },
+                remote = new { remote.Status.State, remote.Status.Method, remote.Status.Reason, remote.Status.AccessAddresses },
                 health = RoleCapabilities.Has(u.Role, Capability.ViewMonitoring) ? await health.CheckAllAsync(ct) : [],
                 local = StunClient.LocalIPv4().Select(ip => $"http://{ip}:{settings.Network.HttpPort}"),
             });

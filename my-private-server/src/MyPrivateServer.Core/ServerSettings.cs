@@ -46,6 +46,9 @@ public sealed class PostgresSettings
     public string? AdminPasswordProtected { get; set; }
     /// <summary>Host name/IP shown to developers in connection info.</summary>
     public string? PublicHost { get; set; }
+    /// <summary>True when the server created and runs its own PostgreSQL (bundled binaries).</summary>
+    public bool Managed { get; set; }
+    public string? DataDirectory { get; set; }
 }
 
 public sealed class RemoteAccessSettings

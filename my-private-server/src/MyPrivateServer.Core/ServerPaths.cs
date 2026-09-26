@@ -14,6 +14,7 @@ public sealed class ServerPaths
         Directory.CreateDirectory(DataDirectory);
         foreach (var d in new[] { ConfigDirectory, KeysDirectory, LogsDirectory, ToolsDirectory, TempDirectory })
             Directory.CreateDirectory(d);
+        ToolLocator.Configure(ToolsDirectory, Path.Combine(AppContext.BaseDirectory, "tools"));
     }
 
     public string DataDirectory { get; }

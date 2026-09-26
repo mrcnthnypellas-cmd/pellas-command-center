@@ -24,21 +24,9 @@ public interface IProcessRunner
 }
 
 /// <summary>Runs external tools with an argument list (never through a shell) so input cannot inject commands.</summary>
-public sealed class ProcessRunner(ServerPaths paths) : IProcessRunner
+public sealed class ProcessRunner : IProcessRunner
 {
-    public string? Find(string name)
-    {
-        var names = OperatingSystem.IsWindows() && !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? new[] { name + ".exe", name + ".cmd", name } : new[] { name };
-        var dirs = new List<string> { paths.ToolsDirectory, Path.Combine(paths.ToolsDirectory, name) };
-        dirs.AddRange((Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
-        foreach (var d in dirs)
-            foreach (var n in names)
-            {
-                var candidate = Path.Combine(d, n);
-                if (File.Exists(candidate)) return candidate;
-            }
-        return null;
-    }
+    public string? Find(string name) => ToolLocator.Find(name);
 
     public async Task<ProcessResult> RunAsync(string fileName, IEnumerable<string> arguments, ProcessOptions? options = null, CancellationToken ct = default)
     {
@@ -53,6 +41,7 @@ public sealed class ProcessRunner(ServerPaths paths) : IProcessRunner
             WorkingDirectory = options.WorkingDirectory ?? "",
         };
         foreach (var a in arguments) psi.ArgumentList.Add(a);
+        psi.Environment[OperatingSystem.IsWindows() ? "Path" : "PATH"] = ToolLocator.PathWithTools();
         foreach (var (k, v) in options.Environment) psi.Environment[k] = v;
 
         var output = new StringBuilder();

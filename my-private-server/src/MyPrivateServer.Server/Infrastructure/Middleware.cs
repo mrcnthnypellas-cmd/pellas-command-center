@@ -78,6 +78,12 @@ public static class ErrorHandling
             ctx.Response.StatusCode = ex.SqlState is "42501" ? 403 : 400;
             await ctx.Response.WriteAsJsonAsync(new { error = "Database error: " + ex.MessageText });
         }
+        catch (Npgsql.NpgsqlException) when (!ctx.Response.HasStarted)
+        {
+            Npgsql.NpgsqlConnection.ClearAllPools();
+            ctx.Response.StatusCode = 503;
+            await ctx.Response.WriteAsJsonAsync(new { error = "The database connection was interrupted. Try again in a moment." });
+        }
         catch (BadHttpRequestException ex) when (!ctx.Response.HasStarted)
         {
             ctx.Response.StatusCode = ex.StatusCode;

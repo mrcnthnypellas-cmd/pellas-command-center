@@ -54,6 +54,7 @@ public sealed class PostgresProvider(SettingsStore settings, ISecretProtector se
             return new(true, true, "PostgreSQL " + r.GetString(0), r.GetFieldValue<DateTime>(1), r.GetInt32(2), c.Host, c.Port, null);
         }
         catch (UserFacingException ex) { return new(true, false, null, null, 0, c.Host, c.Port, ex.Message); }
+        catch (NpgsqlException ex) { NpgsqlConnection.ClearAllPools(); return new(true, false, null, null, 0, c.Host, c.Port, "Database connection interrupted: " + ex.Message); }
     }
 
     public async Task<IReadOnlyList<DatabaseInfo>> ListDatabasesAsync(CancellationToken ct)

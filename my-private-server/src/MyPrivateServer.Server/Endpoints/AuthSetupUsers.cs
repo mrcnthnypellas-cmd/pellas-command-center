@@ -1,4 +1,5 @@
 using MyPrivateServer.Core;
+using MyPrivateServer.Databases;
 using MyPrivateServer.Files;
 using MyPrivateServer.Identity;
 using MyPrivateServer.RemoteAccess;
@@ -9,7 +10,7 @@ namespace MyPrivateServer.Server.Endpoints;
 
 public sealed record LoginRequest(string Username, string Password);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
-public sealed record SetupRequest(string ServerName, string StoragePath, string AdminUsername, string AdminDisplayName, string AdminPassword);
+public sealed record SetupRequest(string ServerName, string StoragePath, string AdminUsername, string AdminDisplayName, string AdminPassword, string? RemoteProvider = null);
 public sealed record CreateUserRequest(string Username, string? DisplayName, Role Role, string Password, long QuotaBytes);
 public sealed record UpdateUserRequest(string? DisplayName, Role? Role, long? QuotaBytes, bool? Disabled);
 public sealed record SetPasswordRequest(string Password);
@@ -85,7 +86,11 @@ public static class AuthSetupUserEndpoints
         g.MapGet("/status", (HttpContext ctx, SettingsStore settings, ServerPaths paths) =>
         {
             var s = settings.Get();
-            return Results.Ok(new { s.SetupCompleted, s.ServerId, s.ServerName, allowedFromThisDevice = !s.SetupCompleted && SetupGate.Allowed(ctx, paths), tokenFile = paths.SetupTokenFile });
+            return Results.Ok(new
+            {
+                s.SetupCompleted, s.ServerId, s.ServerName, allowedFromThisDevice = !s.SetupCompleted && SetupGate.Allowed(ctx, paths), tokenFile = paths.SetupTokenFile,
+                components = s.SetupCompleted ? null : Components(),
+            });
         });
 
         g.MapGet("/drives", async (HttpContext ctx, SettingsStore settings, ServerPaths paths, IStorageDetector detector, CancellationToken ct) =>
@@ -95,7 +100,8 @@ public static class AuthSetupUserEndpoints
             return Results.Ok(drives.Select(d => new { drive = d, suggestedPath = Path.Combine(d.Root, "MyPrivateServer") }));
         });
 
-        g.MapPost("/complete", (SetupRequest req, HttpContext ctx, SettingsStore settings, ServerPaths paths, UserService users, IAuditLog audit) =>
+        g.MapPost("/complete", async (SetupRequest req, HttpContext ctx, SettingsStore settings, ServerPaths paths, UserService users, IAuditLog audit,
+            ManagedPostgres managedPg, RemoteAccessService remote, CancellationToken ct) =>
         {
             if (settings.Get().SetupCompleted) throw new ConflictException("Setup has already been completed.");
             if (!SetupGate.Allowed(ctx, paths)) throw new ForbiddenException("Setup is only available from this PC or with the setup token.");
@@ -107,9 +113,30 @@ public static class AuthSetupUserEndpoints
             settings.Update(s => { s.ServerName = req.ServerName.Trim(); s.StorageRoot = root; s.SetupCompleted = true; s.SetupCompletedAt = DateTimeOffset.UtcNow; });
             try { File.Delete(paths.SetupTokenFile); } catch { }
             audit.Write(req.AdminUsername, "system", "Setup completed", req.ServerName, $"Storage {root}", AuditSeverity.Success, ctx.ClientIp());
-            return Results.Ok(new { settings.Get().ServerId, storageRoot = root });
+
+            // Plug and play: create the database server from the bundled PostgreSQL.
+            ManagedPostgresResult? db = null;
+            if (!settings.Get().Postgres.Enabled && managedPg.BinariesAvailable)
+                db = await managedPg.InitializeAsync(root, ct);
+
+            // Turn on the chosen remote access method in the background (it may take a moment to connect).
+            if (!string.IsNullOrEmpty(req.RemoteProvider) && req.RemoteProvider != "none")
+                _ = Task.Run(async () =>
+                {
+                    try { await remote.EnableAsync(req.RemoteProvider, null, req.AdminUsername, CancellationToken.None); }
+                    catch (Exception ex) { audit.Write("system", "remote", "Remote access could not start", req.RemoteProvider, ex.Message, AuditSeverity.Warning); }
+                });
+            return Results.Ok(new { settings.Get().ServerId, storageRoot = root, database = db, remoteProvider = req.RemoteProvider });
         });
     }
+
+    /// <summary>Which bundled helper programs this installation has.</summary>
+    static object Components() => new
+    {
+        postgres = ToolLocator.Find("initdb") is not null, caddy = ToolLocator.Find("caddy") is not null, git = ToolLocator.Find("git") is not null,
+        node = ToolLocator.Find("node") is not null, cloudflared = ToolLocator.Find("cloudflared") is not null, frpc = ToolLocator.Find("frpc") is not null,
+        tailscale = ToolLocator.Find("tailscale") is not null,
+    };
 
     public static void MapUserEndpoints(this WebApplication app)
     {

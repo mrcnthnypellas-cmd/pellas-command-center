@@ -146,7 +146,7 @@ public class StunTests
 
 public class WireGuardStatusTests
 {
-    static WireGuardMeshProvider P() => new(new ProcessRunner(new ServerPaths(Directory.CreateTempSubdirectory().FullName)), new SettingsStore(new ServerPaths(Directory.CreateTempSubdirectory().FullName)));
+    static WireGuardMeshProvider P() => new(new ProcessRunner(), new SettingsStore(new ServerPaths(Directory.CreateTempSubdirectory().FullName)));
 
     const string Base = """
         {"BackendState":"Running","Self":{"DNSName":"office.tailnet.ts.net.","TailscaleIPs":["100.101.1.2","fd7a::1"]},"Peer":{PEERS}}

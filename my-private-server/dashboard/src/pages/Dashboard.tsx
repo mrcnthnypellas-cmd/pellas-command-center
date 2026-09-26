@@ -76,6 +76,7 @@ export default function Dashboard() {
                 {remote?.state === "Connected" && <span className="font-normal text-muted">· {remote.method}</span>}
               </span>
             </Row>
+            {remote?.state === "Connected" && remote.accessAddresses?.length > 0 && <Row label="Remote Address"><a className="break-all font-mono text-[12.5px] text-accent" href={remote.accessAddresses[0]} target="_blank" rel="noreferrer">{remote.accessAddresses[0]}</a></Row>}
             <Row label="Storage">{st?.online ? `${fmtBytes(used)} / ${fmtBytes(st.totalBytes)}` : st ? <span className="font-sans text-bad">Offline</span> : "…"}</Row>
             <Row label="CPU"><span className="num">{data ? `${Math.round(data.cpu)}%` : "…"}</span></Row>
             <Row label="RAM"><span className="num">{data ? `${Math.round(mem)}%` : "…"}</span> <span className="font-sans text-muted">{data && `${fmtBytes(data.memory.used)} of ${fmtBytes(data.memory.total)}`}</span></Row>

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Check, HardDrive, Server, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Check, Globe, HardDrive, Lock, Server, ShieldCheck, TriangleAlert, Wifi } from "lucide-react";
 import { api, fmtBytes } from "../api";
 import { Button, Field, Pill, cx, inputCls } from "../ui";
 
 type Drive = { drive: { id: string; root: string; label: string; kind: string; fileSystem: string; totalBytes: number; freeBytes: number; isSystem: boolean; isReady: boolean; recommended: boolean; note?: string; model?: string }; suggestedPath: string };
-const STEPS = ["Welcome", "Server name", "Storage", "Administrator", "Finish"];
+const STEPS = ["Welcome", "Server name", "Storage", "Administrator", "Remote access", "Finish"];
 
 export default function Setup({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
@@ -19,9 +19,18 @@ export default function Setup({ onDone }: { onDone: () => void }) {
   const [pw2, setPw2] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [components, setComponents] = useState<Record<string, boolean>>({});
+  const [remote, setRemote] = useState("none");
+  const [result, setResult] = useState<any>(null);
   const headers = token ? { "X-Setup-Token": token.trim() } : undefined;
 
-  useEffect(() => { api("/api/setup/status").then((s) => { setAllowed(s.allowedFromThisDevice); setName(s.serverName); }); }, []);
+  useEffect(() => {
+    api("/api/setup/status").then((s) => {
+      setAllowed(s.allowedFromThisDevice); setName(s.serverName);
+      setComponents(s.components ?? {});
+      if (s.components?.cloudflared) setRemote("cloudflare-tunnel");
+    });
+  }, []);
 
   async function scan() {
     setDrives(null); setError(null);
@@ -37,8 +46,8 @@ export default function Setup({ onDone }: { onDone: () => void }) {
   async function finish() {
     setBusy(true); setError(null);
     try {
-      await api("/api/setup/complete", { body: { serverName: name, storagePath: path, adminUsername: user, adminDisplayName: display, adminPassword: pw }, headers });
-      setStep(4);
+      setResult(await api("/api/setup/complete", { body: { serverName: name, storagePath: path, adminUsername: user, adminDisplayName: display, adminPassword: pw, remoteProvider: remote }, headers }));
+      setStep(5);
     } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   }
 
@@ -106,20 +115,41 @@ export default function Setup({ onDone }: { onDone: () => void }) {
               </div>
             </>}
             {step === 4 && <>
+              <h2 className="m-0 text-2xl">Reach your server from anywhere</h2>
+              <p className="m-0 text-muted">No router setup, port forwarding or static IP needed. The server connects out securely. You can change this later.</p>
+              <div className="grid gap-2">
+                {[
+                  { id: "cloudflare-tunnel", icon: Globe, title: "Instant web address", sub: "Works right away from any browser on any device. Free, no account, no domain. Traffic passes through Cloudflare's network (HTTPS).", ok: components.cloudflared, missing: "Not included in this installation." },
+                  { id: "wireguard-mesh", icon: Lock, title: "Private network (WireGuard)", sub: "Most private: devices connect directly and encrypted end to end. Needs the free Tailscale app on each device, or your own Headscale server.", ok: components.tailscale, missing: "Install the free Tailscale app on this PC first, or choose this later in Remote Access." },
+                  { id: "none", icon: Wifi, title: "Local network only for now", sub: "Only devices on this network can connect. Turn on remote access later.", ok: true },
+                ].map((o) => (
+                  <label key={o.id} className={cx("flex cursor-pointer items-start gap-3 rounded-lg border-[1.5px] p-3.5", remote === o.id ? "border-accent bg-accent-soft" : "border-line hover:border-line-2", !o.ok && "cursor-not-allowed opacity-55")}>
+                    <input type="radio" name="remote" className="mt-1 accent-[var(--accent)]" checked={remote === o.id} disabled={!o.ok} onChange={() => setRemote(o.id)} />
+                    <o.icon size={20} className="mt-0.5 flex-none text-ink-2" />
+                    <span className="grid gap-0.5"><b className="text-[13.5px]">{o.title}</b><small className="text-xs text-muted">{o.ok ? o.sub : o.missing}</small></span>
+                  </label>
+                ))}
+              </div>
+            </>}
+            {step === 5 && <>
               <div className="grid h-16 w-16 place-items-center rounded-full bg-ok-soft text-ok"><Check size={34} strokeWidth={2.4} /></div>
               <h2 className="m-0 text-2xl">Your server is ready.</h2>
-              <p className="m-0 text-muted">Sign in with your administrator account. Next, turn on Remote Access to reach the server from your phone or laptop.</p>
-              <div className="flex items-center gap-2 rounded-lg bg-surface-2 p-3 text-[13px]"><ShieldCheck size={18} className="text-ok" /> Storage folder: <code className="font-mono">{path}</code></div>
+              <p className="m-0 text-muted">Sign in with your administrator account.</p>
+              <div className="grid gap-2 text-[13px]">
+                <div className="flex items-center gap-2 rounded-lg bg-surface-2 p-3"><ShieldCheck size={18} className="text-ok" /> Storage folder: <code className="font-mono">{path}</code></div>
+                {result?.database && <div className={cx("flex items-center gap-2 rounded-lg p-3", result.database.ok ? "bg-surface-2" : "bg-warn-soft text-warn")}><ShieldCheck size={18} className={result.database.ok ? "text-ok" : ""} /> Database: {result.database.message}</div>}
+                {remote !== "none" && <div className="flex items-center gap-2 rounded-lg bg-surface-2 p-3"><Globe size={18} className="text-accent" /> Remote access is connecting. Your address appears on the dashboard in a few seconds.</div>}
+              </div>
             </>}
             {error && <div className="rounded-md bg-bad-soft px-3 py-2 text-[13px] text-bad" role="alert">{error}</div>}
           </div>
           <div className="flex items-center gap-2 border-t border-line px-6 py-3.5 md:px-9">
-            {step > 0 && step < 4 && <Button onClick={() => { setError(null); setStep(step - 1); }}>Back</Button>}
+            {step > 0 && step < 5 && <Button onClick={() => { setError(null); setStep(step - 1); }}>Back</Button>}
             <span className="flex-1" />
             <span className="hidden text-xs text-muted sm:inline">Step {step + 1} of {STEPS.length}</span>
-            {step < 3 && <Button variant="primary" disabled={!canNext} onClick={() => { setError(null); setStep(step + 1); }}>{step === 0 ? "Get started" : "Next"}</Button>}
-            {step === 3 && <Button variant="primary" disabled={!canNext || busy} onClick={finish}>{busy ? "Setting up…" : "Finish setup"}</Button>}
-            {step === 4 && <Button variant="primary" onClick={onDone}>Go to sign in</Button>}
+            {step < 4 && <Button variant="primary" disabled={!canNext} onClick={() => { setError(null); setStep(step + 1); }}>{step === 0 ? "Get started" : "Next"}</Button>}
+            {step === 4 && <Button variant="primary" disabled={busy} onClick={finish}>{busy ? "Setting up… (creating the database can take a minute)" : "Finish setup"}</Button>}
+            {step === 5 && <Button variant="primary" onClick={onDone}>Go to sign in</Button>}
           </div>
         </div>
       </div>

@@ -28,12 +28,13 @@ public sealed class ManagedProcess : IDisposable
     public void Start(string fileName, IEnumerable<string> args, string? workingDirectory = null, IDictionary<string, string?>? env = null, IReadOnlyCollection<string>? redact = null)
     {
         Stop();
-        var psi = new ProcessStartInfo(fileName)
+        var psi = new ProcessStartInfo(ToolLocator.Find(fileName) ?? fileName)
         {
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
             WorkingDirectory = workingDirectory ?? "",
         };
         foreach (var a in args) psi.ArgumentList.Add(a);
+        psi.Environment[OperatingSystem.IsWindows() ? "Path" : "PATH"] = ToolLocator.PathWithTools();
         if (env is not null) foreach (var (k, v) in env) psi.Environment[k] = v;
         var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
         void OnData(string? l)
