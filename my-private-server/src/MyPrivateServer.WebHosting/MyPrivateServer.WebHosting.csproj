@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MyPrivateServer.Core\MyPrivateServer.Core.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Storage\MyPrivateServer.Storage.csproj" />
   </ItemGroup>
 
 </Project>
