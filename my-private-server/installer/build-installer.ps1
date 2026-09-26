@@ -41,7 +41,10 @@ Step "Fetching bundled components (verified by SHA-256)"
 
 Step "Building the dashboard"
 Push-Location "$root\dashboard"
-try { npm ci --no-audit --no-fund; npm run build } finally { Pop-Location }
+try {
+    npm ci --no-audit --no-fund; if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
+    npm run build; if ($LASTEXITCODE -ne 0) { throw "Dashboard build failed" }
+} finally { Pop-Location }
 
 Step "Publishing the server (self-contained, win-x64)"
 if (Test-Path $publish) { Remove-Item $publish -Recurse -Force }
