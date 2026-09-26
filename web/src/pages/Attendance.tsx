@@ -218,7 +218,15 @@ export default function Attendance() {
       r.hours_worked ?? "",
       r.status,
     ]);
-    const csv = [header, ...lines].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const summaryRows = [
+      [],
+      ["Summary (selected filters)"],
+      ["Total Late", lateCount],
+      ["Total Late Hours", lateHours.toFixed(1)],
+      ["Total Absent", absentCount],
+      ["Total Absent Hours", absentHours.toFixed(1)],
+    ];
+    const csv = [header, ...lines, ...summaryRows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
