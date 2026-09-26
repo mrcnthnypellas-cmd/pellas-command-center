@@ -212,7 +212,7 @@ public sealed class PostgresProvider(SettingsStore settings, ISecretProtector se
         Names.SqlIdentifier(database, "Database name");
         if (!File.Exists(file)) throw new NotFoundException("Backup file not found.");
         var c = Cfg;
-        var r = await runner.RunAsync(Tool("pg_restore"), ["-h", c.Host, "-p", c.Port.ToString(), "-U", c.AdminUser, "--no-password", "--clean", "--if-exists", "--no-owner", "-d", database, file],
+        var r = await runner.RunAsync(Tool("pg_restore"), ["-h", c.Host, "-p", c.Port.ToString(), "-U", c.AdminUser, "--no-password", "--clean", "--if-exists", "-d", database, file],
             new ProcessOptions { Environment = PgEnv(), Timeout = TimeSpan.FromHours(6), Redact = [AdminPassword()] }, ct);
         if (r.ExitCode != 0) throw new UserFacingException("Restore finished with errors: " + string.Join('\n', r.Output.Trim().Split('\n').TakeLast(5)), 500);
     }

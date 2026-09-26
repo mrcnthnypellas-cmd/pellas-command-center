@@ -403,7 +403,7 @@ public sealed class FileService(StorageService storage, ShareService shares, Use
         if (loc.HomeOwner is { } owner) CheckQuota(owner, s.Size);
         var name = SafePath.FreeName(loc.FullPath!, s.FileName);
         File.Move(PartPath(s.Id), Path.Combine(loc.FullPath!, name));
-        using (var c = db.Open()) c.Execute("DELETE FROM uploads WHERE id=@id", new { s.Id });
+        using (var c = db.Open()) c.Execute("DELETE FROM uploads WHERE id=@id", new { id = s.Id });
         audit.Write(u.Username, "file", "File uploaded", loc.Virtual.TrimEnd('/') + "/" + name, FormatBytes(s.Size), AuditSeverity.Success);
         return new FileEntry(name, loc.Virtual.TrimEnd('/') + "/" + name, false, s.Size, DateTimeOffset.UtcNow, loc.Access);
     }

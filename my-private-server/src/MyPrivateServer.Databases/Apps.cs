@@ -162,10 +162,10 @@ public sealed class AppService(SystemDb db, PostgresProvider pg, ISecretProtecto
     {
         if (string.IsNullOrEmpty(key) || !key.StartsWith("mps_") || key.Length > 100) return null;
         using var c = db.Open();
-        var r = c.QuerySingleOrDefault("SELECT k.id, k.scope, k.last_used_at, a.* FROM app_keys k JOIN apps a ON a.id=k.app_id WHERE k.key_hash=@h", new { h = Hash(key) });
+        var r = c.QuerySingleOrDefault("SELECT k.id AS key_id, k.scope, k.last_used_at, a.* FROM app_keys k JOIN apps a ON a.id=k.app_id WHERE k.key_hash=@h", new { h = Hash(key) });
         if (r is null) return null;
         if (r.last_used_at is null || DateTimeOffset.Parse((string)r.last_used_at) < DateTimeOffset.UtcNow.AddMinutes(-5))
-            c.Execute("UPDATE app_keys SET last_used_at=@t WHERE id=@id", new { t = DateTimeOffset.UtcNow.ToString("O"), id = (string)r.id });
+            c.Execute("UPDATE app_keys SET last_used_at=@t WHERE id=@id", new { t = DateTimeOffset.UtcNow.ToString("O"), id = (string)r.key_id });
         return (Map(r), Enum.Parse<ApiKeyScope>((string)r.scope));
     }
 
