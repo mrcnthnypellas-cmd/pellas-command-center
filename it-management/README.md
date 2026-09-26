@@ -71,7 +71,7 @@ Saved passwords are re-locked with the new PC's own encryption key during restor
 npm test
 ```
 
-The tests use a temporary throwaway database and cover add/edit/retire/delete, deploy/return/transfer, history, IP/network/ISP/device management, the credential vault and permissions, maintenance, warranty, audits, QR codes, search, reports and dashboard numbers.
+The tests use a temporary throwaway database and cover add/edit/retire/delete, deploy/return/transfer, history, IP/network/ISP/device management, the credential vault and permissions, maintenance, warranty, audits, QR codes, search, reports, dashboard numbers and asset value, the phone directory, and backup/restore.
 
 ## 8. Browser preview build (optional)
 
@@ -88,11 +88,13 @@ This builds a single self-contained HTML file that runs the same frontend and th
 | Area | Where |
 |------|-------|
 | Dashboard: asset, employee, network and alert cards, 4 charts, ISP status, recent activity | Dashboard |
+| **Asset value**: price per asset; the dashboard shows the total value of all current assets (retired/disposed not counted), split into in use / in stock / under repair / lost. The asset list shows the total of whatever is filtered, and employee profiles show the value of their assigned assets | Dashboard, All Assets, Reports → Asset Value by Category |
 | Assets: table with filters, add/edit form, full profile (Overview / Assignment / History / Maintenance / Network / Documents), QR code, retire/delete | Assets → All Assets / Add Asset |
 | Automatic asset tags (`LAP-0001`, `MON-0001`, `NET-0001` …) from category prefixes | Assets → Categories, Settings → Numbering |
 | **Import / export asset list** (Excel .xlsx or CSV): template with drop-downs, works with your own spreadsheet's column names, check-before-import with per-row errors, add new + update existing by Asset Tag, optional assignment to employees; export uses the same columns so you can edit in Excel and import back | Assets → Import / Export, or the Import / Export buttons on All Assets |
 | **Printable QR asset stickers**: QR + large asset number, sized for A4 label sheets (21 / 14 / 65 per page) or 50×25 / 62×29 mm roll printers; Print or exact-size PDF, copies, skip used labels | Assets → QR Labels, or “Print QR label” on any asset |
 | Employees with profile, assigned assets, history, printable accountability form | Employees |
+| **Phone directory**: add contacts (name, company, phone, mobile, local, email, category), search, pin favourites, click to call or copy; can also list employees' numbers; export to Excel or CSV | People → Phone Directory |
 | Deploy, Return (with condition/photo/status), Transfer (history is never deleted) | Assignments |
 | Inventory audits: generated checklist, Found / Missing / Damaged, completion updates statuses, PDF/CSV report | Assets → Audit |
 | IP address management: static/DHCP/reserved, statuses, conflict detection, next-free IP, subnet address map | Network → IP Addresses / Networks |
@@ -101,7 +103,7 @@ This builds a single self-contained HTML file that runs the same frontend and th
 | Wi-Fi networks with protected passwords | Network → Wi-Fi |
 | Credential vault: AES-256-GCM encryption, Show/Copy with permission checks, per-credential grants, access log | Credentials |
 | Maintenance (an open repair sets the asset to *Under Repair*; completing it restores the status) and warranty tracking (30/60/90-day filters) | Care |
-| 16 reports, each with Print, PDF and Excel/CSV export | Reports |
+| 17 reports, each with Print, PDF and Excel/CSV export | Reports |
 | Activity log, including security events | Activity Logs |
 | **Appearance**: editable company name, system name and dashboard title (also via ✎ on the dashboard); sign-in page colour theme, background photo and welcome message | Settings → Appearance |
 | Live digital clock with date and greeting | Dashboard |

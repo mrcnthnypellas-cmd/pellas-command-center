@@ -15,6 +15,8 @@ function open() {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8'));
+  const handle = db;
+  require('../lib/migrate').migrate({ all: (sql, ...p) => handle.prepare(sql).all(...p), run: (sql, ...p) => handle.prepare(sql).run(...p) });
   return db;
 }
 

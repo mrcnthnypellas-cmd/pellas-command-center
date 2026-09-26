@@ -16,6 +16,7 @@ const WARRANTY_FIELDS = ['warranty_start', 'warranty_end', 'warranty_provider'];
 function validate(data, { creating }) {
   if (creating) required(data, { name: 'Asset name', category_id: 'Category' });
   if (data.status && !STATUSES.includes(data.status)) throw bad('Invalid status');
+  if (data.purchase_cost !== undefined && data.purchase_cost !== null && data.purchase_cost < 0) throw bad('Price cannot be negative');
   if (data.mac_address) {
     if (!MAC_RE.test(data.mac_address)) throw bad('MAC address must look like AA:BB:CC:DD:EE:FF');
     data.mac_address = normalizeMac(data.mac_address);

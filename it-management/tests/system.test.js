@@ -589,3 +589,91 @@ test('employees and settings CRUD', async () => {
   assert.equal(ok(await a.get(`/assets/next-tag?category_id=${cat.id}`)).tag, 'MON-004');
   ok(await a.put('/settings/company', { tag_padding: '4' }));
 });
+
+test('asset price: dashboard total value, value report, negative price rejected', async () => {
+  const a = await login('admin', 'admin123');
+  const cat = ok(await a.get('/settings/lookups')).categories.find((c) => c.prefix === 'MON').id;
+  const before = ok(await a.get('/dashboard')).value;
+  assert.ok(before.total > 0, 'sample assets have prices');
+  assert.equal((await a.post('/assets', { name: 'Bad price', category_id: cat, purchase_cost: -5 })).status, 400);
+
+  const m = ok(await a.post('/assets', { name: 'Priced Monitor', category_id: cat, purchase_cost: 12500.5 }));
+  let v = ok(await a.get('/dashboard')).value;
+  assert.equal(v.total, before.total + 12500.5);
+  assert.equal(v.in_stock, before.in_stock + 12500.5);
+  assert.equal(v.counted, before.counted + 1);
+  ok(await a.post('/assets', { name: 'No price', category_id: cat }));
+  v = ok(await a.get('/dashboard')).value;
+  assert.equal(v.no_price, before.no_price + 1);
+
+  ok(await a.put(`/assets/${m.id}`, { status: 'Retired' }));
+  v = ok(await a.get('/dashboard')).value;
+  assert.equal(v.total, before.total, 'retired assets are not counted');
+
+  const rep = ok(await a.get('/reports/value'));
+  const rows = rep.rows || rep;
+  assert.ok(JSON.stringify(rows).includes('TOTAL'));
+  const csv = await a.get('/reports/inventory?format=csv');
+  assert.ok(csv.text.split('\n')[0].includes('Price'));
+});
+
+test('phone directory: add, edit, favourite, search, employees, export, permissions', async () => {
+  const a = await login('admin', 'admin123');
+  const list0 = ok(await a.get('/directory'));
+  assert.ok(list0.contacts.length >= 10, 'sample contacts');
+  assert.ok(list0.categories.includes('Vendor / Supplier'));
+
+  assert.equal((await a.post('/directory', { name: 'No Number' })).status, 400);
+  assert.equal((await a.post('/directory', { name: 'Bad', phone: 'call me maybe' })).status, 400);
+  assert.equal((await a.post('/directory', { name: 'Bad', mobile: '0917', email: 'nope' })).status, 400);
+  assert.equal((await a.post('/directory', { name: 'Bad', mobile: '0917', category: 'Aliens' })).status, 400);
+
+  const c = ok(await a.post('/directory', { name: 'Zeta Printing Services', organization: 'Zeta Inc.', phone: '(02) 8555 0199', mobile: '+63 917 555 0100', category: 'Vendor / Supplier' }));
+  assert.equal(c.is_favorite, 0);
+  ok(await a.put(`/directory/${c.id}`, { is_favorite: true }));
+  const fav = ok(await a.get('/directory')).contacts;
+  assert.equal(fav[0].is_favorite, 1, 'favourites first');
+  assert.equal(ok(await a.get('/directory?q=Zeta')).contacts.length, 1);
+  assert.equal(ok(await a.get('/directory?q=8555 0199')).contacts[0].id, c.id);
+  assert.ok(ok(await a.get('/directory?category=Vendor / Supplier')).contacts.every((x) => x.category === 'Vendor / Supplier'));
+  assert.equal((await a.put(`/directory/${c.id}`, { phone: '', mobile: '' })).status, 400, 'must keep one number');
+
+  const withEmp = ok(await a.get('/directory?include_employees=1')).contacts;
+  assert.ok(withEmp.some((x) => x.source === 'employee'));
+  assert.ok(ok(await a.get('/directory?category=Employees')).contacts.every((x) => x.source === 'employee'));
+
+  const csv = await a.get('/directory/export?format=csv&q=Zeta');
+  assert.equal(csv.status, 200);
+  assert.match(csv.headers.get('content-disposition'), /phone-directory-.*\.csv/);
+  assert.ok(csv.text.includes('Zeta Printing Services') && csv.text.includes('(02) 8555 0199'));
+  const xr = await fetch(`${base}/api/directory/export`, { headers: { Cookie: a.cookie } });
+  assert.equal(xr.status, 200);
+  const buf = Buffer.from(await xr.arrayBuffer());
+  assert.equal(buf.subarray(0, 2).toString(), 'PK', 'xlsx file');
+  const { readTable } = require('../server/lib/spreadsheet');
+  const t = await readTable({ buffer: buf, originalname: 'd.xlsx' });
+  assert.ok(JSON.stringify(t).includes('Zeta Printing Services'));
+
+  // Viewer: can look and export, cannot change
+  const v = await login('viewer', 'viewer123');
+  ok(await v.get('/directory'));
+  assert.equal((await v.get('/directory/export?format=csv')).status, 200);
+  assert.equal((await v.post('/directory', { name: 'X', mobile: '0917 555 0000' })).status, 403);
+  assert.equal((await v.del(`/directory/${c.id}`)).status, 403);
+
+  ok(await a.del(`/directory/${c.id}`));
+  assert.equal((await a.get('/directory?q=Zeta')).data.contacts.length, 0);
+  const log = ok(await a.get('/activity?q=Contact'));
+  assert.ok(log.some((l) => l.action === 'Contact added') && log.some((l) => l.action === 'Contact deleted'));
+});
+
+test('migration adds new permissions to an existing database', () => {
+  const { migrate } = require('../server/lib/migrate');
+  db.run("DELETE FROM role_permissions WHERE permission_key LIKE 'directory.%'");
+  db.run("DELETE FROM permissions WHERE key LIKE 'directory.%'");
+  migrate({ all: (s, ...p) => db.all(s, ...p), run: (s, ...p) => db.run(s, ...p) });
+  const got = db.all(`SELECT r.name, p.key FROM role_permissions rp JOIN roles r ON r.id = rp.role_id JOIN permissions p ON p.key = rp.permission_key WHERE p.key LIKE 'directory.%'`);
+  assert.ok(got.some((g) => g.name === 'Viewer' && g.key === 'directory.view'));
+  assert.ok(!got.some((g) => g.name === 'Viewer' && g.key === 'directory.manage'));
+  assert.ok(got.some((g) => g.name === 'IT Staff' && g.key === 'directory.manage'));
+});

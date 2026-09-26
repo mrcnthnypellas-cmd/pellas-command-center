@@ -14,6 +14,9 @@ function isDark() {
   return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
+// Whole-peso amounts for dashboard tiles, e.g. ₱1,234,567.
+const peso = (n, sym = '₱') => `${sym}${Math.round(Number(n) || 0).toLocaleString('en-PH')}`;
+
 const stat = (label, value, href, { sub, tone, dot } = {}) => `<a class="stat ${tone || ''}" href="${href}">
   <div class="label">${dot ? `<span class="dot" style="background:${dot}"></span>` : ''}${esc(label)}</div>
   <div class="value">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</a>`;
@@ -54,7 +57,7 @@ export async function render(el) {
   charts.splice(0).forEach((c) => c.destroy());
   const d = await api.get('/dashboard');
   const pal = PALETTE[isDark() ? 'dark' : 'light'];
-  const A = d.assets; const N = d.network; const E = d.employees; const L = d.alerts;
+  const A = d.assets; const N = d.network; const E = d.employees; const L = d.alerts; const V = d.value;
   const statusColors = { Available: pal[2], Deployed: pal[0], 'Under Repair': pal[3], Damaged: pal[1], Lost: pal[7], Retired: pal[6] };
 
   el.innerHTML = `
@@ -69,6 +72,16 @@ export async function render(el) {
       <div class="clock-date" data-date></div>
       <div class="clock-greet" data-greet></div>
     </div>
+  </div>
+
+  <div class="section-title">${icon('chart').replace('<svg', '<svg width="14" height="14"')} Asset value</div>
+  <div class="value-row">
+    <a class="stat value-total" href="#/reports/value"><div class="label">Total Asset Value</div><div class="value">${peso(V.total, V.currency)}</div>
+      <div class="sub">${V.counted} current assets${V.no_price ? ` · <b>${V.no_price}</b> without a price yet` : ''}</div></a>
+    ${stat('In use (deployed)', peso(V.in_use, V.currency), '#/assets?status=Deployed')}
+    ${stat('In stock (available)', peso(V.in_stock, V.currency), '#/assets?status=Available')}
+    ${stat('Under repair / damaged', peso(V.repair, V.currency), '#/assets?status=Under%20Repair')}
+    ${V.lost ? stat('Lost', peso(V.lost, V.currency), '#/assets?status=Lost', { tone: 'alert-bad' }) : ''}
   </div>
 
   <div class="section-title">${icon('box').replace('<svg', '<svg width="14" height="14"')} Assets</div>

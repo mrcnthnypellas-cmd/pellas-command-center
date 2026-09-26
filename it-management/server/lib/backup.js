@@ -18,7 +18,7 @@ const MAGIC = Buffer.from('ITMSBAK1');
 const FORMAT = 1;
 const APP = 'pellas-it-management';
 const SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
-const COUNT_TABLES = { users: "status != 'Deleted'", employees: '1', assets: '1', asset_assignments: '1', ip_addresses: '1', networks: '1', network_devices: '1', isps: '1', credentials: '1', wifi_networks: '1', maintenance_records: '1', documents: '1', activity_logs: '1' };
+const COUNT_TABLES = { users: "status != 'Deleted'", employees: '1', assets: '1', asset_assignments: '1', ip_addresses: '1', networks: '1', network_devices: '1', isps: '1', credentials: '1', wifi_networks: '1', phone_contacts: '1', maintenance_records: '1', documents: '1', activity_logs: '1' };
 
 // A copy of a WAL-mode database must be marked as a normal (rollback-journal) database before it
 // can be opened from memory: bytes 18–19 of the SQLite header hold the journal format (2 = WAL).

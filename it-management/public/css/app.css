@@ -384,6 +384,22 @@ a.stat:hover { border-color: var(--primary); text-decoration: none; }
 .clock-date { margin-top: 8px; font-size: 13.5px; font-weight: 600; }
 .clock-greet { font-size: 12.5px; opacity: .8; }
 
+/* Asset value */
+.value-row { display: grid; grid-template-columns: minmax(230px, 1.6fr) repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat.value-total { color: #fff; border: 0; background: linear-gradient(135deg, #047857, #065f46); }
+.stat.value-total .label, .stat.value-total .sub { color: rgba(255, 255, 255, .85); }
+.stat.value-total .value { font-size: 30px; font-variant-numeric: tabular-nums; }
+.value-row .stat .value { font-variant-numeric: tabular-nums; }
+.value-bar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: 13.5px; }
+.value-bar b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.table td.num, .table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Phone directory */
+.phone-num { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.copy-num { font-size: 13px; padding: 2px 4px; }
+.star { color: var(--muted); font-size: 16px; line-height: 1; padding: 2px; }
+.star.on { color: #d97706; }
+
 /* Backup & restore */
 .steps { margin: 0; padding-left: 20px; display: grid; gap: 10px; line-height: 1.5; }
 .backup-summary { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
@@ -430,6 +446,8 @@ a.stat:hover { border-color: var(--primary); text-decoration: none; }
   .kv { grid-template-columns: minmax(96px, 36%) 1fr; }
   .profile-head h1 { font-size: 19px; }
   .modal-backdrop { padding: 10px; }
+  .value-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .value-row .value-total { grid-column: 1 / -1; }
   .dash-head { grid-template-columns: minmax(0, 1fr); }
   .clock-card { min-width: 0; }
   .clock-time { font-size: 34px; }
@@ -438,3 +456,5 @@ a.stat:hover { border-color: var(--primary); text-decoration: none; }
   .tree { padding-left: 14px; }
   .labels { grid-template-columns: repeat(2, 1fr); }
 }
+.table td.dir-name { min-width: 200px; }
+.table td.dir-org { min-width: 150px; }

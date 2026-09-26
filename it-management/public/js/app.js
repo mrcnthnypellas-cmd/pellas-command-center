@@ -4,6 +4,7 @@ import { icon } from './icons.js';
 import * as dashboard from './pages/dashboard.js';
 import * as assets from './pages/assets.js';
 import * as assetImport from './pages/assetImport.js';
+import * as directory from './pages/directory.js';
 import * as employees from './pages/employees.js';
 import * as assignments from './pages/assignments.js';
 import * as maintenance from './pages/maintenance.js';
@@ -32,6 +33,7 @@ const ROUTES = [
   [/^\/audits\/(\d+)$/, audits.detail, 'audits.view', 'audits'],
   [/^\/employees$/, employees.list, 'employees.view', 'employees'],
   [/^\/employees\/(\d+)$/, employees.profile, 'employees.view', 'employees'],
+  [/^\/directory$/, directory.page, 'directory.view', 'directory'],
   [/^\/assignments$/, assignments.list, 'assets.view', 'assignments'],
   [/^\/deploy$/, assignments.deploy, 'assets.view', 'deploy'],
   [/^\/returns$/, assignments.returns, 'assets.view', 'returns'],
@@ -66,7 +68,10 @@ const NAV = [
     ['categories', '#/categories', 'Categories', 'tag', 'assets.view'],
     ['audits', '#/audits', 'Audit', 'clipboard', 'audits.view'],
   ] },
-  { label: 'People', items: [['employees', '#/employees', 'Employees', 'users', 'employees.view']] },
+  { label: 'People', items: [
+    ['employees', '#/employees', 'Employees', 'users', 'employees.view'],
+    ['directory', '#/directory', 'Phone Directory', 'phone', 'directory.view'],
+  ] },
   { label: 'Assignments', items: [
     ['assignments', '#/assignments', 'All Assignments', 'link', 'assets.view'],
     ['deploy', '#/deploy', 'Deploy', 'send', 'assets.view'],

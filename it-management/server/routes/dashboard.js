@@ -46,8 +46,20 @@ r.get('/', requirePerm('dashboard.view'), (req, res) => {
                                 WHERE au.status = 'In Progress' AND i.result = 'Missing'`).n;
   const pendingAudits = db.get("SELECT COUNT(*) n FROM inventory_audits WHERE status = 'In Progress'").n;
 
+  // Value = purchase price. Retired/disposed assets are no longer counted as company assets.
+  const v = db.get(`SELECT
+      COALESCE(SUM(CASE WHEN status NOT IN ('Retired','Disposed') THEN purchase_cost END), 0) AS total,
+      COALESCE(SUM(CASE WHEN status = 'Deployed' THEN purchase_cost END), 0) AS in_use,
+      COALESCE(SUM(CASE WHEN status = 'Available' THEN purchase_cost END), 0) AS in_stock,
+      COALESCE(SUM(CASE WHEN status IN ('Under Repair','Damaged') THEN purchase_cost END), 0) AS repair,
+      COALESCE(SUM(CASE WHEN status = 'Lost' THEN purchase_cost END), 0) AS lost,
+      SUM(CASE WHEN status NOT IN ('Retired','Disposed') AND purchase_cost IS NULL THEN 1 ELSE 0 END) AS no_price,
+      SUM(CASE WHEN status NOT IN ('Retired','Disposed') THEN 1 ELSE 0 END) AS counted
+    FROM assets`);
+
   res.json({
     assets: { total, ...byStatus },
+    value: { total: v.total, in_use: v.in_use, in_stock: v.in_stock, repair: v.repair, lost: v.lost, no_price: v.no_price || 0, counted: v.counted || 0, currency: setting('currency_symbol', '₱') },
     employees: { total: emp.total || 0, with_assets: emp.with_assets || 0, without_assets: (emp.total || 0) - (emp.with_assets || 0) },
     network: {
       total_ips: ipCounts.total || 0, active_ips: ipCounts.active || 0, available_ips: ipUtil.available, capacity: ipUtil.capacity,

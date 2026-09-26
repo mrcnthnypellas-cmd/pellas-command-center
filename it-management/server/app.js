@@ -47,6 +47,7 @@ function createApp() {
   app.use('/api/users', require('./routes/users'));
   app.use('/api/documents', require('./routes/documents'));
   app.use('/api/backup', require('./routes/backup'));
+  app.use('/api/directory', require('./routes/directory'));
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 
   // Uploaded photos are private: signed-in users only.

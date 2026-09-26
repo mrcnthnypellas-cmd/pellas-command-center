@@ -21,6 +21,7 @@ function attach(engine, bytes) {
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(schema);
   db.exec('CREATE TABLE IF NOT EXISTS _demo_files (name TEXT PRIMARY KEY, mime TEXT, data BLOB)');
+  require('../../server/lib/migrate').migrate({ all, run });
 }
 function all(sql, ...p) {
   open();

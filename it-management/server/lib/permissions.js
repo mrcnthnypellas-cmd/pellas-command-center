@@ -9,6 +9,8 @@ const PERMISSIONS = [
   ['assets.assign', 'Assets', 'Deploy, return and transfer assets'],
   ['employees.view', 'Employees', 'View employees'],
   ['employees.manage', 'Employees', 'Create / edit employees'],
+  ['directory.view', 'Phone Directory', 'View and export the phone directory'],
+  ['directory.manage', 'Phone Directory', 'Add, edit and delete phone directory contacts'],
   ['maintenance.view', 'Maintenance', 'View maintenance & warranty'],
   ['maintenance.manage', 'Maintenance', 'Manage maintenance & warranty'],
   ['audits.view', 'Audit', 'View inventory audits'],

@@ -67,7 +67,7 @@ export async function list(el, _m, params) {
     { name: 'department_id', label: 'All departments', options: opt(L.departments) },
     { name: 'location_id', label: 'All locations', options: opt(L.locations) },
     { name: 'warranty', label: 'Any warranty', options: opt(['Active', 'Expiring Soon', 'Expired', 'None']) },
-  ], params)}<div data-table></div></section>`;
+  ], params)}<div class="value-bar" data-total></div><div data-table></div></section>`;
   let rows = [];
   const table = mountTable(el.querySelector('[data-table]'), {
     rows,
@@ -84,6 +84,7 @@ export async function list(el, _m, params) {
       { key: 'location', label: 'Location' },
       { key: 'ip_address', label: 'IP Address', render: (a) => `<span class="mono">${dash(a.ip_address)}</span>` },
       { key: 'status', label: 'Status', render: (a) => badge(a.status) },
+      { key: 'purchase_cost', label: 'Price', cls: 'num', sort: (a) => a.purchase_cost, render: (a) => (a.purchase_cost === null || a.purchase_cost === undefined ? '<span class="muted">—</span>' : `<span class="nowrap">${money(a.purchase_cost)}</span>`) },
       { key: 'purchase_date', label: 'Purchase Date', render: (a) => `<span class="nowrap">${fmtDate(a.purchase_date)}</span>` },
       { key: 'warranty_end', label: 'Warranty', render: warrantyBadge },
       { key: 'actions', label: 'Actions', nosort: true, render: assetActions },
@@ -96,6 +97,13 @@ export async function list(el, _m, params) {
     el.querySelector('[data-export]')?.setAttribute('href', `/api/assets/export${qs(f)}`); // export what is filtered
     rows = await api.get(`/assets${qs(f)}`);
     table.update(rows);
+    // Total value of what is shown (retired/disposed items count only if you filter for them).
+    const counted = f.status ? rows : rows.filter((a) => !['Retired', 'Disposed'].includes(a.status));
+    const priced = counted.filter((a) => a.purchase_cost !== null && a.purchase_cost !== undefined);
+    const total = priced.reduce((t, a) => t + Number(a.purchase_cost), 0);
+    const missing = counted.length - priced.length;
+    el.querySelector('[data-total]').innerHTML = `<span>Total value${Object.keys(f).length ? ' of shown assets' : ''}: <b>${money(total)}</b></span>
+      <span class="muted">${counted.length} asset${counted.length === 1 ? '' : 's'}${missing ? ` · ${missing} without a price` : ''}${!f.status ? ' · retired/disposed not included' : ''}</span>`;
   };
   el.querySelector('.filters').addEventListener('input', debounce(load, 250));
   await load();
@@ -124,7 +132,7 @@ export async function form(el, [idOrTag]) {
     { type: 'section', label: 'Purchase information' },
     { name: 'supplier', label: 'Supplier' },
     { name: 'purchase_date', label: 'Purchase date', type: 'date' },
-    { name: 'purchase_cost', label: `Purchase cost (${L.currency})`, type: 'number', step: '0.01' },
+    { name: 'purchase_cost', label: `Price / purchase cost (${L.currency})`, type: 'number', step: '0.01', attrs: 'min="0"', help: 'Counted in the Total Asset Value on the dashboard' },
     { name: 'po_number', label: 'PO number' },
     { name: 'invoice_number', label: 'Invoice number' },
     { type: 'section', label: 'Warranty' },
@@ -242,7 +250,7 @@ export async function profile(el, [idOrTag], params) {
         ['Service tag', esc(a.service_tag)], ['Description', esc(a.description)], ['Notes', esc(a.notes)],
       ]))}
       ${card('Purchase & warranty', kv([
-        ['Supplier', esc(a.supplier)], ['Purchase date', fmtDate(a.purchase_date, true)], ['Purchase cost', money(a.purchase_cost)], ['PO number', esc(a.po_number)], ['Invoice number', esc(a.invoice_number)],
+        ['Supplier', esc(a.supplier)], ['Purchase date', fmtDate(a.purchase_date, true)], ['Price (purchase cost)', money(a.purchase_cost)], ['PO number', esc(a.po_number)], ['Invoice number', esc(a.invoice_number)],
         ['Warranty', a.warranty_end ? `${fmtDate(a.warranty_start)} → ${fmtDate(a.warranty_end)} ${badge(a.warranty_status)}` : ''],
         ...a.warranties.slice(1).map((w) => [`Extra warranty`, `${esc(w.warranty_type)} · ${esc(w.provider || '')} until ${fmtDate(w.end_date)}`]),
       ]))}</div>

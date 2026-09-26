@@ -216,6 +216,22 @@ function seed() {
     activity('2026-01-01', 'ISP created', 'isp', isp.converge, 'Converge — Main Office Internet');
     activity('2026-01-01', 'ISP created', 'isp', isp.pldt, 'PLDT — Backup Internet');
 
+    // ── Phone directory (sample contacts; 555 numbers are fictional) ──
+    for (const [name, organization, department, position, phone, mobile, local_ext, email, category, notes, fav] of [
+      ['IT Help Desk', 'Pellas Corporation', 'IT', null, null, '0917 555 0104', '104', 'it@pellas.example', 'Internal', 'First line for all IT issues', 1],
+      ['Reception / Front Desk', 'Pellas Corporation', 'Admin', null, '(02) 8123 4567', null, '100', null, 'Internal', null, 0],
+      ['Building Admin Office', 'Pellas Building', 'Property Management', 'Building Administrator', '(02) 8555 0140', '0918 555 0140', null, 'admin@pellasbldg.example', 'Other', 'Aircon, power interruptions, access cards', 0],
+      ['Converge Business Hotline', 'Converge', 'Business Support', null, '(02) 8667 0888', null, null, 'business@converge.example', 'ISP / Telco', 'Account CNV-00012345 — primary internet', 1],
+      ['PLDT Enterprise', 'PLDT', 'Enterprise Support', null, '171', null, null, null, 'ISP / Telco', 'Backup internet', 0],
+      ['Globe Business Care', 'Globe Business', 'Customer Care', null, '(02) 7730 1288', null, null, null, 'ISP / Telco', 'LTE backup SIM', 0],
+      ['Ramon Cruz', 'Dell Technologies PH', 'Sales', 'Account Manager', '(02) 8555 0161', '0917 555 0161', null, 'ramon.cruz@dell.example', 'Vendor / Supplier', 'Laptops, monitors, servers', 0],
+      ['Octagon Service Center', 'Octagon Computer Superstore', 'Service', null, '(02) 8555 0172', null, null, 'service@octagon.example', 'Vendor / Supplier', 'HP printer & laptop repairs', 0],
+      ['Network Hub PH', 'Network Hub PH', 'Technical Support', null, null, '0922 555 0183', null, 'support@networkhub.example', 'Vendor / Supplier', 'MikroTik, Cisco, TP-Link', 0],
+      ['National Emergency Hotline', null, null, null, '911', null, null, null, 'Emergency', null, 1],
+      ['Philippine Red Cross', null, null, null, '143', null, null, null, 'Emergency', null, 0],
+      ['Building Security Guard', 'Pellas Building', 'Security', null, null, '0919 555 0199', '199', null, 'Emergency', '24/7 lobby guard', 0],
+    ]) ins('phone_contacts', { name, organization, department, position, phone, mobile, local_ext, email, category, notes, is_favorite: fav, created_by: ADMIN });
+
     // ── Networks ──
     const net = {};
     net.lan = ins('networks', { name: 'Main Office LAN', cidr: '192.168.1.0/24', vlan_id: 1, gateway: '192.168.1.1', dns_primary: '192.168.1.1', dns_secondary: '1.1.1.1', dhcp_start: '192.168.1.100', dhcp_end: '192.168.1.200', location_id: loc['2F'], isp_id: isp.converge, purpose: 'LAN', description: 'Staff workstations, printers and Wi-Fi' });

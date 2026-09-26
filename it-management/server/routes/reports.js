@@ -14,12 +14,27 @@ const ASSET_COLS = [
   { key: 'asset_tag', label: 'Asset Tag' }, { key: 'name', label: 'Asset Name', width: 1.6 }, { key: 'category', label: 'Category' },
   { key: 'brand', label: 'Brand' }, { key: 'model', label: 'Model' }, { key: 'serial_number', label: 'Serial No.' },
   { key: 'employee_name', label: 'Assigned To', width: 1.3 }, { key: 'department', label: 'Department' }, { key: 'location', label: 'Location', width: 1.3 },
-  { key: 'ip_address', label: 'IP' }, { key: 'status', label: 'Status' }, { key: 'purchase_date', label: 'Purchased' }, { key: 'warranty_end', label: 'Warranty End' },
+  { key: 'ip_address', label: 'IP' }, { key: 'status', label: 'Status' }, { key: 'purchase_date', label: 'Purchased' }, { key: 'purchase_cost', label: 'Price' }, { key: 'warranty_end', label: 'Warranty End' },
 ];
 const assets = (where = '', ...p) => db.all(`${ASSET_SELECT} ${where} ORDER BY a.asset_tag`, ...p).map(decorateAsset);
 
 const REPORTS = {
   inventory: { title: 'Complete Asset Inventory', group: 'Assets', columns: ASSET_COLS, rows: () => assets() },
+  value: {
+    title: 'Asset Value by Category', group: 'Assets',
+    columns: [{ key: 'category', label: 'Category', width: 1.4 }, { key: 'assets', label: 'Assets' }, { key: 'priced', label: 'With price' },
+      { key: 'in_use', label: 'In use' }, { key: 'in_stock', label: 'In stock' }, { key: 'total', label: 'Total value', width: 1.3 }],
+    rows: () => {
+      const rows = db.all(`SELECT c.name AS category, COUNT(*) AS assets, COUNT(a.purchase_cost) AS priced,
+          ROUND(COALESCE(SUM(CASE WHEN a.status = 'Deployed' THEN a.purchase_cost END), 0), 2) AS in_use,
+          ROUND(COALESCE(SUM(CASE WHEN a.status = 'Available' THEN a.purchase_cost END), 0), 2) AS in_stock,
+          ROUND(COALESCE(SUM(a.purchase_cost), 0), 2) AS total
+        FROM assets a JOIN asset_categories c ON c.id = a.category_id WHERE a.status NOT IN ('Retired','Disposed')
+        GROUP BY c.name ORDER BY total DESC`);
+      const sum = (k) => Math.round(rows.reduce((t, r) => t + r[k], 0) * 100) / 100;
+      return [...rows, { category: 'TOTAL', assets: sum('assets'), priced: sum('priced'), in_use: sum('in_use'), in_stock: sum('in_stock'), total: sum('total') }];
+    },
+  },
   'per-employee': {
     title: 'Assets Per Employee', group: 'Assets',
     columns: [{ key: 'employee_code', label: 'Emp. ID' }, { key: 'employee_name', label: 'Employee', width: 1.4 }, { key: 'employee_department', label: 'Department' },

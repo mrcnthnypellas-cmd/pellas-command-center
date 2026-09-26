@@ -25,6 +25,7 @@ const MOUNTS = [
   ['/api/users', require('../server/routes/users')],
   ['/api/documents', require('../server/routes/documents')],
   ['/api/backup', require('../server/routes/backup')],
+  ['/api/directory', require('../server/routes/directory')],
 ];
 
 const DB_KEY = 'itms-demo-db-v1';

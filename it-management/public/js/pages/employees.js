@@ -1,6 +1,6 @@
 import {
   api, esc, badge, fmtDate, can, mountTable, filterBar, readFilters, qs, debounce, loadLookups, opt, formHtml, formData,
-  openModal, setTitle, on, card, confirmDialog, toast,
+  openModal, setTitle, on, card, confirmDialog, toast, money,
 } from '../core.js';
 import { deployModal, returnModal, transferModal, afterChange } from './actions.js';
 
@@ -81,11 +81,12 @@ export async function profile(el, [id]) {
     </div></div>
     <div class="facts"><div><small>Email</small><b>${esc(e.email || '—')}</b></div><div><small>Contact</small><b>${esc(e.contact_number || '—')}</b></div>
       <div><small>Office / Location</small><b>${esc(e.location || '—')}</b></div><div><small>Department</small><b>${esc(e.department || '—')}</b></div>
-      <div><small>Total Assigned Assets</small><b style="font-size:20px">${e.assets.length}</b></div></div></section>
+      <div><small>Total Assigned Assets</small><b style="font-size:20px">${e.assets.length}</b></div>
+      <div><small>Value of Assigned Assets</small><b style="font-size:20px">${money(e.assets.reduce((t, a) => t + (Number(a.purchase_cost) || 0), 0))}</b></div></div></section>
   <div class="grid split-3-2">
     <section class="card"><div class="card-head"><h3>Assigned assets</h3><span class="muted">Total assigned: <b>${e.assets.length}</b></span></div><div class="card-body flush">
       ${e.assets.length ? `<ul class="list">${e.assets.map((a) => `<li><div class="grow"><div class="cell-sub" style="text-transform:uppercase;letter-spacing:.05em;font-weight:600">${esc(a.category)}</div>
-        <a href="#/assets/${a.id}"><b>${esc(a.name)}</b></a><div class="meta"><span class="mono">${esc(a.asset_tag)}</span>${a.serial_number ? ` · S/N ${esc(a.serial_number)}` : ''}${a.ip_address ? ` · IP <span class="mono">${esc(a.ip_address)}</span>` : ''} · since ${fmtDate(a.assigned_date)}</div></div>
+        <a href="#/assets/${a.id}"><b>${esc(a.name)}</b></a><div class="meta"><span class="mono">${esc(a.asset_tag)}</span>${a.purchase_cost ? ` · ${money(a.purchase_cost)}` : ''}${a.serial_number ? ` · S/N ${esc(a.serial_number)}` : ''}${a.ip_address ? ` · IP <span class="mono">${esc(a.ip_address)}</span>` : ''} · since ${fmtDate(a.assigned_date)}</div></div>
         ${badge(a.status)}${can('assets.assign') ? `<div class="btn-group"><button class="btn xs" data-tr="${a.id}">Transfer</button><button class="btn xs" data-rt="${a.id}">Return</button></div>` : ''}</li>`).join('')}</ul>`
     : '<div class="empty-state">No assets currently assigned</div>'}</div></section>
     ${card('Returns & transfers', e.returns.length || e.transfers.length ? `<ul class="timeline">${[

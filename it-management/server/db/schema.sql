@@ -383,6 +383,26 @@ CREATE TABLE IF NOT EXISTS credential_permissions (
   PRIMARY KEY (credential_id, user_id)
 );
 
+-- ───────────────────────── Phone directory ─────────────────────────
+CREATE TABLE IF NOT EXISTS phone_contacts (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  organization TEXT,                    -- company / supplier / office
+  department TEXT,
+  position TEXT,
+  phone TEXT,                           -- main number (landline or mobile)
+  mobile TEXT,
+  local_ext TEXT,                       -- internal extension / trunk line
+  email TEXT,
+  category TEXT NOT NULL DEFAULT 'Other', -- Internal / Vendor / ISP & Telco / Emergency / Client / Government / Other
+  notes TEXT,
+  is_favorite INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_contacts_name ON phone_contacts(name);
+
 -- ───────────────────────── Documents & logs ─────────────────────────
 CREATE TABLE IF NOT EXISTS documents (
   id INTEGER PRIMARY KEY,
