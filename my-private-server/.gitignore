@@ -1,0 +1,9 @@
+bin/
+obj/
+node_modules/
+dashboard/dist/
+src/MyPrivateServer.Server/wwwroot/
+.data/
+*.user
+.vs/
+TestResults/

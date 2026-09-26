@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyPrivateServer.Backup\MyPrivateServer.Backup.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Containers\MyPrivateServer.Containers.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Core\MyPrivateServer.Core.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Databases\MyPrivateServer.Databases.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Deployments\MyPrivateServer.Deployments.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Files\MyPrivateServer.Files.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Identity\MyPrivateServer.Identity.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Monitoring\MyPrivateServer.Monitoring.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.RemoteAccess\MyPrivateServer.RemoteAccess.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Storage\MyPrivateServer.Storage.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.WebHosting\MyPrivateServer.WebHosting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+  </PropertyGroup>
+
+</Project>

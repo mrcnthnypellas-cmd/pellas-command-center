@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyPrivateServer.Core\MyPrivateServer.Core.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Databases\MyPrivateServer.Databases.csproj" />
+    <ProjectReference Include="..\MyPrivateServer.Storage\MyPrivateServer.Storage.csproj" />
+  </ItemGroup>
+
+</Project>
