@@ -51,9 +51,9 @@ $session = $null
 function Csrf { ($session.Cookies.GetCookies($base) | Where-Object Name -eq "mps_csrf").Value }
 function Api([string]$method, [string]$path, $body = $null, [hashtable]$headers = @{}) {
     $h = @{ "X-MPS-CSRF" = (Csrf) } + $headers
-    $args = @{ Method = $method; Uri = "$base$path"; WebSession = $session; Headers = $h; TimeoutSec = 120 }
-    if ($null -ne $body) { $args.Body = ($body | ConvertTo-Json -Depth 8 -Compress); $args.ContentType = "application/json" }
-    Invoke-RestMethod @args
+    $p = @{ Method = $method; Uri = "$base$path"; WebSession = $session; Headers = $h; TimeoutSec = 120 }
+    if ($null -ne $body) { $p.Body = ($body | ConvertTo-Json -Depth 8 -Compress); $p.ContentType = "application/json" }
+    Invoke-RestMethod @p
 }
 
 function Cleanup {
