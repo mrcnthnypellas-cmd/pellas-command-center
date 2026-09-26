@@ -1,7 +1,7 @@
 import { NavLink, Outlet, Navigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, UserCog, ClipboardList, CalendarClock, FileBarChart,
-  Building2, ScrollText, Settings, LogOut, Menu, X, FileWarning,
+  Building2, ScrollText, Settings, LogOut, Menu, X, FileWarning, Clock,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../../lib/auth";
@@ -17,6 +17,7 @@ const NAV: NavItem[] = [
   { to: "/attendance", label: "Attendance", icon: ClipboardList, roles: ["admin", "hr"] },
   { to: "/my-attendance", label: "My Attendance", icon: ClipboardList, roles: ["employee"] },
   { to: "/corrections", label: "Corrections", icon: FileWarning, roles: ["admin", "hr", "employee"] },
+  { to: "/overtime", label: "Overtime", icon: Clock, roles: ["admin", "hr", "employee"] },
   { to: "/departments", label: "Departments", icon: Building2, roles: ["admin"] },
   { to: "/schedules", label: "Schedules", icon: CalendarClock, roles: ["admin"] },
   { to: "/reports", label: "Reports", icon: FileBarChart, roles: ["admin", "hr"] },

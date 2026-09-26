@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 import { Download, FileBarChart } from "lucide-react";
+import * as XLSX from "xlsx";
 import { supabase } from "../lib/supabase";
+import { useToast } from "../lib/toast";
 import { Card, Select, Input, Button, Spinner, EmptyState } from "../components/ui/ui";
 import EmployeeMultiSelect, { type EmployeeOption } from "../components/ui/EmployeeMultiSelect";
-import { todayInTZ } from "../lib/format";
+import { formatTime, getLogDateTimeParts, todayInTZ } from "../lib/format";
 import type { Department, WorkSchedule } from "../types";
 
 const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5]; // Mon–Fri, 8:00–17:00 default coverage
+const DEFAULT_START_TIME = "08:00:00";
+const DEFAULT_END_TIME = "17:00:00";
+const DEFAULT_BREAK_MINUTES = 60;
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 interface SummaryRow {
   employee_id: string;
@@ -53,7 +59,22 @@ function countScheduledWorkdays(from: string, to: string, workDays: number[], da
   return count;
 }
 
+// Local calendar-day key (Y-M-D), safe from the UTC shift toISOString() can
+// introduce — the cursor Date objects here are always local midnight.
+function localDateKey(d: Date) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function toMinutes(t: string) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+function minutesToHM(totalMinutes: number) {
+  const mins = Math.max(0, Math.round(totalMinutes));
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
 export default function Reports() {
+  const { push } = useToast();
   const [range, setRange] = useState<"daily" | "weekly" | "monthly" | "cutoff" | "custom">("weekly");
   const [dateFrom, setDateFrom] = useState(toISODate(startOfWeek(new Date())));
   const [dateTo, setDateTo] = useState(todayInTZ());
@@ -65,6 +86,7 @@ export default function Reports() {
   const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exportingDetail, setExportingDetail] = useState(false);
 
   useEffect(() => {
     supabase.from("departments").select("*").order("name").then(({ data }) => setDepartments((data as Department[]) ?? []));
@@ -173,6 +195,143 @@ export default function Reports() {
     a.click();
   }
 
+  // Detailed Excel report: Sheet 1 is one row per employee per scheduled
+  // workday (Mon–Fri per schedule, weekends skipped) showing Late,
+  // Undertime and Absent in hours+minutes. Sheet 2 rolls each employee up
+  // to Late/Undertime/Overtime/Absent totals. Overtime only counts hours
+  // actually worked past shift end AND covered by an admin-approved
+  // overtime request for that date — unapproved late clock-outs (and
+  // early clock-ins before shift start) are never counted.
+  async function exportDetailedExcel() {
+    setExportingDetail(true);
+    let profileQuery = supabase
+      .from("profiles")
+      .select("id, first_name, last_name, employee_code, department_id, date_hired, schedule_id")
+      .in("employment_status", ["active", "on_leave"]);
+    if (deptFilter !== "all") profileQuery = profileQuery.eq("department_id", deptFilter);
+    if (employeeFilter.length > 0) profileQuery = profileQuery.in("id", employeeFilter);
+
+    const [
+      { data: profilesData, error: profilesError },
+      { data: schedulesData },
+      { data: attendanceData, error: attendanceError },
+      { data: otData },
+    ] = await Promise.all([
+      profileQuery,
+      supabase.from("work_schedules").select("*"),
+      supabase.from("attendance").select("employee_id, work_date, time_in, time_out").gte("work_date", dateFrom).lte("work_date", dateTo),
+      supabase.from("overtime_requests").select("employee_id, work_date, approved_hours").eq("status", "approved").gte("work_date", dateFrom).lte("work_date", dateTo),
+    ]);
+    setExportingDetail(false);
+    if (profilesError || attendanceError || !profilesData) {
+      push("error", profilesError?.message ?? attendanceError?.message ?? "Failed to load report data.");
+      return;
+    }
+
+    const scheduleMap = new Map<string, WorkSchedule>(((schedulesData as WorkSchedule[]) ?? []).map((s) => [s.id, s]));
+    const attByKey = new Map<string, { time_in: string | null; time_out: string | null }>();
+    for (const a of (attendanceData as { employee_id: string; work_date: string; time_in: string | null; time_out: string | null }[]) ?? []) {
+      attByKey.set(`${a.employee_id}|${a.work_date}`, { time_in: a.time_in, time_out: a.time_out });
+    }
+    const approvedOtByKey = new Map<string, number>();
+    for (const o of (otData as { employee_id: string; work_date: string; approved_hours: number | null }[]) ?? []) {
+      const key = `${o.employee_id}|${o.work_date}`;
+      approvedOtByKey.set(key, (approvedOtByKey.get(key) ?? 0) + Number(o.approved_hours ?? 0));
+    }
+
+    const today = todayInTZ();
+    const detailRows: (string | number)[][] = [];
+    const summary = new Map<
+      string,
+      { name: string; code: string | null; lateMin: number; undertimeMin: number; overtimeMin: number; absentMin: number }
+    >();
+
+    for (const p of (profilesData as { id: string; first_name: string; last_name: string; employee_code: string | null; date_hired: string | null; schedule_id: string | null }[]) ?? []) {
+      const schedule = p.schedule_id ? scheduleMap.get(p.schedule_id) : undefined;
+      const workDays = schedule?.work_days ?? DEFAULT_WORK_DAYS;
+      const shiftStartMin = toMinutes(schedule?.start_time ?? DEFAULT_START_TIME);
+      const shiftEndMin = toMinutes(schedule?.end_time ?? DEFAULT_END_TIME);
+      const breakMinutes = schedule?.break_minutes ?? DEFAULT_BREAK_MINUTES;
+      const shiftMinutes = Math.max(0, shiftEndMin - shiftStartMin - breakMinutes);
+      const name = `${p.first_name} ${p.last_name}`;
+
+      summary.set(p.id, { name, code: p.employee_code, lateMin: 0, undertimeMin: 0, overtimeMin: 0, absentMin: 0 });
+      const empSummary = summary.get(p.id)!;
+
+      const start = p.date_hired && p.date_hired > dateFrom ? p.date_hired : dateFrom;
+      const end = dateTo < today ? dateTo : today;
+      if (start > end) continue;
+
+      const cursor = new Date(`${start}T00:00:00`);
+      const endDate = new Date(`${end}T00:00:00`);
+      while (cursor <= endDate) {
+        const dow = cursor.getDay();
+        if (!workDays.includes(dow)) {
+          cursor.setDate(cursor.getDate() + 1);
+          continue;
+        }
+        const dateKey = localDateKey(cursor);
+        const rec = attByKey.get(`${p.id}|${dateKey}`);
+
+        let lateMin = 0, undertimeMin = 0, overtimeMin = 0, absentMin = 0;
+        let timeInLabel = "—", timeOutLabel = "—", statusLabel: string;
+
+        if (!rec || !rec.time_in) {
+          absentMin = shiftMinutes;
+          statusLabel = "Absent";
+        } else {
+          timeInLabel = formatTime(rec.time_in);
+          const inParts = getLogDateTimeParts(rec.time_in);
+          lateMin = Math.max(0, inParts.hour * 60 + inParts.minute - shiftStartMin);
+
+          if (rec.time_out) {
+            timeOutLabel = formatTime(rec.time_out);
+            const outParts = getLogDateTimeParts(rec.time_out);
+            const outMin = outParts.hour * 60 + outParts.minute;
+            undertimeMin = Math.max(0, shiftEndMin - outMin);
+            const rawOvertimeMin = Math.max(0, outMin - shiftEndMin);
+            const approvedMin = (approvedOtByKey.get(`${p.id}|${dateKey}`) ?? 0) * 60;
+            overtimeMin = Math.min(rawOvertimeMin, approvedMin);
+            statusLabel = lateMin > 0 && undertimeMin > 0 ? "Late & Undertime" : lateMin > 0 ? "Late" : undertimeMin > 0 ? "Undertime" : overtimeMin > 0 ? "Overtime" : "Present";
+          } else {
+            statusLabel = "Incomplete";
+          }
+        }
+
+        detailRows.push([
+          name, p.employee_code ?? "", dateKey, DAY_NAMES[dow],
+          timeInLabel, timeOutLabel,
+          minutesToHM(lateMin), minutesToHM(undertimeMin), minutesToHM(absentMin), minutesToHM(overtimeMin),
+          statusLabel,
+        ]);
+
+        empSummary.lateMin += lateMin;
+        empSummary.undertimeMin += undertimeMin;
+        empSummary.overtimeMin += overtimeMin;
+        empSummary.absentMin += absentMin;
+
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    const detailHeader = ["Employee", "ID", "Date", "Day", "Time In", "Time Out", "Late", "Undertime", "Absent", "Overtime", "Status"];
+    const detailSheet = XLSX.utils.aoa_to_sheet([detailHeader, ...detailRows]);
+    detailSheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 6 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
+
+    const summaryRows = Array.from(summary.values())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((e) => [e.name, e.code ?? "", minutesToHM(e.lateMin), minutesToHM(e.undertimeMin), minutesToHM(e.overtimeMin), minutesToHM(e.absentMin)]);
+    const summaryHeader = ["Employee", "ID", "Total Late", "Total Undertime", "Total Overtime", "Total Absent"];
+    const summarySheet = XLSX.utils.aoa_to_sheet([summaryHeader, ...summaryRows]);
+    summarySheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, detailSheet, "Daily Detail");
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+    const suffix = range === "cutoff" ? `${cutoffMonth}_cutoff${cutoffHalf}` : `${dateFrom}_to_${dateTo}`;
+    XLSX.writeFile(workbook, `attendance_detailed_${suffix}.xlsx`);
+  }
+
   function totals() {
     return rows.reduce(
       (acc, r) => ({
@@ -221,6 +380,7 @@ export default function Reports() {
           <EmployeeMultiSelect options={employees} selected={employeeFilter} onChange={setEmployeeFilter} className="w-56" />
           <Button onClick={generate} loading={loading}><FileBarChart className="h-4 w-4" /> Generate</Button>
           {rows.length > 0 && <Button variant="secondary" onClick={exportCsv}><Download className="h-4 w-4" /> Export CSV</Button>}
+          <Button variant="secondary" onClick={exportDetailedExcel} loading={exportingDetail}><Download className="h-4 w-4" /> Export Detailed Excel (Late/Undertime/Absent/OT)</Button>
         </div>
       </Card>
 

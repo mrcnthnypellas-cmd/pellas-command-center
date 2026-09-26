@@ -86,6 +86,21 @@ export interface AttendanceCorrection {
   profiles?: { first_name: string; last_name: string; employee_code: string | null } | null;
 }
 
+export interface OvertimeRequest {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  requested_hours: number;
+  approved_hours: number | null;
+  reason: string;
+  status: CorrectionStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+  created_at: string;
+  profiles?: { first_name: string; last_name: string; employee_code: string | null } | null;
+}
+
 export interface CompanySettings {
   id: string;
   company_id: string;

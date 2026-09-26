@@ -11,6 +11,7 @@ import Schedules from "./pages/admin/Schedules";
 import Attendance from "./pages/Attendance";
 import MyAttendance from "./pages/employee/MyAttendance";
 import Corrections from "./pages/Corrections";
+import Overtime from "./pages/Overtime";
 import Reports from "./pages/Reports";
 import AuditLog from "./pages/admin/AuditLog";
 import SettingsPage from "./pages/admin/SettingsPage";
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/attendance" element={<RequireRole roles={["admin", "hr"]}><Attendance /></RequireRole>} />
               <Route path="/my-attendance" element={<RequireRole roles={["employee"]}><MyAttendance /></RequireRole>} />
               <Route path="/corrections" element={<Corrections />} />
+              <Route path="/overtime" element={<Overtime />} />
               <Route path="/reports" element={<RequireRole roles={["admin", "hr"]}><Reports /></RequireRole>} />
               <Route path="/audit-log" element={<RequireRole roles={["admin"]}><AuditLog /></RequireRole>} />
               <Route path="/settings" element={<RequireRole roles={["admin"]}><SettingsPage /></RequireRole>} />
