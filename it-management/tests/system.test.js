@@ -50,6 +50,9 @@ const noSecrets = (s, where) => { for (const x of SECRETS) assert.ok(!String(s).
 test('authentication: bad password rejected, CSRF header required', async () => {
   const bad = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'nope' }) });
   assert.equal(bad.status, 401);
+  // Username is case-insensitive and ignores spaces a phone keyboard may add.
+  const spaced = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: ' Admin ', password: 'admin123' }) });
+  assert.equal(spaced.status, 200);
   const anon = await fetch(`${base}/api/assets`);
   assert.equal(anon.status, 401);
   const a = await login('admin', 'admin123');

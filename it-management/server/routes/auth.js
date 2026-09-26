@@ -11,12 +11,13 @@ const r = express.Router();
 const attempts = new Map();
 
 r.post('/login', (req, res) => {
-  const { username, password } = req.body || {};
+  const username = String((req.body || {}).username || '').trim(); // phones often add a trailing space
+  const password = String((req.body || {}).password || '');
   if (!username || !password) throw bad('Username and password are required');
   const key = `${String(username).toLowerCase()}|${req.ip}`;
   const a = attempts.get(key) || { n: 0, until: 0 };
   if (a.until > Date.now()) return res.status(429).json({ error: 'Too many attempts. Try again in a minute.' });
-  const user = db.get('SELECT * FROM users WHERE lower(username) = lower(?)', String(username));
+  const user = db.get('SELECT * FROM users WHERE lower(username) = lower(?)', username);
   if (!user || user.status !== 'Active' || !verifyPassword(password, user.password_hash)) {
     a.n += 1;
     if (a.n >= 5) { a.until = Date.now() + 60e3; a.n = 0; }

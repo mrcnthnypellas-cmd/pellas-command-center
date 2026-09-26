@@ -104,7 +104,7 @@ async function renderLogin() {
       <div class="brand-logo" style="width:44px;height:44px;color:#fff">IT</div>
       <h1>${esc(company)}</h1><p class="muted" style="margin:0">IT Asset, Inventory &amp; Network Management</p>
       <div class="alert err hidden" data-err style="margin-top:14px"></div>
-      <div class="field"><label for="u">Username</label><input id="u" name="username" autocomplete="username" required autofocus></div>
+      <div class="field"><label for="u">Username</label><input id="u" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus></div>
       <div class="field"><label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required></div>
       <button class="btn primary" type="submit">Sign in</button>
       <div class="demo-accounts"><b>Local development accounts</b><br>
