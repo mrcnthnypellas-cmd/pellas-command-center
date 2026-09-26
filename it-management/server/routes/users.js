@@ -1,5 +1,6 @@
 // System users, roles and per-user permission overrides.
 const express = require('express');
+const crypto = require('crypto');
 const db = require('../db/connection');
 const { requirePerm, permissionsFor } = require('../lib/auth');
 const { log } = require('../lib/activity');
@@ -12,7 +13,7 @@ const manage = requirePerm('users.manage');
 r.get('/', manage, (_req, res) => {
   res.json(db.all(`SELECT u.id, u.username, u.full_name, u.email, u.status, u.last_login_at, u.created_at, u.role_id, r.name AS role,
                      (SELECT COUNT(*) FROM user_permissions up WHERE up.user_id = u.id) AS overrides
-                     FROM users u JOIN roles r ON r.id = u.role_id ORDER BY u.full_name`));
+                     FROM users u JOIN roles r ON r.id = u.role_id WHERE u.status != 'Deleted' ORDER BY u.full_name`));
 });
 
 r.get('/roles', manage, (_req, res) => {
@@ -38,7 +39,7 @@ r.put('/roles/:id', manage, (req, res) => {
 });
 
 r.get('/:id/permissions', manage, (req, res) => {
-  const u = db.get('SELECT u.*, r.name AS role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?', req.params.id);
+  const u = db.get("SELECT u.*, r.name AS role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ? AND u.status != 'Deleted'", req.params.id);
   if (!u) throw notFound('User');
   res.json({
     role: u.role,
@@ -50,7 +51,7 @@ r.get('/:id/permissions', manage, (req, res) => {
 
 // Body: { overrides: [{ permission_key, granted: 0|1 }] } — replaces all overrides.
 r.put('/:id/permissions', manage, (req, res) => {
-  const u = db.get('SELECT * FROM users WHERE id = ?', req.params.id);
+  const u = db.get("SELECT * FROM users WHERE id = ? AND status != 'Deleted'", req.params.id);
   if (!u) throw notFound('User');
   const valid = new Set(db.all('SELECT key FROM permissions').map((p) => p.key));
   const list = Array.isArray(req.body.overrides) ? req.body.overrides : [];
@@ -79,15 +80,20 @@ r.post('/', manage, (req, res) => {
   if (db.get('SELECT 1 FROM users WHERE lower(username) = lower(?)', d.username)) throw bad('Username already exists');
   d.password_hash = hashPassword(req.body.password);
   d.status = d.status || 'Active';
+  if (!EDITABLE_STATUSES.includes(d.status)) throw bad('Status must be Active or Disabled');
   const id = insert('users', d);
   log(req, 'User created', 'user', id, d.username);
   res.status(201).json({ id });
 });
 
+const EDITABLE_STATUSES = ['Active', 'Disabled'];
+
 r.put('/:id', manage, (req, res) => {
-  const old = db.get('SELECT * FROM users WHERE id = ?', req.params.id);
+  const old = db.get("SELECT * FROM users WHERE id = ? AND status != 'Deleted'", req.params.id);
   if (!old) throw notFound('User');
   const d = pick(req.body, ['full_name', 'email', 'role_id', 'status'], ['role_id']);
+  if (d.status && !EDITABLE_STATUSES.includes(d.status)) throw bad('Status must be Active or Disabled');
+  if (d.status === 'Disabled' && old.id === req.user.id) throw bad('You cannot disable your own account');
   checkLastAdmin(old.id, d.role_id, d.status);
   if (req.body.password) {
     if (String(req.body.password).length < 8) throw bad('Password must be at least 8 characters');
@@ -99,15 +105,22 @@ r.put('/:id', manage, (req, res) => {
   res.json({ ok: true });
 });
 
+// Delete: the account is gone from the system — it can't sign in, no longer appears in user lists
+// or permission screens, and its username can be reused. Past history and activity keep the
+// person's name so the audit trail stays accurate.
 r.delete('/:id', manage, (req, res) => {
-  const u = db.get('SELECT * FROM users WHERE id = ?', req.params.id);
+  const u = db.get("SELECT * FROM users WHERE id = ? AND status != 'Deleted'", req.params.id);
   if (!u) throw notFound('User');
   if (u.id === req.user.id) throw bad('You cannot delete your own account');
-  checkLastAdmin(u.id, -1, 'Disabled');
-  // Keep history intact: disable instead of hard delete if the user authored records.
-  db.run("UPDATE users SET status = 'Disabled', updated_at = datetime('now') WHERE id = ?", u.id);
-  db.run('DELETE FROM sessions WHERE user_id = ?', u.id);
-  log(req, 'User disabled', 'user', u.id, u.username);
+  checkLastAdmin(u.id, -1, 'Deleted');
+  db.tx(() => {
+    db.run('DELETE FROM sessions WHERE user_id = ?', u.id);
+    db.run('DELETE FROM user_permissions WHERE user_id = ?', u.id);
+    db.run('DELETE FROM credential_permissions WHERE user_id = ?', u.id);
+    db.run(`UPDATE users SET status = 'Deleted', username = ?, email = NULL, password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+      `deleted-${u.id}-${u.username}`.slice(0, 120), `deleted:${crypto.randomBytes(16).toString('hex')}`, u.id);
+    log(req, 'User deleted', 'user', u.id, u.username, { name: u.full_name });
+  });
   res.json({ ok: true });
 });
 

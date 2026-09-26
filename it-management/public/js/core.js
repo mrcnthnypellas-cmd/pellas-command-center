@@ -200,7 +200,7 @@ export function openModal({ title, body, submitLabel = 'Save', size = '', onSubm
 export function confirmDialog(title, message, { confirmLabel = 'Confirm', danger = true } = {}) {
   return new Promise((resolve) => {
     let done = false;
-    const m = openModal({ title, body: `<p>${message}</p>`, submitLabel: confirmLabel, danger, onSubmit: () => { done = true; resolve(true); } });
+    const m = openModal({ title, body: `<div class="confirm-body">${message}</div>`, submitLabel: confirmLabel, danger, onSubmit: () => { done = true; resolve(true); } });
     const obs = new MutationObserver(() => { if (!document.body.contains(m.form)) { obs.disconnect(); if (!done) resolve(false); } });
     obs.observe(document.getElementById('modal-root'), { childList: true });
   });

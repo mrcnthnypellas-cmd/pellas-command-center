@@ -379,9 +379,38 @@ test('permission system: roles, overrides, read-only viewer', async () => {
   assert.equal((await viewer.post('/assets', { name: 'Viewer-made', category_id: 1 })).status, 201);
   ok(await admin.put(`/users/${v.id}/permissions`, { overrides: [] }));
   assert.equal((await viewer.post('/assets', { name: 'x', category_id: 1 })).status, 403);
-  // Last admin cannot be demoted
+  // Last admin cannot be demoted, disabled or deleted; nobody can delete or disable themselves.
   const adm = users.find((u) => u.username === 'admin');
   assert.equal((await admin.put(`/users/${adm.id}`, { role_id: v.role_id })).status, 400);
+  assert.equal((await admin.del(`/users/${adm.id}`)).status, 400);
+  assert.equal((await admin.put(`/users/${adm.id}`, { status: 'Disabled' })).status, 400);
+  assert.equal((await admin.put(`/users/${v.id}`, { status: 'Deleted' })).status, 400, 'delete only via Delete');
+
+  // Disable is reversible.
+  ok(await admin.put(`/users/${v.id}`, { status: 'Disabled' }));
+  assert.equal((await viewer.get('/assets')).status, 401, 'disabled user is signed out');
+  ok(await admin.put(`/users/${v.id}`, { status: 'Active' }));
+  await login('viewer', 'viewer123'); // re-enabled user can sign in again
+
+  // Delete removes the account from the system but keeps its name on history.
+  const tmp = ok(await admin.post('/users', { username: 'temp.tech', full_name: 'Temp Technician', role_id: users.find((u) => u.username === 'itstaff').role_id, password: 'longpassword1' }));
+  const tt = await login('temp.tech', 'longpassword1');
+  ok(await tt.post('/assets', { name: 'Made by temp', category_id: 1 }));
+  ok(await admin.put(`/users/${tmp.id}/permissions`, { overrides: [{ permission_key: 'users.manage', granted: 0 }] }));
+  ok(await admin.put('/vault/credentials/1/permissions', { grants: [{ user_id: tmp.id, can_reveal: 1, can_copy: 1 }] }));
+  ok(await admin.del(`/users/${tmp.id}`));
+  assert.equal((await tt.get('/assets')).status, 401, 'deleted user is signed out');
+  const bad = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'temp.tech', password: 'longpassword1' }) });
+  assert.equal(bad.status, 401, 'deleted user cannot sign in');
+  assert.ok(!ok(await admin.get('/users')).some((u) => u.id === tmp.id), 'gone from the user list');
+  assert.ok(!ok(await admin.get('/vault/credentials/1/permissions')).some((u) => u.user_id === tmp.id), 'gone from credential access');
+  assert.equal((await admin.get(`/users/${tmp.id}/permissions`)).status, 404);
+  assert.equal((await admin.put(`/users/${tmp.id}`, { status: 'Active' })).status, 404, 'cannot be brought back by editing');
+  assert.equal((await admin.del(`/users/${tmp.id}`)).status, 404);
+  const created = ok(await admin.get('/activity?entity_type=asset&limit=50')).find((l) => l.action === 'Asset created' && l.user_name === 'Temp Technician');
+  assert.ok(created, 'history keeps the deleted person\'s name');
+  // The username can be reused.
+  ok(await admin.post('/users', { username: 'temp.tech', full_name: 'New Temp', role_id: v.role_id, password: 'anotherpass1' }));
 });
 
 test('warranty, inventory audit, reports and activity log', async () => {

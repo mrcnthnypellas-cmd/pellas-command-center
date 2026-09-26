@@ -118,7 +118,7 @@ r.get('/credentials/:id/permissions', requirePerm('users.manage'), (req, res) =>
   res.json(db.all(`SELECT u.id AS user_id, u.full_name, u.username, r.name AS role, cp.can_view, cp.can_reveal, cp.can_copy
                      FROM users u JOIN roles r ON r.id = u.role_id
                      LEFT JOIN credential_permissions cp ON cp.user_id = u.id AND cp.credential_id = ?
-                    ORDER BY u.full_name`, req.params.id));
+                    WHERE u.status != 'Deleted' ORDER BY u.full_name`, req.params.id));
 });
 
 r.put('/credentials/:id/permissions', requirePerm('users.manage'), (req, res) => {
@@ -129,6 +129,7 @@ r.put('/credentials/:id/permissions', requirePerm('users.manage'), (req, res) =>
     db.run('DELETE FROM credential_permissions WHERE credential_id = ?', cred.id);
     for (const g of grants) {
       if (!g.can_view && !g.can_reveal && !g.can_copy) continue;
+      if (!db.get("SELECT 1 FROM users WHERE id = ? AND status != 'Deleted'", Number(g.user_id))) continue;
       insert('credential_permissions', { credential_id: cred.id, user_id: Number(g.user_id), can_view: 1, can_reveal: g.can_reveal ? 1 : 0, can_copy: g.can_copy ? 1 : 0 });
     }
     log(req, 'Credential permissions updated', 'credential', cred.id, cred.name, { grants: grants.length });

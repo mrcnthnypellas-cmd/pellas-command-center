@@ -138,7 +138,7 @@ const PANES = {
         { key: 'overrides', label: 'Custom permissions', render: (u) => (u.overrides ? badge(`${u.overrides} override(s)`, 'amber') : '<span class="muted">Role defaults</span>') },
         { key: 'status', label: 'Status', render: (u) => badge(u.status) },
         { key: 'last_login_at', label: 'Last sign-in', render: (u) => (u.last_login_at ? fmtDateTime(u.last_login_at) : '<span class="muted">Never</span>') },
-        { key: 'x', label: '', nosort: true, render: (u) => `<div class="btn-group"><button class="btn xs" data-edit="${u.id}">Edit</button><button class="btn xs" data-perm="${u.id}">Permissions</button>${u.id !== state.user.id && u.status === 'Active' ? `<button class="btn xs ghost" data-dis="${u.id}">Disable</button>` : ''}</div>` },
+        { key: 'x', label: '', nosort: true, render: (u) => `<div class="btn-group" style="flex-wrap:nowrap"><button class="btn xs" data-edit="${u.id}">Edit</button><button class="btn xs" data-perm="${u.id}">Permissions</button>${u.id === state.user.id ? '<span class="cell-sub" style="align-self:center">You</span>' : `${u.status === 'Active' ? `<button class="btn xs" data-dis="${u.id}">Disable</button>` : `<button class="btn xs" data-en="${u.id}">Enable</button>`}<button class="btn xs danger-text" data-del="${u.id}">Delete</button>`}</div>` },
       ],
     });
     const userModal = (u = null) => openModal({
@@ -160,7 +160,21 @@ const PANES = {
     on(el, 'click', '[data-edit]', (_e, b) => userModal(users.find((u) => String(u.id) === b.dataset.edit)));
     on(el, 'click', '[data-dis]', async (_e, b) => {
       const u = users.find((x) => String(x.id) === b.dataset.dis);
-      if (await confirmDialog('Disable user', `Disable <b>${esc(u.full_name)}</b>? They are signed out immediately; their history is kept.`, { confirmLabel: 'Disable' })) { await api.del(`/users/${u.id}`); await afterChange('User disabled'); }
+      if (await confirmDialog('Disable user', `Disable <b>${esc(u.full_name)}</b>? They are signed out and can't sign in until you enable the account again.`, { confirmLabel: 'Disable', danger: false })) {
+        await api.put(`/users/${u.id}`, { status: 'Disabled' }); await afterChange('User disabled');
+      }
+    });
+    on(el, 'click', '[data-en]', async (_e, b) => {
+      await api.put(`/users/${b.dataset.en}`, { status: 'Active' }); await afterChange('User enabled');
+    });
+    on(el, 'click', '[data-del]', async (_e, b) => {
+      const u = users.find((x) => String(x.id) === b.dataset.del);
+      if (await confirmDialog('Delete user', `<p style="margin-top:0">Delete <b>${esc(u.full_name)}</b> (<span class="mono">${esc(u.username)}</span>) permanently?</p>
+        <ul style="margin:0;padding-left:18px;line-height:1.7"><li>The account is removed and can no longer sign in.</li><li>Its username <span class="mono">${esc(u.username)}</span> can be used for a new account.</li>
+        <li>Past history and activity still show <b>${esc(u.full_name)}</b> as who made each change.</li></ul>
+        <p class="muted" style="margin-bottom:0">This can't be undone. To block sign-in temporarily, use <b>Disable</b> instead.</p>`, { confirmLabel: 'Delete user' })) {
+        await api.del(`/users/${u.id}`); await afterChange(`${u.full_name} deleted`);
+      }
     });
     on(el, 'click', '[data-perm]', async (_e, b) => {
       const u = users.find((x) => String(x.id) === b.dataset.perm);

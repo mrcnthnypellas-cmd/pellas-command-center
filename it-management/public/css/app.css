@@ -114,6 +114,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -.01em; text-wrap:
 .btn.primary:hover { background: var(--primary-600); }
 .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn.ghost { border-color: transparent; background: transparent; }
+.btn.danger-text { color: var(--red); }
+.btn.danger-text:hover { background: var(--red-bg); border-color: var(--red); }
 .btn.ghost:hover { background: var(--surface-2); }
 .btn.sm { height: 30px; padding: 0 10px; font-size: 12.5px; border-radius: 7px; }
 .btn.xs { height: 26px; padding: 0 8px; font-size: 12px; border-radius: 6px; }
