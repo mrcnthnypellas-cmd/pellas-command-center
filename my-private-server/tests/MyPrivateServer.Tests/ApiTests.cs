@@ -129,7 +129,7 @@ public class ApiTests(ServerFixture f)
 
         var carla = await f.LoginAsync("carla", "Carla-Passw0rd1");
         var list = await carla.GetJsonAsync("/api/files/list?path=/shared/Finance");
-        Assert.Equal(["Invoices"], list.GetProperty("entries").EnumerateArray().Select(e => e.GetProperty("name").GetString()).ToArray());
+        Assert.Equal(["Invoices"], list.GetProperty("entries").EnumerateArray().Select(e => e.GetProperty("name").GetString()!).ToArray());
         Assert.Equal(HttpStatusCode.NotFound, (await carla.GetAsync("/api/files/list?path=/shared/Finance/Payroll")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await carla.PostJsonAsync("/api/files/folder", new { path = "/shared/Finance/Invoices", name = "x" })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await carla.GetAsync("/api/files/list?path=/shared/Finance/Invoices/../Payroll")).StatusCode);

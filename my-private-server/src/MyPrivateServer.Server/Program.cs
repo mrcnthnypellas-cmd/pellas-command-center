@@ -139,8 +139,8 @@ var otel = builder.Services.AddOpenTelemetry().WithMetrics(m =>
 });
 
 // ---- Security ----
-builder.Services.AddAuthentication(SessionAuthHandler.Scheme)
-    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SessionAuthHandler>(SessionAuthHandler.Scheme, null);
+builder.Services.AddAuthentication(SessionAuthHandler.SchemeName)
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SessionAuthHandler>(SessionAuthHandler.SchemeName, null);
 builder.Services.AddAuthorization();
 var loginPerMinute = builder.Configuration.GetValue("RateLimits:LoginPerMinute", 10);
 builder.Services.AddRateLimiter(o =>

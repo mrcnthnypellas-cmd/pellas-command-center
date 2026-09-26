@@ -14,7 +14,7 @@ namespace MyPrivateServer.Server.Infrastructure;
 public sealed class SessionAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, UserService users)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
-    public const string Scheme = "MpsSession";
+    public const string SchemeName = "MpsSession";
     public const string CookieName = "mps_session";
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -28,8 +28,8 @@ public sealed class SessionAuthHandler(IOptionsMonitor<AuthenticationSchemeOptio
         var identity = new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, user.Id), new Claim(ClaimTypes.Name, user.Username), new Claim(ClaimTypes.Role, user.Role.ToString()),
-        ], Scheme);
-        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme)));
+        ], SchemeName);
+        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
     }
 
     protected override Task HandleChallengeAsync(AuthenticationProperties properties)
