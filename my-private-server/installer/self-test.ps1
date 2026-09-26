@@ -181,6 +181,9 @@ try {
             $run = @(Api GET "/api/backups/runs?jobId=$($job.id)") | Select-Object -First 1
             if ($run -and $run.status -ne "Running") {
                 if ($run.status -eq "Succeeded") { return "$($run.items) archive(s), $($run.bytes) bytes" }
+                # A full-server backup always carries this reminder because it includes the encryption keys.
+                $other = "$($run.message)".Replace("The configuration backup contains encryption keys. Store it somewhere private.", "").Trim()
+                if ($run.status -eq "CompletedWithWarnings" -and -not $other) { return "$($run.items) archive(s), $($run.bytes) bytes (reminder: contains encryption keys)" }
                 throw "$($run.status): $($run.message)"
             }
         }
