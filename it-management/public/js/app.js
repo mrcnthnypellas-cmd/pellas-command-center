@@ -1,5 +1,5 @@
 // App shell: authentication, sidebar layout and hash router.
-import { api, state, esc, can, toast, openModal, formHtml, readForm, loadLookups } from './core.js';
+import { api, state, esc, can, toast, openModal, formHtml, readForm, loadLookups, resolveImage } from './core.js';
 import { icon } from './icons.js';
 import * as dashboard from './pages/dashboard.js';
 import * as assets from './pages/assets.js';
@@ -97,21 +97,21 @@ const NAV = [
 
 // ───────── Login ─────────
 async function renderLogin() {
-  let company = 'IT Management';
-  try { company = (await api.get('/public/company')).name; } catch { /* offline */ }
-  document.title = `Sign in · ${company}`;
-  app.innerHTML = `<div class="login-wrap"><form class="login-card" novalidate>
-      <div class="brand-logo" style="width:44px;height:44px;color:#fff">IT</div>
-      <h1>${esc(company)}</h1><p class="muted" style="margin:0">IT Asset, Inventory &amp; Network Management</p>
+  let b = { company_name: 'IT Management', system_name: 'IT Management System', login_message: '', login_bg_preset: 'default' };
+  try { b = await api.get('/public/branding'); } catch { /* offline: keep defaults */ }
+  [b.login_bg_url, b.logo_url] = await Promise.all([resolveImage(b.login_bg_url), resolveImage(b.logo_url)]);
+  document.title = `Sign in · ${b.company_name}`;
+  window.scrollTo(0, 0); // signing out from a scrolled page must not leave the sign-in page scrolled
+  app.innerHTML = `<div class="login-wrap bg-${esc(b.login_bg_preset)} ${b.login_bg_url ? 'has-photo' : ''}">
+    ${b.login_bg_url ? `<img class="login-bg" src="${esc(b.login_bg_url)}" alt="">` : ''}
+    <form class="login-card" novalidate>
+      <div class="brand-logo" style="width:44px;height:44px;color:#fff">${b.logo_url ? `<img src="${esc(b.logo_url)}" alt="">` : 'IT'}</div>
+      <h1>${esc(b.company_name)}</h1><p class="muted" style="margin:0">${esc(b.system_name)}</p>
+      ${b.login_message ? `<p class="login-message">${esc(b.login_message)}</p>` : ''}
       <div class="alert err hidden" data-err style="margin-top:14px"></div>
       <div class="field"><label for="u">Username</label><input id="u" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus></div>
       <div class="field"><label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required></div>
       <button class="btn primary" type="submit">Sign in</button>
-      <div class="demo-accounts"><b>Local development accounts</b><br>
-        <code>admin / admin123</code> — Admin (full access)<br>
-        <code>itstaff / itstaff123</code> — IT Staff<br>
-        <code>jtech / jtech123</code> — IT Staff, restricted vault<br>
-        <code>viewer / viewer123</code> — Viewer (read-only)</div>
     </form></div>`;
   const form = app.querySelector('form');
   form.addEventListener('submit', async (e) => {
@@ -142,7 +142,7 @@ function renderShell() {
   }).join('');
   app.innerHTML = `<div class="layout">
     <aside class="sidebar" id="sidebar">
-      <a class="brand" href="#/dashboard" style="text-decoration:none"><div class="brand-logo">${state.company.logo ? `<img src="${esc(state.company.logo)}" alt="">` : 'IT'}</div><div><b>${esc(state.company.name)}</b><small>IT Management System</small></div></a>
+      <a class="brand" href="#/dashboard" style="text-decoration:none"><div class="brand-logo">${state.company.logo ? `<img src="${esc(state.company.logo)}" alt="">` : 'IT'}</div><div><b data-brand-company>${esc(state.company.name)}</b><small data-brand-system>${esc(state.company.system_name)}</small></div></a>
       ${nav}
     </aside>
     <div class="main">
@@ -237,6 +237,7 @@ async function boot() {
     const me = await api.get('/auth/me');
     state.user = me;
     state.company = me.company;
+    state.company.logo = await resolveImage(me.company.logo);
   } catch {
     state.user = null;
     return renderLogin();

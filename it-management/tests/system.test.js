@@ -425,6 +425,47 @@ test('warranty, inventory audit, reports and activity log', async () => {
   assert.ok(logs.length > 0 && logs[0].user_name);
 });
 
+test('branding: editable names and sign-in background', async () => {
+  const a = await login('admin', 'admin123');
+  const pub0 = await (await fetch(`${base}/api/public/branding`)).json();
+  assert.equal(pub0.system_name, 'IT Management System');
+  assert.equal(pub0.login_bg_url, null);
+  const b = ok(await a.put('/settings/branding', { company_name: 'Pellas Corp', system_name: 'IT Command Center', dashboard_title: 'IT Overview', dashboard_subtitle: 'All our gear', login_bg_preset: 'navy', login_message: 'Welcome back' }));
+  assert.equal(b.dashboard_title, 'IT Overview');
+  assert.equal(ok(await a.get('/auth/me')).company.system_name, 'IT Command Center');
+  assert.equal((await a.put('/settings/branding', { dashboard_title: '   ' })).status, 400, 'names cannot be blank');
+  assert.equal((await a.put('/settings/branding', { login_bg_preset: 'rainbow' })).status, 400);
+
+  // Background photo: images only; served publicly for the sign-in page.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  const put = async (file, name, type, user = a) => {
+    const f = new FormData(); f.append('login_bg', new Blob([file], { type }), name);
+    return fetch(`${base}/api/settings/branding`, { method: 'PUT', headers: { Cookie: user.cookie, 'X-Requested-With': 'itms' }, body: f });
+  };
+  assert.equal((await put(Buffer.from('%PDF-1.4'), 'x.pdf', 'application/pdf')).status, 400);
+  assert.equal((await put(png, 'office.png', 'image/png')).status, 200);
+  const pub = await (await fetch(`${base}/api/public/branding`)).json();
+  assert.equal(pub.company_name, 'Pellas Corp');
+  assert.equal(pub.login_message, 'Welcome back');
+  assert.equal(pub.login_bg_preset, 'navy');
+  const img = await fetch(`${base}${pub.login_bg_url}`);
+  assert.equal(img.status, 200);
+  assert.equal(img.headers.get('content-type'), 'image/png');
+  // The public endpoint exposes only presentation settings.
+  assert.deepEqual(Object.keys(pub).sort(), ['company_name', 'dashboard_subtitle', 'dashboard_title', 'login_bg_preset', 'login_bg_url', 'login_message', 'logo_url', 'presets', 'system_name']);
+  // Other uploads stay private.
+  assert.equal((await fetch(`${base}/uploads/${'x'.repeat(8)}.png`)).status, 401);
+  const viewer = await login('viewer', 'viewer123');
+  assert.equal((await viewer.put('/settings/branding', { dashboard_title: 'Hacked' })).status, 403);
+  assert.equal((await put(png, 'v.png', 'image/png', viewer)).status, 403);
+  // Remove the photo again.
+  const f = new FormData(); f.append('remove_login_bg', '1');
+  await fetch(`${base}/api/settings/branding`, { method: 'PUT', headers: { Cookie: a.cookie, 'X-Requested-With': 'itms' }, body: f });
+  assert.equal((await (await fetch(`${base}/api/public/branding`)).json()).login_bg_url, null);
+  assert.equal((await fetch(`${base}/api/public/login-background`)).status, 404);
+  ok(await a.put('/settings/branding', { company_name: 'Pellas Corporation', system_name: 'IT Management System', dashboard_title: 'Dashboard' }));
+});
+
 test('employees and settings CRUD', async () => {
   const a = await login('admin', 'admin123');
   const code = ok(await a.get('/employees/next-code')).code;

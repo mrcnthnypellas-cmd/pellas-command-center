@@ -44,6 +44,12 @@ async function hydrateImg(img) {
   const url = await blobFor.get(key);
   if (url) img.src = url;
 }
+// Lets pages ask for a blob URL up front instead of rendering a blocked /api URL first.
+window.itmsResolveImage = async (src) => {
+  const key = src.replace(/[?&]origin=[^&]*/, '');
+  if (!blobFor.has(key)) blobFor.set(key, call(src).then((r) => (r.status < 300 ? URL.createObjectURL(new Blob([r.body], { type: r.headers['content-type'] })) : null)));
+  return (await blobFor.get(key)) || '';
+};
 new MutationObserver((muts) => {
   for (const m of muts) for (const n of m.addedNodes) {
     if (n.nodeType !== 1) continue;

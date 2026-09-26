@@ -1,9 +1,11 @@
-import { api, esc, badge, can, mountTable, setTitle, on, openModal, formHtml, readForm, formData, opt, confirmDialog, toast, fmtDateTime, state, kv, card } from '../core.js';
+import { api, esc, badge, can, mountTable, setTitle, on, openModal, formHtml, readForm, formData, opt, confirmDialog, toast, fmtDateTime, state, kv, card, resolveImage } from '../core.js';
 import { afterChange } from './actions.js';
+import { applyBranding } from './branding.js';
 
 export async function render(el, _m, params) {
   setTitle('Settings');
   const tabs = [
+    can('settings.manage') && ['appearance', 'Appearance'],
     can('settings.manage') && ['company', 'Company'],
     can('settings.manage') && ['departments', 'Departments'],
     can('settings.manage') && ['locations', 'Locations'],
@@ -22,6 +24,70 @@ export async function render(el, _m, params) {
 }
 
 const PANES = {
+  async appearance(el) {
+    const b = await api.get('/settings/branding');
+    [b.login_bg_url, b.logo_url] = await Promise.all([resolveImage(b.login_bg_url), resolveImage(b.logo_url)]);
+    let photoUrl = b.login_bg_url;
+    let removePhoto = false;
+    el.innerHTML = `<div class="grid split-2-1">
+      <div class="stack">
+        <form class="card" data-names novalidate><div class="card-head"><h3>Names</h3></div><div class="card-body">${formHtml([
+          { name: 'company_name', label: 'Company name', required: true, value: b.company_name, attrs: 'maxlength="80"' },
+          { name: 'system_name', label: 'System name', required: true, value: b.system_name, attrs: 'maxlength="60"' },
+          { name: 'dashboard_title', label: 'Dashboard title', required: true, value: b.dashboard_title, attrs: 'maxlength="60"' },
+          { name: 'dashboard_subtitle', label: 'Dashboard description', value: b.dashboard_subtitle, attrs: 'maxlength="200"' },
+        ])}</div><div class="form-actions"><button class="btn primary" type="submit">Save names</button></div></form>
+        <form class="card" data-login novalidate><div class="card-head"><h3>Sign-in page</h3></div><div class="card-body">
+          <div class="field"><label>Background colour</label><div class="swatches">${Object.entries(b.presets).map(([k, label]) => `<label class="swatch login-wrap bg-${k}" title="${esc(label)}"><input type="radio" name="login_bg_preset" value="${k}" ${k === b.login_bg_preset ? 'checked' : ''}><span>${esc(label)}</span></label>`).join('')}</div>
+            <small class="help">Used behind the photo too, while it loads, and when there's no photo.</small></div>
+          <div class="field" style="margin-top:14px"><label for="bg-file">Background photo (optional)</label><input id="bg-file" type="file" name="login_bg" accept="image/png,image/jpeg,image/webp">
+            <small class="help">A wide photo works best (e.g. your office or building), at least 1600 px wide, under 5 MB. It's darkened slightly so the sign-in box stays readable.</small>
+            <div style="margin-top:8px" data-photo-actions></div></div>
+          <div class="field" style="margin-top:14px"><label for="login-msg">Message under the company name</label><input id="login-msg" name="login_message" maxlength="200" value="${esc(b.login_message)}"></div>
+        </div><div class="form-actions"><button class="btn primary" type="submit">Save sign-in page</button></div></form>
+      </div>
+      <section class="card"><div class="card-head"><h3>Preview</h3><span class="muted">sign-in page</span></div><div class="card-body"><div class="login-preview" data-preview></div></div></section>
+    </div>`;
+    const loginForm = el.querySelector('[data-login]');
+    const preview = () => {
+      const preset = loginForm.querySelector('input[name=login_bg_preset]:checked').value;
+      const photo = removePhoto ? null : photoUrl;
+      el.querySelector('[data-preview]').innerHTML = `<div class="login-wrap bg-${preset} ${photo ? 'has-photo' : ''}">${photo ? `<img class="login-bg" src="${esc(photo)}" alt="">` : ''}
+        <div class="login-card"><div class="brand-logo" style="width:30px;height:30px;color:#fff;font-size:11px">${b.logo_url ? `<img src="${esc(b.logo_url)}" alt="">` : 'IT'}</div>
+        <b>${esc(el.querySelector('[data-names] [name=company_name]').value)}</b><div class="muted">${esc(el.querySelector('[data-names] [name=system_name]').value)}</div>
+        <div class="login-message">${esc(loginForm.login_message.value)}</div><div class="pv-field"></div><div class="pv-field"></div><div class="pv-btn">Sign in</div></div></div>`;
+      el.querySelector('[data-photo-actions]').innerHTML = photo ? '<button type="button" class="btn sm" data-remove-photo>Remove photo</button>' : '';
+    };
+    el.addEventListener('input', preview);
+    loginForm.querySelector('#bg-file').addEventListener('change', (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      if (!/^image\/(png|jpeg|webp)$/.test(f.type)) { toast('Choose a PNG, JPG or WebP image', 'err'); e.target.value = ''; return; }
+      photoUrl = URL.createObjectURL(f); removePhoto = false; preview();
+    });
+    on(el, 'click', '[data-remove-photo]', () => { removePhoto = true; loginForm.querySelector('#bg-file').value = ''; preview(); });
+    el.querySelector('[data-names]').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try { await applyBranding(await api.put('/settings/branding', readForm(e.target))); setTitle('Settings'); toast('Names saved'); } catch (ex) { toast(ex.message, 'err'); }
+    });
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData();
+      fd.append('login_bg_preset', loginForm.querySelector('input[name=login_bg_preset]:checked').value);
+      fd.append('login_message', loginForm.login_message.value);
+      const f = loginForm.querySelector('#bg-file').files[0];
+      if (f && !removePhoto) fd.append('login_bg', f);
+      if (removePhoto) fd.append('remove_login_bg', '1');
+      const btn = loginForm.querySelector('button[type=submit]');
+      btn.disabled = true;
+      try {
+        const nb = await api.form('PUT', '/settings/branding', fd);
+        photoUrl = await resolveImage(nb.login_bg_url); removePhoto = false; loginForm.querySelector('#bg-file').value = '';
+        preview(); toast('Sign-in page saved');
+      } catch (ex) { toast(ex.message, 'err'); } finally { btn.disabled = false; }
+    });
+    preview();
+  },
   async company(el) {
     const c = await api.get('/settings/company');
     el.innerHTML = `<form class="card page-form" novalidate><div class="card-body">${c.company_logo_url ? `<img src="${esc(c.company_logo_url)}" alt="logo" style="max-height:56px;margin-bottom:12px">` : ''}${formHtml([

@@ -43,7 +43,7 @@ For development with auto-restart when server files change: `npm run dev`.
 | `jtech`   | `jtech123`   | IT Staff (restricted) | Can't reveal passwords, except a per-credential grant on the Access Point credential |
 | `viewer`  | `viewer123`  | Viewer | Read-only, no access to passwords |
 
-These are for local testing only. Change or disable them before any real use (Settings → Users).
+These are for local testing only and are **not shown on the sign-in page**. Change or disable them before any real use (Settings → Users).
 
 ## 5. Reset / reload sample data
 
@@ -91,6 +91,8 @@ This builds a single self-contained HTML file that runs the same frontend and th
 | Maintenance (an open repair sets the asset to *Under Repair*; completing it restores the status) and warranty tracking (30/60/90-day filters) | Care |
 | 16 reports, each with Print, PDF and Excel/CSV export | Reports |
 | Activity log, including security events | Activity Logs |
+| **Appearance**: editable company name, system name and dashboard title (also via ✎ on the dashboard); sign-in page colour theme, background photo and welcome message | Settings → Appearance |
+| Live digital clock with date and greeting | Dashboard |
 | Company profile/logo, departments, locations, categories, numbering, users, roles and per-user permissions | Settings |
 | Global search by tag, serial, employee, IP, MAC, device, ISP, network or location | Top search bar |
 

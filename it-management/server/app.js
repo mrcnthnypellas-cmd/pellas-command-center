@@ -5,7 +5,6 @@ const cookieParser = require('cookie-parser');
 const config = require('./config');
 const db = require('./db/connection');
 const { loadUser, requireAuth } = require('./lib/auth');
-const { setting } = require('./lib/util');
 
 function createApp() {
   db.open();
@@ -31,7 +30,7 @@ function createApp() {
 
   app.use(loadUser);
 
-  app.get('/api/public/company', (_req, res) => res.json({ name: setting('company_name', 'My Company') }));
+  app.use('/api/public', require('./routes/public'));
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/dashboard', require('./routes/dashboard'));
   app.use('/api/assets', require('./routes/assets'));

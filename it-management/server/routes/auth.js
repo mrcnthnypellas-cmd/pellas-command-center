@@ -3,7 +3,8 @@ const db = require('../db/connection');
 const auth = require('../lib/auth');
 const { verifyPassword, hashPassword } = require('../lib/passwords');
 const { log } = require('../lib/activity');
-const { bad, setting } = require('../lib/util');
+const { bad } = require('../lib/util');
+const { branding } = require('../lib/branding');
 
 const r = express.Router();
 
@@ -42,7 +43,7 @@ r.get('/me', auth.requireAuth, (req, res) => {
   res.json({
     id: u.id, username: u.username, full_name: u.full_name, email: u.email, role: u.role,
     permissions: [...u.permissions],
-    company: { name: setting('company_name', 'My Company'), logo: setting('company_logo') ? `/uploads/${setting('company_logo')}` : null },
+    company: (({ company_name, system_name, dashboard_title, dashboard_subtitle, logo_url }) => ({ name: company_name, system_name, dashboard_title, dashboard_subtitle, logo: logo_url }))(branding()),
   });
 });
 

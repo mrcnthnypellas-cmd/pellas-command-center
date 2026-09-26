@@ -1,4 +1,5 @@
-import { api, esc, badge, fmtDate, timeAgo, fmtDateTime, can, setTitle } from '../core.js';
+import { api, esc, badge, fmtDate, timeAgo, fmtDateTime, can, setTitle, state, on } from '../core.js';
+import { editNamesModal } from './branding.js';
 import { icon } from '../icons.js';
 
 // Categorical palette (validated, fixed order) — light / dark steps.
@@ -20,6 +21,26 @@ const stat = (label, value, href, { sub, tone, dot } = {}) => `<a class="stat ${
 const ACT_ICON = { asset: 'box', employee: 'user', ip: 'hash', network: 'grid', device: 'router', isp: 'globe', credential: 'key', wifi: 'wifi', audit: 'clipboard', user: 'user', report: 'chart' };
 const actHref = (a) => ({ asset: `#/assets/${a.entity_id}`, employee: `#/employees/${a.entity_id}`, network: `#/networks/${a.entity_id}`, device: `#/devices/${a.entity_id}`, audit: `#/audits/${a.entity_id}`, isp: '#/isps', ip: '#/ips', credential: '#/credentials', wifi: '#/wifi' }[a.entity_type] || null);
 
+// Digital clock: updates every second and stops by itself once the dashboard is left.
+function startClock(box) {
+  if (!box) return;
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const first = (state.user.full_name || '').split(' ')[0];
+  const tick = () => {
+    if (!box.isConnected) { clearInterval(timer); return; }
+    const d = new Date();
+    const h = d.getHours();
+    box.querySelector('[data-hm]').textContent = `${String(h % 12 || 12).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    box.querySelector('[data-s]').textContent = `:${String(d.getSeconds()).padStart(2, '0')}`;
+    box.querySelector('[data-ap]').textContent = h < 12 ? 'AM' : 'PM';
+    box.querySelector('[data-date]').textContent = `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    box.querySelector('[data-greet]').textContent = `${h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'}, ${first}`;
+  };
+  const timer = setInterval(tick, 1000);
+  tick();
+}
+
 export function activityItem(a) {
   const href = actHref(a);
   return `<li><div class="act-icon">${icon(ACT_ICON[a.entity_type] || 'activity')}</div><div class="grow">
@@ -28,7 +49,8 @@ export function activityItem(a) {
 }
 
 export async function render(el) {
-  setTitle('Dashboard');
+  const C = state.company;
+  setTitle(C.dashboard_title || 'Dashboard');
   charts.splice(0).forEach((c) => c.destroy());
   const d = await api.get('/dashboard');
   const pal = PALETTE[isDark() ? 'dark' : 'light'];
@@ -36,8 +58,18 @@ export async function render(el) {
   const statusColors = { Available: pal[2], Deployed: pal[0], 'Under Repair': pal[3], Damaged: pal[1], Lost: pal[7], Retired: pal[6] };
 
   el.innerHTML = `
-  <div class="page-head"><div><h1>Dashboard</h1><p>What IT equipment we have, where it is, who uses it, and which network &amp; ISP it runs on.</p></div>
-    <div class="page-actions">${can('assets.create') ? '<a class="btn primary" href="#/assets/new">+ Add Asset</a>' : ''}${can('assets.assign') ? '<a class="btn" href="#/deploy">Deploy Asset</a>' : ''}</div></div>
+  <div class="dash-head">
+    <div class="dash-intro">
+      <div class="dash-title-row"><h1>${esc(C.dashboard_title)}</h1>${can('settings.manage') ? '<button type="button" class="icon-btn" data-edit-names title="Edit names" aria-label="Edit names">✎</button>' : ''}</div>
+      ${C.dashboard_subtitle ? `<p>${esc(C.dashboard_subtitle)}</p>` : ''}
+      <div class="page-actions">${can('assets.create') ? '<a class="btn primary" href="#/assets/new">+ Add Asset</a>' : ''}${can('assets.assign') ? '<a class="btn" href="#/deploy">Deploy Asset</a>' : ''}</div>
+    </div>
+    <div class="clock-card" data-clock aria-live="off">
+      <div class="clock-time"><span data-hm>--:--</span><span class="clock-sec" data-s>:--</span><span class="clock-ampm" data-ap></span></div>
+      <div class="clock-date" data-date></div>
+      <div class="clock-greet" data-greet></div>
+    </div>
+  </div>
 
   <div class="section-title">${icon('box').replace('<svg', '<svg width="14" height="14"')} Assets</div>
   <div class="stats">
@@ -101,6 +133,9 @@ export async function render(el) {
     <section class="card"><div class="card-head"><h3>Recent Activity</h3>${can('activity.view') ? '<a href="#/activity" class="muted">View all</a>' : ''}</div>
       <div class="card-body flush"><ul class="list">${d.recent_activity.length ? d.recent_activity.map(activityItem).join('') : '<li class="muted">No activity visible for your role</li>'}</ul></div></section>
   </div>`;
+
+  startClock(el.querySelector('[data-clock]'));
+  on(el, 'click', '[data-edit-names]', () => editNamesModal());
 
   if (!window.Chart) return;
   const css = getComputedStyle(document.documentElement);

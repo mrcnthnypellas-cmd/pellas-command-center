@@ -4,6 +4,7 @@ const db = require('../db/connection');
 const { requireAuth, requirePerm } = require('../lib/auth');
 const { log } = require('../lib/activity');
 const { bad, notFound, pick, required, insert, update, upload, setting } = require('../lib/util');
+const { branding, LOGIN_PRESETS } = require('../lib/branding');
 
 const r = express.Router();
 const manage = requirePerm('settings.manage');
@@ -13,7 +14,7 @@ const COMPANY_KEYS = ['company_name', 'company_address', 'company_phone', 'compa
 
 r.get('/company', requireAuth, (_req, res) => {
   const out = Object.fromEntries(COMPANY_KEYS.map((k) => [k, setting(k)]));
-  out.company_logo_url = setting('company_logo') ? `/uploads/${setting('company_logo')}` : null;
+  out.company_logo_url = branding().logo_url;
   res.json(out);
 });
 
@@ -23,10 +24,49 @@ r.put('/company', manage, upload.single('logo'), (req, res) => {
   if (d.qr_base_url && !/^https?:\/\/[^\s"<>#?]+$/.test(d.qr_base_url)) throw bad('QR link address must look like http://192.168.1.50:4000');
   db.tx(() => {
     for (const [k, v] of Object.entries(d)) db.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', k, v);
-    if (req.file) db.run("INSERT INTO settings (key, value) VALUES ('company_logo', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", req.file.filename);
+    if (req.file) {
+      if (!/^image\//.test(req.file.mimetype)) throw bad('The logo must be an image (PNG, JPG or WebP)');
+      saveSetting('company_logo', req.file.filename);
+      saveSetting('company_logo_mime', req.file.mimetype);
+      bumpVersion();
+    }
   });
   log(req, 'Company settings updated', 'settings', null, 'Company', { fields: Object.keys(d).join(', ') });
   res.json({ ok: true });
+});
+
+function saveSetting(k, v) {
+  db.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', k, v);
+}
+const bumpVersion = () => saveSetting('branding_version', String(Date.now()));
+
+// Names shown in the app + the sign-in page look.
+r.get('/branding', requireAuth, (_req, res) => res.json(branding()));
+
+const BRAND_LIMITS = { company_name: 80, system_name: 60, dashboard_title: 60, dashboard_subtitle: 200, login_message: 200 };
+r.put('/branding', manage, upload.single('login_bg'), (req, res) => {
+  const d = {};
+  for (const [k, max] of Object.entries(BRAND_LIMITS)) {
+    if (!(k in (req.body || {}))) continue;
+    const v = String(req.body[k] ?? '').trim();
+    if (v.length > max) throw bad(`${k.replace(/_/g, ' ')} must be ${max} characters or fewer`);
+    if (['company_name', 'system_name', 'dashboard_title'].includes(k) && !v) throw bad(`${k.replace(/_/g, ' ')} can't be empty`);
+    d[k] = v;
+  }
+  if (req.body.login_bg_preset !== undefined) {
+    if (!LOGIN_PRESETS[req.body.login_bg_preset]) throw bad('Unknown background colour');
+    d.login_bg_preset = req.body.login_bg_preset;
+  }
+  if (req.file && !/^image\/(png|jpe?g|webp|gif)$/.test(req.file.mimetype)) throw bad('The background must be a PNG, JPG or WebP image');
+  db.tx(() => {
+    for (const [k, v] of Object.entries(d)) saveSetting(k, v);
+    if (req.file) { saveSetting('login_bg', req.file.filename); saveSetting('login_bg_mime', req.file.mimetype); }
+    if (req.body.remove_login_bg === '1' && !req.file) saveSetting('login_bg', null);
+    bumpVersion();
+  });
+  const fields = [...Object.keys(d), ...(req.file ? ['login background image'] : []), ...(req.body.remove_login_bg === '1' ? ['login background removed'] : [])];
+  log(req, 'Branding updated', 'settings', null, 'Branding', { fields: fields.join(', ') });
+  res.json(branding());
 });
 
 // Every dropdown the UI needs in one call.

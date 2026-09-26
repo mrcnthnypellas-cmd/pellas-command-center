@@ -8,6 +8,7 @@ const fs = require('fs'); // → demo/shims/fs.js
 const store = require('./store');
 
 const MOUNTS = [
+  ['/api/public', require('../server/routes/public')],
   ['/api/auth', require('../server/routes/auth')],
   ['/api/dashboard', require('../server/routes/dashboard')],
   ['/api/assets', require('../server/routes/assets')],
@@ -122,10 +123,7 @@ async function request({ method = 'GET', url, body, files }) {
       }
     } else {
       const mount = MOUNTS.find(([p]) => u.pathname === p || u.pathname.startsWith(`${p}/`));
-      if (u.pathname === '/api/public/company') {
-        const r = db.get("SELECT value FROM settings WHERE key = 'company_name'");
-        res.json({ name: r ? r.value : 'My Company' });
-      } else if (!mount) res.status(404).json({ error: 'Not found' });
+      if (!mount) res.status(404).json({ error: 'Not found' });
       else {
         const sub = u.pathname.slice(mount[0].length) || '/';
         for (const route of mount[1].routes) {

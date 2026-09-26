@@ -29,6 +29,9 @@ export async function loadLookups(force = false) {
 }
 export const invalidateLookups = () => { state.lookups = null; };
 
+// The browser preview serves /api images from memory; everywhere else this returns the URL unchanged.
+export const resolveImage = async (u) => (u && window.itmsResolveImage ? window.itmsResolveImage(u) : u);
+
 export const can = (perm) => !!state.user && state.user.permissions.includes(perm);
 
 // ───────── Formatting ─────────
