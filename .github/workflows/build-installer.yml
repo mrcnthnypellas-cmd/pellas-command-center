@@ -55,6 +55,7 @@ jobs:
           ./installer/install-and-test.ps1 -Msi $msi -Test -NoBrowser
           Get-Content installer/out/self-test-report.txt
           if (Select-String -Path installer/out/self-test-report.txt -Pattern "FAILED" -Quiet) { throw "Self-test failed" }
+          exit 0  # the report decides; ignore exit codes left by cleanup commands (e.g. pg_ctl stop)
 
       - name: Collect server logs
         if: always()
