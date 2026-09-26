@@ -55,6 +55,8 @@ public sealed class ProcessRunner : IProcessRunner
         }
 
         using var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        p.Exited += (_, _) => exited.TrySetResult();
         p.OutputDataReceived += (_, e) => OnData(e.Data);
         p.ErrorDataReceived += (_, e) => OnData(e.Data);
         try { p.Start(); }
@@ -69,14 +71,17 @@ public sealed class ProcessRunner : IProcessRunner
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(options.Timeout);
         var timedOut = false;
-        try { await p.WaitForExitAsync(timeout.Token); }
+        // Wait for the process itself, not for its output pipes: a program it leaves running (pg_ctl starting
+        // postgres) inherits the pipes and would otherwise keep us waiting until the timeout.
+        try { await exited.Task.WaitAsync(timeout.Token); }
         catch (OperationCanceledException)
         {
             timedOut = !ct.IsCancellationRequested;
             try { p.Kill(entireProcessTree: true); } catch { }
             if (!timedOut) throw;
         }
-        p.WaitForExit();
+        using (var drain = new CancellationTokenSource(TimeSpan.FromSeconds(3)))
+            try { await p.WaitForExitAsync(drain.Token); } catch (OperationCanceledException) { }
         lock (gate) return new ProcessResult(timedOut ? -1 : p.ExitCode, output.ToString(), timedOut);
     }
 }

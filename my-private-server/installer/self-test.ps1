@@ -209,6 +209,8 @@ try {
 } finally {
     $logTail = Get-ChildItem (Join-Path $dataDir "logs") -Filter *.log -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 |
         ForEach-Object { Get-Content $_.FullName -Tail 60 }
+    $pgLog = Join-Path $storage "Databases\postgresql.log"
+    if (Test-Path $pgLog) { $logTail += @("", "Last lines of the PostgreSQL log:") + (Get-Content $pgLog -Tail 40) }
     Cleanup
 }
 

@@ -293,3 +293,18 @@ public class BackupScheduleTests
         Assert.Null(BackupService.NextRun(new BackupJob { Frequency = BackupFrequency.Daily, Enabled = false }, null, DateTimeOffset.Now));
     }
 }
+
+public class ProcessRunnerTests
+{
+    [Fact]
+    public async Task Returns_when_the_process_exits_even_if_a_child_keeps_its_output_open()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var r = await new ProcessRunner().RunAsync("sh", ["-c", "sleep 20 & echo started"], new ProcessOptions { Timeout = TimeSpan.FromSeconds(15) });
+        Assert.False(r.TimedOut);
+        Assert.Equal(0, r.ExitCode);
+        Assert.Contains("started", r.Output);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
+}

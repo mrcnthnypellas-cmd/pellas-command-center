@@ -56,6 +56,12 @@ jobs:
           Get-Content installer/out/self-test-report.txt
           if (Select-String -Path installer/out/self-test-report.txt -Pattern "FAILED" -Quiet) { throw "Self-test failed" }
 
+      - name: Collect server logs
+        if: always()
+        run: |
+          New-Item -ItemType Directory -Force installer/out/server-logs | Out-Null
+          Copy-Item C:/ProgramData/MyPrivateServer/logs/* installer/out/server-logs -ErrorAction SilentlyContinue
+
       - name: Keep logs and report
         if: always()
         uses: actions/upload-artifact@v4
@@ -64,7 +70,7 @@ jobs:
           path: |
             my-private-server/installer/out/*.log
             my-private-server/installer/out/*.txt
-            C:/ProgramData/MyPrivateServer/logs/**
+            my-private-server/installer/out/server-logs/**
           if-no-files-found: ignore
 
       - name: Publish the installer as a release
