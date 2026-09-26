@@ -4,8 +4,9 @@ Turns an ordinary Windows PC and its HDD/SSD into a private **NAS, file server, 
 website host, GitHub deployment server, backup server and remote-access server**. No subscription,
 no VPS, no domain required.
 
-> Status: **working technical prototype** (rule 31 of the brief). Everything below runs for real. The
-> production MSI installer and bundled components are the next phase (see [docs/ROADMAP.md](docs/ROADMAP.md)).
+> Status: **technical prototype approved; production installer added.** Everything below runs for real.
+> The MSI installer bundles PostgreSQL, Caddy, Git, Node.js, cloudflared and frpc, so a fresh PC needs nothing
+> else. Build, install and self-test it on Windows with one command, see [installer/README.md](installer/README.md).
 
 ## What works
 

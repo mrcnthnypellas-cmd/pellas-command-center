@@ -1,0 +1,35 @@
+{
+  "_comment": "Free, open-source programs bundled into the installer. Every download is checked against its SHA-256 before use. Update versions here, then run fetch-components.ps1.",
+  "components": [
+    {
+      "name": "postgresql", "version": "17.6-1", "license": "PostgreSQL License",
+      "url": "https://get.enterprisedb.com/postgresql/postgresql-17.6-1-windows-x64-binaries.zip",
+      "sha256": "", "target": "postgresql", "keep": ["pgsql/bin", "pgsql/lib", "pgsql/share"], "licenseFile": "pgsql/doc/postgresql/html/legalnotice.html"
+    },
+    {
+      "name": "caddy", "version": "2.10.2", "license": "Apache-2.0",
+      "url": "https://github.com/caddyserver/caddy/releases/download/v2.10.2/caddy_2.10.2_windows_amd64.zip",
+      "sha256": "9fd1ef9be5d9b05852b66ccc25f96f23d8651bcab20779861a745bdffa273722", "target": "caddy", "keep": ["caddy.exe", "LICENSE"], "licenseFile": "LICENSE"
+    },
+    {
+      "name": "git", "version": "2.51.0 (MinGit)", "license": "GPL-2.0 (source: github.com/git-for-windows/git)",
+      "url": "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/MinGit-2.51.0-64-bit.zip",
+      "sha256": "c2c955a21fa99889d83f485f24fa5d9a38fffc2d509d4022385510e11c26b250", "target": "git", "keep": ["*"], "licenseFile": "LICENSE.txt"
+    },
+    {
+      "name": "node", "version": "24.21.0 LTS", "license": "MIT",
+      "url": "https://nodejs.org/dist/v24.21.0/node-v24.21.0-win-x64.zip",
+      "sha256": "158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e541", "target": "node", "stripTopFolder": true, "keep": ["*"], "licenseFile": "LICENSE"
+    },
+    {
+      "name": "cloudflared", "version": "2025.9.1", "license": "Apache-2.0",
+      "url": "https://github.com/cloudflare/cloudflared/releases/download/2025.9.1/cloudflared-windows-amd64.exe",
+      "sha256": "871c63a23f167ec1a4fc5e2c3de9e91e4f0742af708fb8b86055ddd6da82ea8e", "target": "cloudflared", "rename": "cloudflared.exe"
+    },
+    {
+      "name": "frp", "version": "0.64.0", "license": "Apache-2.0",
+      "url": "https://github.com/fatedier/frp/releases/download/v0.64.0/frp_0.64.0_windows_amd64.zip",
+      "sha256": "f91170693c584d2b3d2c113cae8044e51f69ba016bd4da3673647ac05c688a17", "target": "frp", "stripTopFolder": true, "keep": ["frpc.exe", "LICENSE"], "licenseFile": "LICENSE"
+    }
+  ]
+}

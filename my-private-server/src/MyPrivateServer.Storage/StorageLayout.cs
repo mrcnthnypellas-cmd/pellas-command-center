@@ -35,6 +35,7 @@ public sealed class StorageService(SettingsStore settings)
         if (root is null || !Directory.Exists(root)) throw new UserFacingException("That drive is not available.");
 
         Directory.CreateDirectory(full);
+        if (WindowsAcl.IsLocalSystem()) WindowsAcl.TryRestrict(full, out _);
         foreach (var f in Folders) Directory.CreateDirectory(Path.Combine(full, f));
         foreach (var f in new[] { "RecycleBin", "Uploads", "Releases" }) Directory.CreateDirectory(Path.Combine(full, "System", f));
         var probe = Path.Combine(full, "System", ".write-test");

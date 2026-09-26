@@ -15,6 +15,8 @@ public sealed class ServerPaths
         foreach (var d in new[] { ConfigDirectory, KeysDirectory, LogsDirectory, ToolsDirectory, TempDirectory })
             Directory.CreateDirectory(d);
         ToolLocator.Configure(ToolsDirectory, Path.Combine(AppContext.BaseDirectory, "tools"));
+        // The installed service (LocalSystem) locks its data folder down to SYSTEM and Administrators.
+        if (WindowsAcl.IsLocalSystem()) WindowsAcl.TryRestrict(DataDirectory, out _);
     }
 
     public string DataDirectory { get; }

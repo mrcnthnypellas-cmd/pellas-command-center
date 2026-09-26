@@ -1,0 +1,20 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <!--
+    Builds MyPrivateServer-<version>-x64.msi. Run through ..\build-installer.ps1, which supplies:
+      ProductVersion  numeric x.y.z
+      PublishDir      self-contained win-x64 server (dotnet publish output, includes wwwroot)
+      StageDir        installer\stage (tools\ + THIRD-PARTY-NOTICES.txt from fetch-components.ps1)
+  -->
+  <PropertyGroup>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">0.3.0</ProductVersion>
+    <OutputName>MyPrivateServer-$(ProductVersion)-x64</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);StageDir=$(StageDir)</DefineConstants>
+    <SuppressIces>ICE61</SuppressIces>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Firewall.wixext" Version="5.0.2" />
+  </ItemGroup>
+</Project>

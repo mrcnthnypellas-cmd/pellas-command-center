@@ -1,0 +1,3 @@
+<Project>
+  <!-- Stops the .NET settings of the server projects from applying to the WiX installer project. -->
+</Project>

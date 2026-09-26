@@ -7,3 +7,7 @@ src/MyPrivateServer.Server/wwwroot/
 *.user
 .vs/
 TestResults/
+installer/out/
+installer/stage/
+installer/.cache/
+installer/build/

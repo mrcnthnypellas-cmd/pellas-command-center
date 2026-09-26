@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:fw="http://wixtoolset.org/schemas/v4/wxs/firewall">
+
+  <Package Name="My Private Server" Manufacturer="My Private Server" Version="$(var.ProductVersion)"
+           UpgradeCode="6F1B7C2A-5B54-4F43-9E2E-1D3A7C9B8E41" Scope="perMachine" Compressed="yes">
+
+    <SummaryInformation Description="Private NAS, database, website and remote-access server for Windows" />
+
+    <!-- Upgrades replace the program files; settings (ProgramData) and your storage folder are never touched. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of My Private Server is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon" SourceFile="app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="http://localhost:8080" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!-- 64-bit Windows 10 or later. -->
+    <Launch Condition="VersionNT64" Message="My Private Server requires 64-bit Windows." />
+    <Launch Condition="Installed OR VersionNT &gt;= 603" Message="My Private Server requires Windows 10 or later." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="My Private Server">
+        <Directory Id="TOOLSFOLDER" Name="tools" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DATAFOLDER" Name="MyPrivateServer" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <!-- The server itself, installed as an automatic Windows service that restarts if it ever stops. -->
+    <Component Id="ServiceComponent" Directory="INSTALLFOLDER" Bitness="always64">
+      <File Id="ServerExe" Source="$(var.PublishDir)\MyPrivateServer.Server.exe" KeyPath="yes" />
+      <ServiceInstall Id="ServiceInstall" Name="MyPrivateServer" DisplayName="My Private Server"
+                      Description="Private NAS, file, database, website and remote-access server."
+                      Type="ownProcess" Start="auto" ErrorControl="normal" Account="LocalSystem" Vital="yes">
+        <ServiceConfig DelayedAutoStart="yes" OnInstall="yes" OnReinstall="yes" />
+        <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart"
+                            RestartServiceDelayInSeconds="10" ResetPeriodInDays="1" />
+      </ServiceInstall>
+      <ServiceControl Id="ServiceControl" Name="MyPrivateServer" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+
+      <!-- Other devices on the local (private) network may open the dashboard and hosted websites. -->
+      <fw:FirewallException Id="FwHttp" Name="My Private Server (dashboard HTTP)" Port="8080" Protocol="tcp" Scope="localSubnet" Profile="private" IgnoreFailure="yes" />
+      <fw:FirewallException Id="FwHttps" Name="My Private Server (dashboard HTTPS)" Port="8443" Protocol="tcp" Scope="localSubnet" Profile="private" IgnoreFailure="yes" />
+      <fw:FirewallException Id="FwSites" Name="My Private Server (websites)" Port="8100-8899" Protocol="tcp" Scope="localSubnet" Profile="private" IgnoreFailure="yes" />
+    </Component>
+
+    <!-- Server data folder. The service restricts it to SYSTEM and Administrators on first start. -->
+    <Component Id="DataFolderComponent" Directory="DATAFOLDER" Guid="3A6F2E0B-7C8D-4E21-9B55-0F9E2D4C6A17">
+      <CreateFolder />
+    </Component>
+
+    <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder" Guid="C51B7E44-2A0D-4F6B-8C3E-7B9A1D2E5F60">
+      <util:InternetShortcut Id="DashboardLink" Name="My Private Server" Target="http://localhost:8080" IconFile="[INSTALLFOLDER]app.ico" />
+      <RegistryValue Root="HKLM" Key="Software\MyPrivateServer" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="IconFile" Directory="INSTALLFOLDER">
+      <File Id="AppIconFile" Source="app.ico" Name="app.ico" />
+    </Component>
+
+    <!-- Everything else from the published server (runtime, dashboard) and the bundled tools. -->
+    <ComponentGroup Id="ServerFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\MyPrivateServer.Server.exe" />
+      </Files>
+    </ComponentGroup>
+    <ComponentGroup Id="ToolFiles" Directory="TOOLSFOLDER">
+      <Files Include="$(var.StageDir)\tools\**" />
+    </ComponentGroup>
+    <Component Id="Notices" Directory="INSTALLFOLDER">
+      <File Id="ThirdPartyNotices" Source="$(var.StageDir)\THIRD-PARTY-NOTICES.txt" Name="THIRD-PARTY-NOTICES.txt" />
+    </Component>
+
+    <Feature Id="Main" Title="My Private Server" Level="1">
+      <ComponentRef Id="ServiceComponent" />
+      <ComponentRef Id="DataFolderComponent" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="IconFile" />
+      <ComponentRef Id="Notices" />
+      <ComponentGroupRef Id="ServerFiles" />
+      <ComponentGroupRef Id="ToolFiles" />
+    </Feature>
+
+    <!-- Interface: license, install, then offer to open the setup wizard in the browser. -->
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open My Private Server to finish setup" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="http://localhost:8080" />
+    <CustomAction Id="OpenDashboard" BinaryRef="Wix4UtilCA_X64" DllEntry="WixShellExec" Impersonate="yes" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="OpenDashboard"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
+  </Package>
+</Wix>
