@@ -1,0 +1,13 @@
+{
+  "name": "pellas-it-command-desktop-build",
+  "private": true,
+  "description": "Builds the Windows desktop app (installer) from the main project. Run: npm install && npm run build",
+  "scripts": {
+    "build": "node build.js",
+    "start": "node build.js --stage-only && electron .stage"
+  },
+  "devDependencies": {
+    "electron": "^38.2.0",
+    "electron-builder": "^26.0.12"
+  }
+}

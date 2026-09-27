@@ -6,3 +6,6 @@ data/uploads/
 .env
 demo/dist/
 data/backups/
+desktop/node_modules/
+desktop/.stage/
+dist-desktop/
