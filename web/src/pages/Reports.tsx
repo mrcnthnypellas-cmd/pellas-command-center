@@ -77,6 +77,7 @@ function minutesToHM(totalMinutes: number) {
 // the [h] keeps hours from wrapping at 24 like a clock would).
 const DURATION_FORMAT = '[h]"h "mm"m"';
 const TOTAL_ROW_STYLE = { font: { bold: true, color: { rgb: "0000FF" } } };
+const GRAND_TOTAL_STYLE = { font: { bold: true, color: { rgb: "FF0000" } } };
 function minutesToDayFraction(totalMinutes: number) {
   return Math.max(0, totalMinutes) / 1440;
 }
@@ -593,15 +594,15 @@ export default function Reports() {
     // Grand TOTAL row — sums the per-employee subtotal rows, not the raw
     // data rows again, so nothing gets double-counted.
     const grandTotalRow = attendanceAoa.length + 1;
-    attendanceSheet[`A${grandTotalRow}`] = { t: "s", v: "TOTAL", s: TOTAL_ROW_STYLE };
+    attendanceSheet[`A${grandTotalRow}`] = { t: "s", v: "TOTAL", s: GRAND_TOTAL_STYLE };
     if (employeeBlocks.length > 0) {
-      attendanceSheet[`F${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `F${b.subtotalRow}`).join(",")})`, s: TOTAL_ROW_STYLE };
+      attendanceSheet[`F${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `F${b.subtotalRow}`).join(",")})`, s: GRAND_TOTAL_STYLE };
       for (const col of ["H", "I", "J", "K"]) {
-        attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `${col}${b.subtotalRow}`).join(",")})`, z: DURATION_FORMAT, s: TOTAL_ROW_STYLE };
+        attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `${col}${b.subtotalRow}`).join(",")})`, z: DURATION_FORMAT, s: GRAND_TOTAL_STYLE };
       }
     } else {
-      attendanceSheet[`F${grandTotalRow}`] = { t: "n", v: 0, s: TOTAL_ROW_STYLE };
-      for (const col of ["H", "I", "J", "K"]) attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", v: 0, z: DURATION_FORMAT, s: TOTAL_ROW_STYLE };
+      attendanceSheet[`F${grandTotalRow}`] = { t: "n", v: 0, s: GRAND_TOTAL_STYLE };
+      for (const col of ["H", "I", "J", "K"]) attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", v: 0, z: DURATION_FORMAT, s: GRAND_TOTAL_STYLE };
     }
     attendanceSheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: grandTotalRow - 1, c: 10 } });
 
