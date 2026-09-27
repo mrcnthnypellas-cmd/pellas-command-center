@@ -465,13 +465,13 @@ export default function Reports() {
     // --- Per-employee accumulators shared by sheets 1, 2, 3, 4 & 5 ---
     const today = todayInTZ();
     const detailRows: (string | number)[][] = [];
-    const ledgerRows: (string | number)[][] = [];
     const perEmployee = new Map<
       string,
       {
         name: string; code: string | null; department: string;
         firstDetailRow: number | null; lastDetailRow: number | null;
         lateDayCount: number; lateMin: number; absentDayCount: number; absentMin: number;
+        ledger: (string | number)[][];
       }
     >();
 
@@ -488,6 +488,7 @@ export default function Reports() {
         name, code: p.employee_code, department: p.departments?.name ?? "—",
         firstDetailRow: null, lastDetailRow: null,
         lateDayCount: 0, lateMin: 0, absentDayCount: 0, absentMin: 0,
+        ledger: [],
       });
       const acc = perEmployee.get(p.id)!;
 
@@ -537,10 +538,10 @@ export default function Reports() {
           minutesToDayFraction(lateMin), minutesToDayFraction(undertimeMin), minutesToDayFraction(absentMin), minutesToDayFraction(overtimeMin),
           statusLabel,
         ]);
-        ledgerRows.push([
+        acc.ledger.push([
           name, p.employee_code ?? "", dateKey, timeInLabel, timeOutLabel,
           rec?.hours_worked ?? "", statusLabel,
-          minutesToDayFraction(lateMin), minutesToDayFraction(absentMin), minutesToDayFraction(overtimeMin),
+          minutesToDayFraction(lateMin), minutesToDayFraction(undertimeMin), minutesToDayFraction(absentMin), minutesToDayFraction(overtimeMin),
         ]);
 
         const excelRow = detailRows.length + 1;
@@ -553,27 +554,52 @@ export default function Reports() {
       }
     }
 
-    // --- Sheet 1: Attendance Records (one line per scheduled workday per
-    // employee, in date order — including days with no clock-in, so Absent
-    // shows up as its own line — with Late/Absent/Overtime computed per
-    // line, plus a TOTAL row at the bottom) ---
-    ledgerRows.sort((a, b) => String(a[2]).localeCompare(String(b[2])) || String(a[0]).localeCompare(String(b[0])));
-    const attendanceHeader = ["Employee", "ID", "Date", "Time In", "Time Out", "Hours", "Status", "Late", "Absent", "Overtime"];
-    const attendanceSheet = XLSX.utils.aoa_to_sheet([attendanceHeader, ...ledgerRows]);
-    attendanceSheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
-    for (let r = 2; r <= ledgerRows.length + 1; r++) {
-      for (const col of ["H", "I", "J"]) {
+    // --- Sheet 1: Attendance Records (one line per scheduled workday,
+    // grouped by employee in date order — including days with no clock-in,
+    // so Absent shows up as its own line — with a Late/Undertime/Absent/
+    // Overtime SUBTOTAL row after each employee's lines, and one grand
+    // TOTAL row at the very bottom summing those subtotals) ---
+    const sortedForLedger = Array.from(perEmployee.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const attendanceHeader = ["Employee", "ID", "Date", "Time In", "Time Out", "Hours", "Status", "Late", "Undertime", "Absent", "Overtime"];
+    const attendanceAoa: (string | number)[][] = [attendanceHeader];
+    const employeeBlocks: { startRow: number; endRow: number; subtotalRow: number }[] = [];
+    for (const e of sortedForLedger) {
+      if (e.ledger.length === 0) continue;
+      const startRow = attendanceAoa.length + 1;
+      for (const row of e.ledger) attendanceAoa.push(row);
+      const endRow = attendanceAoa.length;
+      attendanceAoa.push([`Subtotal — ${e.name}`, e.code ?? "", "", "", "", 0, "", 0, 0, 0, 0]);
+      employeeBlocks.push({ startRow, endRow, subtotalRow: attendanceAoa.length });
+    }
+    const attendanceSheet = XLSX.utils.aoa_to_sheet(attendanceAoa);
+    attendanceSheet["!cols"] = [{ wch: 24 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }];
+    for (let r = 2; r <= attendanceAoa.length; r++) {
+      for (const col of ["H", "I", "J", "K"]) {
         const cell = attendanceSheet[`${col}${r}`];
         if (cell) cell.z = DURATION_FORMAT;
       }
     }
-    const attendanceTotalRow = ledgerRows.length + 2;
-    attendanceSheet[`A${attendanceTotalRow}`] = { t: "s", v: "TOTAL" };
-    attendanceSheet[`F${attendanceTotalRow}`] = { t: "n", f: `SUM(F2:F${attendanceTotalRow - 1})` };
-    for (const col of ["H", "I", "J"]) {
-      attendanceSheet[`${col}${attendanceTotalRow}`] = { t: "n", f: `SUM(${col}2:${col}${attendanceTotalRow - 1})`, z: DURATION_FORMAT };
+    // Per-employee subtotal — a live SUM over just that employee's own rows above it.
+    for (const b of employeeBlocks) {
+      attendanceSheet[`F${b.subtotalRow}`] = { t: "n", f: `SUM(F${b.startRow}:F${b.endRow})` };
+      for (const col of ["H", "I", "J", "K"]) {
+        attendanceSheet[`${col}${b.subtotalRow}`] = { t: "n", f: `SUM(${col}${b.startRow}:${col}${b.endRow})`, z: DURATION_FORMAT };
+      }
     }
-    attendanceSheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: attendanceTotalRow - 1, c: 9 } });
+    // Grand TOTAL row — sums the per-employee subtotal rows, not the raw
+    // data rows again, so nothing gets double-counted.
+    const grandTotalRow = attendanceAoa.length + 1;
+    attendanceSheet[`A${grandTotalRow}`] = { t: "s", v: "TOTAL" };
+    if (employeeBlocks.length > 0) {
+      attendanceSheet[`F${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `F${b.subtotalRow}`).join(",")})` };
+      for (const col of ["H", "I", "J", "K"]) {
+        attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `${col}${b.subtotalRow}`).join(",")})`, z: DURATION_FORMAT };
+      }
+    } else {
+      attendanceSheet[`F${grandTotalRow}`] = { t: "n", v: 0 };
+      for (const col of ["H", "I", "J", "K"]) attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", v: 0, z: DURATION_FORMAT };
+    }
+    attendanceSheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: grandTotalRow - 1, c: 10 } });
 
     // --- Sheet 2: Late & Absent by Employee (Attendance-page style) ---
     const lateAbsentHeader = ["Employee", "ID", "Total Late", "Total Late Hours", "Total Absent", "Total Absent Hours"];
@@ -663,7 +689,7 @@ export default function Reports() {
       ["Absent", "= the full scheduled shift length (default 8h, after the 1h break) for any scheduled workday with no Time In recorded."],
       ["Overtime", "= MIN(actual time worked past 5:00 PM, hours approved on an Overtime Request for that date). Unapproved late clock-outs are never counted — see the Overtime page for the request/approval workflow."],
       [],
-      ["Attendance Records", "One line per scheduled workday per employee, in date order, including days with no clock-in (shown as Absent). Late/Absent/Overtime are real Excel duration values per line, with a TOTAL row at the bottom."],
+      ["Attendance Records", "One line per scheduled workday, grouped by employee in date order, including days with no clock-in (shown as Absent). Late/Undertime/Absent/Overtime are real Excel duration values per line, with a Subtotal row (as SUM formulas) after each employee and one grand TOTAL row at the bottom summing those subtotals."],
       ["Late & Absent by Employee", "Per-employee Total Late / Total Absent (count + hours), same figures as the Attendance page's stat cards and per-employee CSV block."],
       ["Report Summary", "Present/Late/Absent/Overtime/Undertime day counts and Total Hours per employee, same as this page's own Export CSV."],
       ["Daily Detail", "One row per employee per scheduled workday. Late/Undertime/Absent/Overtime are real Excel duration values (format [h]\"h \"mm\"m\"), not text, so they can be summed or recalculated directly."],
