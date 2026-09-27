@@ -449,10 +449,10 @@ export default function Reports() {
 
     const profileById = new Map<string, ProfileRow>(((profilesData as unknown as ProfileRow[]) ?? []).map((p) => [p.id, p]));
     const scheduleMap = new Map<string, WorkSchedule>(((schedulesData as WorkSchedule[]) ?? []).map((s) => [s.id, s]));
-    const attByKey = new Map<string, { time_in: string | null; time_out: string | null }>();
+    const attByKey = new Map<string, { time_in: string | null; time_out: string | null; hours_worked: number | null }>();
     const attByEmployee = new Map<string, AttRow[]>();
     for (const a of (attendanceData as AttRow[]) ?? []) {
-      attByKey.set(`${a.employee_id}|${a.work_date}`, { time_in: a.time_in, time_out: a.time_out });
+      attByKey.set(`${a.employee_id}|${a.work_date}`, { time_in: a.time_in, time_out: a.time_out, hours_worked: a.hours_worked });
       if (!attByEmployee.has(a.employee_id)) attByEmployee.set(a.employee_id, []);
       attByEmployee.get(a.employee_id)!.push(a);
     }
@@ -462,29 +462,10 @@ export default function Reports() {
       approvedOtByKey.set(key, (approvedOtByKey.get(key) ?? 0) + Number(o.approved_hours ?? 0));
     }
 
-    // --- Sheet 1: Attendance Records (every raw clock-in/out row) ---
-    const attendanceHeader = ["Employee", "ID", "Date", "Time In", "Time Out", "Hours", "Status"];
-    const attendanceRows = ((attendanceData as AttRow[]) ?? [])
-      .slice()
-      .sort((a, b) => a.work_date.localeCompare(b.work_date))
-      .map((a) => {
-        const p = profileById.get(a.employee_id);
-        return [
-          p ? `${p.first_name} ${p.last_name}` : "—",
-          p?.employee_code ?? "",
-          a.work_date,
-          a.time_in ? formatTime(a.time_in) : "—",
-          a.time_out ? formatTime(a.time_out) : "—",
-          a.hours_worked ?? "",
-          a.status,
-        ];
-      });
-    const attendanceSheet = XLSX.utils.aoa_to_sheet([attendanceHeader, ...attendanceRows]);
-    attendanceSheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 12 }];
-
-    // --- Per-employee accumulators shared by sheets 2, 3, 4 & 5 ---
+    // --- Per-employee accumulators shared by sheets 1, 2, 3, 4 & 5 ---
     const today = todayInTZ();
     const detailRows: (string | number)[][] = [];
+    const ledgerRows: (string | number)[][] = [];
     const perEmployee = new Map<
       string,
       {
@@ -556,6 +537,11 @@ export default function Reports() {
           minutesToDayFraction(lateMin), minutesToDayFraction(undertimeMin), minutesToDayFraction(absentMin), minutesToDayFraction(overtimeMin),
           statusLabel,
         ]);
+        ledgerRows.push([
+          name, p.employee_code ?? "", dateKey, timeInLabel, timeOutLabel,
+          rec?.hours_worked ?? "", statusLabel,
+          minutesToDayFraction(lateMin), minutesToDayFraction(absentMin), minutesToDayFraction(overtimeMin),
+        ]);
 
         const excelRow = detailRows.length + 1;
         if (acc.firstDetailRow == null) acc.firstDetailRow = excelRow;
@@ -566,6 +552,28 @@ export default function Reports() {
         cursor.setDate(cursor.getDate() + 1);
       }
     }
+
+    // --- Sheet 1: Attendance Records (one line per scheduled workday per
+    // employee, in date order — including days with no clock-in, so Absent
+    // shows up as its own line — with Late/Absent/Overtime computed per
+    // line, plus a TOTAL row at the bottom) ---
+    ledgerRows.sort((a, b) => String(a[2]).localeCompare(String(b[2])) || String(a[0]).localeCompare(String(b[0])));
+    const attendanceHeader = ["Employee", "ID", "Date", "Time In", "Time Out", "Hours", "Status", "Late", "Absent", "Overtime"];
+    const attendanceSheet = XLSX.utils.aoa_to_sheet([attendanceHeader, ...ledgerRows]);
+    attendanceSheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+    for (let r = 2; r <= ledgerRows.length + 1; r++) {
+      for (const col of ["H", "I", "J"]) {
+        const cell = attendanceSheet[`${col}${r}`];
+        if (cell) cell.z = DURATION_FORMAT;
+      }
+    }
+    const attendanceTotalRow = ledgerRows.length + 2;
+    attendanceSheet[`A${attendanceTotalRow}`] = { t: "s", v: "TOTAL" };
+    attendanceSheet[`F${attendanceTotalRow}`] = { t: "n", f: `SUM(F2:F${attendanceTotalRow - 1})` };
+    for (const col of ["H", "I", "J"]) {
+      attendanceSheet[`${col}${attendanceTotalRow}`] = { t: "n", f: `SUM(${col}2:${col}${attendanceTotalRow - 1})`, z: DURATION_FORMAT };
+    }
+    attendanceSheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: attendanceTotalRow - 1, c: 9 } });
 
     // --- Sheet 2: Late & Absent by Employee (Attendance-page style) ---
     const lateAbsentHeader = ["Employee", "ID", "Total Late", "Total Late Hours", "Total Absent", "Total Absent Hours"];
@@ -655,7 +663,7 @@ export default function Reports() {
       ["Absent", "= the full scheduled shift length (default 8h, after the 1h break) for any scheduled workday with no Time In recorded."],
       ["Overtime", "= MIN(actual time worked past 5:00 PM, hours approved on an Overtime Request for that date). Unapproved late clock-outs are never counted — see the Overtime page for the request/approval workflow."],
       [],
-      ["Attendance Records", "Every raw clock-in/out row in the selected date range, same columns as the Attendance page's Export CSV."],
+      ["Attendance Records", "One line per scheduled workday per employee, in date order, including days with no clock-in (shown as Absent). Late/Absent/Overtime are real Excel duration values per line, with a TOTAL row at the bottom."],
       ["Late & Absent by Employee", "Per-employee Total Late / Total Absent (count + hours), same figures as the Attendance page's stat cards and per-employee CSV block."],
       ["Report Summary", "Present/Late/Absent/Overtime/Undertime day counts and Total Hours per employee, same as this page's own Export CSV."],
       ["Daily Detail", "One row per employee per scheduled workday. Late/Undertime/Absent/Overtime are real Excel duration values (format [h]\"h \"mm\"m\"), not text, so they can be summed or recalculated directly."],
