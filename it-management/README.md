@@ -81,6 +81,37 @@ npm run build:demo   # → demo/dist/it-manager.html
 
 This builds a single self-contained HTML file that runs the same frontend and the same route code entirely in the browser. SQLite is compiled to JavaScript, and data is kept in that browser's storage. It exists so people can try the system without installing anything. The preview frame blocks file downloads and printing, so CSV exports appear on screen to copy, and PDF and printing only work in the local version. For real use, run the local version.
 
+## 9. Windows desktop app (optional)
+
+A normal Windows program with its own icon and window. It runs the same system inside the app, for that PC only, with no browser, Node.js or network needed. Data is kept in `Documents\Pellas IT Command\data`.
+
+To build the installer (on Linux, Wine is needed for the Windows installer step):
+
+```bash
+cd desktop
+npm install
+npm run build        # → dist-desktop/Pellas-IT-Command-Setup-<version>.exe
+```
+
+The installer isn't code-signed, so Windows shows "Windows protected your PC" the first time: choose **More info → Run anyway**.
+
+## 10. Android app (optional)
+
+A stand-alone `.apk`: the whole system runs inside the app on the phone. It has no internet permission, so it doesn't need or use a PC, a server or the cloud. Each device keeps its own data. To move data between the phone and a PC, use **Settings → Backup & Restore**, which uses the same `.itmsbackup` file on both.
+
+It's built without Android Studio, using the Android build tools from Debian/Ubuntu:
+
+```bash
+sudo apt install aapt apksigner zipalign dalvik-exchange android-sdk-platform-23
+android/build-apk.sh   # → android/dist/Pellas-IT-Command.apk
+```
+
+The first build creates the signing key `android/release.keystore` and its password file. These are not committed. **Keep them**: an update must be signed with the same key, or the phone won't install it over the old version.
+
+To install, copy the `.apk` to the phone, open it, and allow "Install unknown apps" for the file manager or browser when asked.
+
+The phone app doesn't have Excel (.xlsx) files or PDF export: use CSV and **Print** (Print can also save a PDF).
+
 ---
 
 ## What's included

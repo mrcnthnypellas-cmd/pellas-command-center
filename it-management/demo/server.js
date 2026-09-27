@@ -63,8 +63,9 @@ async function init() {
     persist();
   }
   sessionToken = store.get(SESSION_KEY);
-  // Open in a working state: sign in as the demo admin the first time.
-  if (!sessionToken && !store.get('itms-demo-signed-out')) {
+  // Preview: open in a working state by signing in as the demo admin the first time.
+  // The Android app always asks for a sign-in.
+  if (!__APP__ && !sessionToken && !store.get('itms-demo-signed-out')) {
     const admin = db.get("SELECT id FROM users WHERE username = 'admin' AND status = 'Active'");
     if (admin) { createSession(fakeRes(), admin.id); persist(); }
   }

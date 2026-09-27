@@ -70,6 +70,7 @@ function showDialog(title, html) {
   document.getElementById('modal-root').appendChild(wrap);
   return wrap;
 }
+if (!__APP__) {
 document.addEventListener('click', async (e) => {
   const a = e.target.closest('a[href^="/api/"]');
   if (!a) return;
@@ -100,6 +101,48 @@ document.addEventListener('click', async (e) => {
   }
 }, true);
 
+}
+if (__APP__) {
+// Android app: files are saved through the native bridge ("Save as" on the phone), printing uses
+// the phone's print service (which can also save a PDF).
+const bridge = window.ItmsAndroid || null;
+function saveBytes(name, type, bytes) {
+  if (bridge) {
+    let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    bridge.saveFile(name, type || 'application/octet-stream', btoa(s));
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const a = document.createElement('a'); a.href = url; a.download = name; a.dataset.native = '1'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+const nameFrom = (headers, fallback) => (headers['content-disposition'] || '').match(/filename="([^"]+)"/)?.[1] || fallback;
+document.addEventListener('click', async (e) => {
+  const a = e.target.closest('a[href^="/api/"], a[download][href^="blob:"]');
+  if (!a || a.dataset.native) return;
+  e.preventDefault();
+  const href = a.getAttribute('href');
+  if (href.startsWith('blob:')) {
+    const blob = await (await realFetch(href)).blob();
+    saveBytes(a.getAttribute('download') || 'download', blob.type, new Uint8Array(await blob.arrayBuffer()));
+    return;
+  }
+  const r = await call(href);
+  if (r.status >= 400) {
+    let msg = 'This file could not be opened.';
+    try { msg = JSON.parse(r.body).error; } catch { /* keep default */ }
+    showDialog('Not available', `<p>${esc(msg)}</p>`);
+    return;
+  }
+  const type = r.headers['content-type'] || 'application/octet-stream';
+  const bytes = typeof r.body === 'string' ? new TextEncoder().encode(r.body) : new Uint8Array(r.body);
+  const ext = type.includes('csv') ? 'csv' : type.includes('svg') ? 'svg' : type.includes('png') ? 'png' : 'bin';
+  saveBytes(nameFrom(r.headers, `${(a.textContent || 'file').trim().replace(/[^\w-]+/g, '-').toLowerCase()}.${ext}`), type, bytes);
+}, true);
+if (bridge) window.print = () => bridge.print(document.title || 'IT Command');
+}
+
+if (!__APP__) {
 // Banner explaining what this build is.
 const bar = document.createElement('div');
 bar.id = 'demo-bar';
@@ -118,6 +161,8 @@ bar.querySelector('[data-demo-reset]').addEventListener('click', () => {
     location.reload();
   });
 });
+
+}
 
 ready.then(() => import('../public/js/app.js')).catch((e) => {
   document.getElementById('app').innerHTML = `<div class="boot">Could not start the preview: ${esc(e.message)}</div>`;

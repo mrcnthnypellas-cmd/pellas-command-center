@@ -57,4 +57,7 @@ function tx(fn) {
 const close = () => {};
 const exportBytes = () => db.export();
 const isEmpty = () => !get('SELECT 1 AS x FROM users LIMIT 1');
-module.exports = { open, close, all, get, run, tx, attach, exportBytes, isEmpty };
+const engine = () => SQL;
+// Swap in a whole new database (restore). The file table is recreated empty by attach().
+const replace = (bytes) => attach(SQL, bytes);
+module.exports = { open, close, all, get, run, tx, attach, exportBytes, isEmpty, engine, replace };

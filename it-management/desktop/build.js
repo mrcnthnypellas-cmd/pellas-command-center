@@ -32,7 +32,8 @@ execSync('npm install --omit=dev --ignore-scripts --no-audit --no-fund', { cwd: 
 
 if (process.argv.includes('--stage-only')) {
   // Local run on this machine: build the native SQLite module for this machine's Electron.
-  require('@electron/rebuild').rebuild({ buildPath: STAGE, electronVersion, force: true })
+  // projectRootPath stops the rebuild from walking up into the main project's node_modules.
+  require('@electron/rebuild').rebuild({ buildPath: STAGE, projectRootPath: STAGE, electronVersion, force: true })
     .then(() => console.log(`Staged in ${STAGE}`))
     .catch((e) => { console.error(e); process.exit(1); });
   return;

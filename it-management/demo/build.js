@@ -6,7 +6,10 @@ const esbuild = require('esbuild');
 
 const ROOT = path.resolve(__dirname, '..');
 const SHIMS = path.join(__dirname, 'shims');
-const OUT = path.join(__dirname, 'dist');
+// --app → the Android app's page (android/app/src/main/assets/index.html): sign-in required,
+// data kept by the app itself, files saved and printed through the phone. No preview banner.
+const APP = process.argv.includes('--app');
+const OUT = APP ? path.join(ROOT, 'android/app/src/main/assets') : path.join(__dirname, 'dist');
 
 // Node-only modules → browser stand-ins.
 const PACKAGE_SHIMS = { fs: 'fs.js', path: 'path.js', crypto: 'crypto.js', express: 'express.js', multer: 'multer.js', 'cookie-parser': 'cookie-parser.js', exceljs: 'exceljs.js' };
@@ -46,7 +49,7 @@ const shimPlugin = {
     write: false,
     legalComments: 'none',
     loader: { '.sql': 'text' },
-    define: { 'process.env': '{}', __dirname: '"/app/server"', 'process.platform': '"browser"' },
+    define: { 'process.env': '{}', __dirname: '"/app/server"', 'process.platform': '"browser"', __APP__: APP ? 'true' : 'false' },
     plugins: [shimPlugin],
     logLevel: 'warning',
   });
@@ -55,7 +58,15 @@ const shimPlugin = {
   const chart = fs.readFileSync(path.join(ROOT, 'node_modules/chart.js/dist/chart.umd.min.js'), 'utf8');
   const safe = (s) => s.replace(/<\/script/gi, '<\\/script');
 
-  const html = `<title>Pellas IT Command</title>
+  // The app works offline, so it uses the phone's own fonts instead of Google Fonts.
+  const head = APP
+    ? `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pellas IT Command</title>
+<style>
+${css}
+</style></head><body>`
+    : `<title>Pellas IT Command</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style>
@@ -65,7 +76,8 @@ ${css}
   background: var(--primary-soft); color: var(--text-2); border-bottom: 1px solid var(--border); font-size: 12.5px; }
 #demo-bar b { color: var(--text); }
 [data-print] { display: none !important; }
-</style>
+</style>`;
+  const html = `${head}
 <div id="app"><div class="boot">Loading the IT management system…</div></div>
 <div id="modal-root"></div>
 <div id="toasts"></div>
@@ -73,7 +85,7 @@ ${css}
 <script>${safe(js)}</script>
 `;
   fs.mkdirSync(OUT, { recursive: true });
-  const file = path.join(OUT, 'it-manager.html');
+  const file = path.join(OUT, APP ? 'index.html' : 'it-manager.html');
   fs.writeFileSync(file, html);
   console.log(`Built ${path.relative(ROOT, file)} (${(html.length / 1024 / 1024).toFixed(2)} MB)`);
 })().catch((e) => { console.error(e); process.exit(1); });

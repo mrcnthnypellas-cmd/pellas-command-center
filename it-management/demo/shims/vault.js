@@ -33,4 +33,19 @@ function decrypt(blob) {
   const sealed = new Uint8Array([...unb64(data), ...unb64(tag)]);
   return bytesToUtf8(gcm(loadKey(), unb64(iv)).decrypt(sealed));
 }
-module.exports = { encrypt, decrypt, resetKey: () => { key = null; } };
+// Same helpers as server/lib/vault.js, used by backup/restore to re-lock saved passwords.
+function encryptWith(k, plain) {
+  if (plain === null || plain === undefined || plain === '') return null;
+  const iv = new Uint8Array(12);
+  crypto.getRandomValues(iv);
+  const sealed = gcm(k, iv).encrypt(utf8ToBytes(String(plain)));
+  return ['v1', b64(iv), b64(sealed.slice(-16)), b64(sealed.slice(0, -16))].join(':');
+}
+function decryptWith(k, blob) {
+  if (!blob) return '';
+  const [v, iv, tag, data] = blob.split(':');
+  if (v !== 'v1') throw new Error('Unknown ciphertext version');
+  return bytesToUtf8(gcm(k, unb64(iv)).decrypt(new Uint8Array([...unb64(data), ...unb64(tag)])));
+}
+const keyHex = () => bytesToHex(loadKey());
+module.exports = { encrypt, decrypt, encryptWith, decryptWith, keyHex, resetKey: () => { key = null; } };
