@@ -6,6 +6,8 @@ const { requirePerm, destroySession } = require('../lib/auth');
 const { log } = require('../lib/activity');
 const { bad, setting } = require('../lib/util');
 const { createBackup, openBackup, restoreBackup } = require('../lib/backup');
+const { eraseData, counts } = require('../lib/reset');
+const { verifyPassword } = require('../lib/passwords');
 
 const r = express.Router();
 const admin = requirePerm('settings.manage', 'users.manage');
@@ -42,6 +44,22 @@ r.post('/restore', admin, upload.single('file'), (req, res) => {
   const result = restoreBackup(req.file.buffer, req.body.password, who);
   db.run("INSERT INTO settings (key, value) VALUES ('last_restore_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", new Date().toISOString());
   destroySession(req, res); // the restored data has its own users — sign in again with those
+  res.json({ ok: true, ...result });
+});
+
+// Start fresh: erase the records and keep only this admin account (and, if chosen, other lists).
+r.get('/erase-preview', admin, (_req, res) => res.json(counts()));
+
+r.post('/erase', admin, (req, res) => {
+  const { password, confirm, locations, departments, users } = req.body || {};
+  if (confirm !== 'ERASE') throw bad('Type ERASE to confirm');
+  const me = db.get('SELECT password_hash FROM users WHERE id = ?', req.user.id);
+  if (!me || !verifyPassword(password || '', me.password_hash)) throw bad('Your password is incorrect');
+  const result = eraseData(req.user.id, { locations: locations !== false, departments: !!departments, users: users !== false });
+  log(req, 'All data erased (start fresh)', 'settings', null, 'Start fresh', {
+    assets: result.erased.assets, employees: result.erased.employees, locations: locations !== false ? 'erased' : 'kept',
+    departments: departments ? 'erased' : 'kept', other_users: users !== false ? 'removed' : 'kept',
+  });
   res.json({ ok: true, ...result });
 });
 

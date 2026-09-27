@@ -677,3 +677,35 @@ test('migration adds new permissions to an existing database', () => {
   assert.ok(!got.some((g) => g.name === 'Viewer' && g.key === 'directory.manage'));
   assert.ok(got.some((g) => g.name === 'IT Staff' && g.key === 'directory.manage'));
 });
+
+// Keep this last: it erases the shared test database.
+test('start fresh: erase data keeps the admin, roles and categories', async () => {
+  const v = await login('viewer', 'viewer123');
+  assert.equal((await v.post('/backup/erase', { password: 'viewer123', confirm: 'ERASE' })).status, 403);
+  const a = await login('admin', 'admin123');
+  const before = ok(await a.get('/backup/erase-preview'));
+  assert.ok(before.assets > 0 && before.other_users > 0);
+  assert.equal((await a.post('/backup/erase', { password: 'admin123', confirm: 'nope' })).status, 400);
+  assert.equal((await a.post('/backup/erase', { password: 'wrong', confirm: 'ERASE' })).status, 400);
+  assert.ok(ok(await a.get('/assets')).length > 0, 'nothing erased by failed attempts');
+
+  const r = ok(await a.post('/backup/erase', { password: 'admin123', confirm: 'ERASE', departments: false }));
+  assert.equal(r.erased.assets, before.assets);
+  const after = ok(await a.get('/backup/erase-preview'));
+  for (const k of ['assets', 'employees', 'ip_addresses', 'network_devices', 'isps', 'credentials', 'phone_contacts', 'locations', 'other_users']) assert.equal(after[k], 0, k);
+  assert.ok(after.departments > 0, 'departments kept');
+  const dash = ok(await a.get('/dashboard'));
+  assert.equal(dash.assets.total, 0);
+  assert.equal(dash.value.total, 0);
+  assert.equal((await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'viewer', password: 'viewer123' }) })).status, 401, 'other users removed');
+  const log = ok(await a.get('/activity'));
+  assert.equal(log.length, 1);
+  assert.equal(log[0].action, 'All data erased (start fresh)');
+
+  // Works as a clean system afterwards: tags restart at 0001
+  const L = ok(await a.get('/settings/lookups'));
+  const cat = L.categories.find((c) => c.prefix === 'LAP');
+  assert.ok(cat, 'categories kept');
+  const made = ok(await a.post('/assets', { name: 'First real laptop', category_id: cat.id, purchase_cost: 45000 }));
+  assert.match(made.asset_tag, /^LAP-0*1$/);
+});

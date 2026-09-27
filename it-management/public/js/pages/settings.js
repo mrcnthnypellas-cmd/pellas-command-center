@@ -59,7 +59,42 @@ const PANES = {
         </ol>
         <p class="cell-sub" style="margin-bottom:0">Tip: make a backup regularly (for example every Friday) and keep a copy off this PC.</p>
       </div></section>
-    </div>`;
+    </div>
+    <form class="card danger-zone" data-erase novalidate style="margin-top:16px"><div class="card-head"><h3>Start fresh (erase data)</h3></div><div class="card-body">
+      <p style="margin-top:0">Removes the records so you can start from zero, for example to clear the sample data. <b>Your own account (${esc(state.user.username)})</b>, roles, asset categories and settings stay.</p>
+      <div data-erase-counts class="cell-sub" style="margin-bottom:12px">Counting records…</div>
+      <div class="alert err">This can't be undone. <b>Create a backup first</b> if you might need this data again.</div>
+      <div class="erase-options">
+        <label class="check"><input type="checkbox" name="locations" checked> Also erase locations</label>
+        <label class="check"><input type="checkbox" name="departments"> Also erase departments</label>
+        <label class="check"><input type="checkbox" name="users" checked> Also remove the other user accounts</label>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
+        <div class="field"><label for="erase-pw">Your password</label><input id="erase-pw" name="password" type="password" autocomplete="current-password"></div>
+        <div class="field"><label for="erase-confirm">Type <b>ERASE</b> to confirm</label><input id="erase-confirm" name="confirm" autocomplete="off" autocapitalize="characters"></div>
+      </div>
+    </div><div class="form-actions"><button class="btn danger" type="submit">Erase data and start fresh</button></div></form>`;
+
+    const eraseForm = el.querySelector('[data-erase]');
+    api.get('/backup/erase-preview').then((c) => {
+      const parts = [['assets', c.assets], ['employees', c.employees], ['IP addresses', c.ip_addresses], ['network devices', c.network_devices], ['ISPs', c.isps], ['saved passwords', c.credentials], ['phone contacts', c.phone_contacts], ['other users', c.other_users]];
+      eraseForm.querySelector('[data-erase-counts]').textContent = `Now in the system: ${parts.map(([l, n]) => `${n} ${l}`).join(' · ')}`;
+    }).catch(() => { eraseForm.querySelector('[data-erase-counts]').textContent = ''; });
+    eraseForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = eraseForm.elements;
+      if (f.confirm.value.trim().toUpperCase() !== 'ERASE') { toast('Type ERASE to confirm', 'err'); f.confirm.focus(); return; }
+      if (!f.password.value) { toast('Enter your password', 'err'); f.password.focus(); return; }
+      const ok = await confirmDialog('Erase all data?', 'Every asset, employee, IP address, network device, ISP, saved password, phone contact and log will be deleted. This cannot be undone.', { confirmLabel: 'Erase everything' });
+      if (!ok) return;
+      const btn = eraseForm.querySelector('button[type=submit]');
+      btn.disabled = true; btn.textContent = 'Erasing…';
+      try {
+        const r = await api.post('/backup/erase', { password: f.password.value, confirm: 'ERASE', locations: f.locations.checked, departments: f.departments.checked, users: f.users.checked });
+        toast(`Done. ${r.erased.assets} assets and ${r.erased.employees} employees were erased. You can start adding your own data.`);
+        location.hash = '#/dashboard';
+      } catch (ex) { toast(ex.message, 'err'); } finally { btn.disabled = false; btn.textContent = 'Erase data and start fresh'; }
+    });
 
     const make = el.querySelector('[data-make]');
     make.addEventListener('submit', async (e) => {

@@ -458,3 +458,6 @@ a.stat:hover { border-color: var(--primary); text-decoration: none; }
 }
 .table td.dir-name { min-width: 200px; }
 .table td.dir-org { min-width: 150px; }
+.card.danger-zone { border-color: var(--red); }
+.card.danger-zone .card-head h3 { color: var(--red); }
+.erase-options { display: flex; flex-wrap: wrap; gap: 8px 22px; }
