@@ -190,6 +190,7 @@ public sealed class AppService(SystemDb db, PostgresProvider pg, ISecretProtecto
         var d = c.Query("SELECT key, value FROM app_env WHERE app_id=@Id", new { app.Id }).ToDictionary(r => (string)r.key, r => secrets.Unprotect((string)r.value));
         var conn = pg.Connection(app.Database, app.Role, RolePassword(app.Id));
         d.TryAdd("DATABASE_URL", conn.Uri);
+        d.TryAdd("DIRECT_URL", conn.Uri); // Prisma's non-pooled URL; the same local server here.
         return d;
     }
 }

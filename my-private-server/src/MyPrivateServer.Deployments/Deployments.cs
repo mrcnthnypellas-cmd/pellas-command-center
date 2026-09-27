@@ -324,7 +324,8 @@ public sealed class DeploymentService : BackgroundService
             {
                 var pkg = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(ws, "package.json"), ct)).RootElement;
                 var scripts = pkg.TryGetProperty("scripts", out var s) ? s : default;
-                await Step("Install dependencies", "npm", File.Exists(Path.Combine(ws, "package-lock.json")) ? ["ci", "--no-audit", "--no-fund"] : ["install", "--no-audit", "--no-fund"], ws, buildEnv);
+                // Build tools (TypeScript, Tailwind, Prisma CLI...) are usually devDependencies; NODE_ENV=production would skip them.
+                await Step("Install dependencies", "npm", File.Exists(Path.Combine(ws, "package-lock.json")) ? ["ci", "--include=dev", "--no-audit", "--no-fund"] : ["install", "--include=dev", "--no-audit", "--no-fund"], ws, buildEnv);
                 if (scripts.ValueKind == JsonValueKind.Object && scripts.TryGetProperty("build", out _)) await Step("Build", "npm", ["run", "build"], ws, buildEnv);
                 if (repo.RunTests && scripts.ValueKind == JsonValueKind.Object && scripts.TryGetProperty("test", out _)) await Step("Test", "npm", ["test"], ws, buildEnv);
             }
