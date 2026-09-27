@@ -28,14 +28,15 @@ if not exist node_modules (
 rem Share on the office network / Tailscale. Change to 127.0.0.1 to allow this PC only.
 set HOST=0.0.0.0
 set PORT=4000
+set ITMS_OPEN_BROWSER=1
 echo.
-echo  Open on this PC:        http://localhost:4000
+echo  Open on this PC:        http://127.0.0.1:4000
 echo  Open on other devices:  http://THIS-PC-IP:4000   (see IPv4 Address below)
 ipconfig | findstr /i "IPv4"
 echo.
 echo  If Windows Firewall asks, click "Allow access".
 echo  Keep this window open. Closing it stops the server.
+echo  The browser opens by itself when the server is ready.
 echo.
-start "" http://localhost:4000
 node server\index.js
 pause

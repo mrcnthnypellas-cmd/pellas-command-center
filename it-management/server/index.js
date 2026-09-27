@@ -14,4 +14,11 @@ createApp().listen(config.PORT, config.HOST, () => {
   console.log(`\n  IT Management System running at ${url}`);
   console.log('  Default logins: admin / admin123 · itstaff / itstaff123 · jtech / jtech123 · viewer / viewer123');
   console.log('  Reset sample data: npm run db:reset\n');
+  // START-SERVER.bat sets this so the browser opens only once the server is ready.
+  if (process.env.ITMS_OPEN_BROWSER === '1') {
+    const open = `http://127.0.0.1:${config.PORT}`;
+    const { exec } = require('child_process');
+    const cmd = process.platform === 'win32' ? `start "" "${open}"` : process.platform === 'darwin' ? `open "${open}"` : `xdg-open "${open}"`;
+    exec(cmd, () => {});
+  }
 });
