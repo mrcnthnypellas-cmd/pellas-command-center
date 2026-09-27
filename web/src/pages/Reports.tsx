@@ -580,11 +580,14 @@ export default function Reports() {
         if (cell) cell.z = DURATION_FORMAT;
       }
     }
-    // Per-employee subtotal — a live SUM over just that employee's own rows above it.
+    // Per-employee subtotal — a live SUM over just that employee's own rows
+    // above it, styled bold blue like the grand TOTAL row.
     for (const b of employeeBlocks) {
-      attendanceSheet[`F${b.subtotalRow}`] = { t: "n", f: `SUM(F${b.startRow}:F${b.endRow})` };
+      if (attendanceSheet[`A${b.subtotalRow}`]) attendanceSheet[`A${b.subtotalRow}`].s = TOTAL_ROW_STYLE;
+      if (attendanceSheet[`B${b.subtotalRow}`]) attendanceSheet[`B${b.subtotalRow}`].s = TOTAL_ROW_STYLE;
+      attendanceSheet[`F${b.subtotalRow}`] = { t: "n", f: `SUM(F${b.startRow}:F${b.endRow})`, s: TOTAL_ROW_STYLE };
       for (const col of ["H", "I", "J", "K"]) {
-        attendanceSheet[`${col}${b.subtotalRow}`] = { t: "n", f: `SUM(${col}${b.startRow}:${col}${b.endRow})`, z: DURATION_FORMAT };
+        attendanceSheet[`${col}${b.subtotalRow}`] = { t: "n", f: `SUM(${col}${b.startRow}:${col}${b.endRow})`, z: DURATION_FORMAT, s: TOTAL_ROW_STYLE };
       }
     }
     // Grand TOTAL row — sums the per-employee subtotal rows, not the raw
