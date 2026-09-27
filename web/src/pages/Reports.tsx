@@ -72,6 +72,13 @@ function minutesToHM(totalMinutes: number) {
   const mins = Math.max(0, Math.round(totalMinutes));
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
+// Excel stores durations as a fraction of a 24h day; this custom number
+// format then renders that fraction back as "Xh YYm" (elapsed-time format,
+// the [h] keeps hours from wrapping at 24 like a clock would).
+const DURATION_FORMAT = '[h]"h "mm"m"';
+function minutesToDayFraction(totalMinutes: number) {
+  return Math.max(0, totalMinutes) / 1440;
+}
 
 export default function Reports() {
   const { push } = useToast();
@@ -87,6 +94,7 @@ export default function Reports() {
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [exportingDetail, setExportingDetail] = useState(false);
+  const [exportScope, setExportScope] = useState<"filtered" | "overall">("filtered");
 
   useEffect(() => {
     supabase.from("departments").select("*").order("name").then(({ data }) => setDepartments((data as Department[]) ?? []));
@@ -197,19 +205,29 @@ export default function Reports() {
 
   // Detailed Excel report: Sheet 1 is one row per employee per scheduled
   // workday (Mon–Fri per schedule, weekends skipped) showing Late,
-  // Undertime and Absent in hours+minutes. Sheet 2 rolls each employee up
-  // to Late/Undertime/Overtime/Absent totals. Overtime only counts hours
-  // actually worked past shift end AND covered by an admin-approved
-  // overtime request for that date — unapproved late clock-outs (and
-  // early clock-ins before shift start) are never counted.
+  // Undertime, Absent and Overtime as real Excel durations (not text), so
+  // every number is inspectable/recalculable in Excel. Sheet 2 rolls each
+  // employee up to Late/Undertime/Overtime/Absent totals using a SUM
+  // formula over that employee's own rows in Sheet 1 — click any total to
+  // see exactly which Daily Detail rows it added up. Sheet 3 explains the
+  // rules in words. Overtime only counts hours actually worked past shift
+  // end AND covered by an admin-approved overtime request for that date —
+  // unapproved late clock-outs (and early clock-ins before shift start)
+  // are never counted.
+  //
+  // exportScope "filtered" respects the Department/Employee pickers above;
+  // "overall" ignores them and includes every active/on-leave employee in
+  // the company, still as this one workbook.
   async function exportDetailedExcel() {
     setExportingDetail(true);
     let profileQuery = supabase
       .from("profiles")
       .select("id, first_name, last_name, employee_code, department_id, date_hired, schedule_id")
       .in("employment_status", ["active", "on_leave"]);
-    if (deptFilter !== "all") profileQuery = profileQuery.eq("department_id", deptFilter);
-    if (employeeFilter.length > 0) profileQuery = profileQuery.in("id", employeeFilter);
+    if (exportScope === "filtered") {
+      if (deptFilter !== "all") profileQuery = profileQuery.eq("department_id", deptFilter);
+      if (employeeFilter.length > 0) profileQuery = profileQuery.in("id", employeeFilter);
+    }
 
     const [
       { data: profilesData, error: profilesError },
@@ -241,9 +259,12 @@ export default function Reports() {
 
     const today = todayInTZ();
     const detailRows: (string | number)[][] = [];
+    // Row range (1-based Excel row numbers, header is row 1) each
+    // employee's Daily Detail rows occupy, so the Summary sheet's SUM
+    // formulas can point straight at them.
     const summary = new Map<
       string,
-      { name: string; code: string | null; lateMin: number; undertimeMin: number; overtimeMin: number; absentMin: number }
+      { name: string; code: string | null; firstRow: number | null; lastRow: number | null }
     >();
 
     for (const p of (profilesData as { id: string; first_name: string; last_name: string; employee_code: string | null; date_hired: string | null; schedule_id: string | null }[]) ?? []) {
@@ -255,7 +276,7 @@ export default function Reports() {
       const shiftMinutes = Math.max(0, shiftEndMin - shiftStartMin - breakMinutes);
       const name = `${p.first_name} ${p.last_name}`;
 
-      summary.set(p.id, { name, code: p.employee_code, lateMin: 0, undertimeMin: 0, overtimeMin: 0, absentMin: 0 });
+      summary.set(p.id, { name, code: p.employee_code, firstRow: null, lastRow: null });
       const empSummary = summary.get(p.id)!;
 
       const start = p.date_hired && p.date_hired > dateFrom ? p.date_hired : dateFrom;
@@ -301,14 +322,14 @@ export default function Reports() {
         detailRows.push([
           name, p.employee_code ?? "", dateKey, DAY_NAMES[dow],
           timeInLabel, timeOutLabel,
-          minutesToHM(lateMin), minutesToHM(undertimeMin), minutesToHM(absentMin), minutesToHM(overtimeMin),
+          minutesToDayFraction(lateMin), minutesToDayFraction(undertimeMin), minutesToDayFraction(absentMin), minutesToDayFraction(overtimeMin),
           statusLabel,
         ]);
 
-        empSummary.lateMin += lateMin;
-        empSummary.undertimeMin += undertimeMin;
-        empSummary.overtimeMin += overtimeMin;
-        empSummary.absentMin += absentMin;
+        // Excel row = array index + 2 (1 for 1-based, 1 for the header row).
+        const excelRow = detailRows.length + 1;
+        if (empSummary.firstRow == null) empSummary.firstRow = excelRow;
+        empSummary.lastRow = excelRow;
 
         cursor.setDate(cursor.getDate() + 1);
       }
@@ -317,18 +338,66 @@ export default function Reports() {
     const detailHeader = ["Employee", "ID", "Date", "Day", "Time In", "Time Out", "Late", "Undertime", "Absent", "Overtime", "Status"];
     const detailSheet = XLSX.utils.aoa_to_sheet([detailHeader, ...detailRows]);
     detailSheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 6 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
+    // Give the Late/Undertime/Absent/Overtime columns (G–J) the duration
+    // display format so they read as "Xh YYm" while staying real numbers.
+    for (let r = 2; r <= detailRows.length + 1; r++) {
+      for (const col of ["G", "H", "I", "J"]) {
+        const cell = detailSheet[`${col}${r}`];
+        if (cell) cell.z = DURATION_FORMAT;
+      }
+    }
 
-    const summaryRows = Array.from(summary.values())
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((e) => [e.name, e.code ?? "", minutesToHM(e.lateMin), minutesToHM(e.undertimeMin), minutesToHM(e.overtimeMin), minutesToHM(e.absentMin)]);
+    const sortedEmployees = Array.from(summary.values()).sort((a, b) => a.name.localeCompare(b.name));
     const summaryHeader = ["Employee", "ID", "Total Late", "Total Undertime", "Total Overtime", "Total Absent"];
-    const summarySheet = XLSX.utils.aoa_to_sheet([summaryHeader, ...summaryRows]);
+    const summaryAoa: (string | number)[][] = [summaryHeader, ...sortedEmployees.map((e) => [e.name, e.code ?? "", 0, 0, 0, 0])];
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryAoa);
     summarySheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
+
+    // Replace each employee's placeholder 0s with a live SUM formula over
+    // that employee's own Daily Detail rows — click any total in Excel to
+    // see exactly which rows (and dates) it added up.
+    sortedEmployees.forEach((e, i) => {
+      const excelRow = i + 2;
+      const cols: Record<string, string> = { C: "G", D: "H", E: "I", F: "J" };
+      for (const [summaryCol, detailCol] of Object.entries(cols)) {
+        const cellRef = `${summaryCol}${excelRow}`;
+        if (e.firstRow != null && e.lastRow != null) {
+          summarySheet[cellRef] = { t: "n", f: `SUM('Daily Detail'!${detailCol}${e.firstRow}:${detailCol}${e.lastRow})`, z: DURATION_FORMAT };
+        } else {
+          summarySheet[cellRef] = { t: "n", v: 0, z: DURATION_FORMAT };
+        }
+      }
+    });
+    // Grand-total row, also a formula — sums the Summary sheet's own totals.
+    const totalRow = sortedEmployees.length + 2;
+    summarySheet[`A${totalRow}`] = { t: "s", v: "TOTAL" };
+    summarySheet[`B${totalRow}`] = { t: "s", v: "" };
+    for (const col of ["C", "D", "E", "F"]) {
+      summarySheet[`${col}${totalRow}`] = { t: "n", f: `SUM(${col}2:${col}${totalRow - 1})`, z: DURATION_FORMAT };
+    }
+    summarySheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalRow - 1, c: 5 } });
+
+    const notesAoa = [
+      ["How each figure is computed"],
+      [],
+      ["Shift", "8:00 AM – 5:00 PM, Monday to Friday only (per the employee's assigned schedule, or this default if none is assigned)."],
+      ["Late", "= Time In − 8:00 AM, only if positive. Clocking in earlier than 8:00 AM is not counted (0 late, and that early time is not paid or banked)."],
+      ["Undertime", "= 5:00 PM − Time Out, only if positive. Leaving at or after 5:00 PM gives 0 undertime."],
+      ["Absent", "= the full scheduled shift length (default 8h, after the 1h break) for any scheduled workday with no Time In recorded."],
+      ["Overtime", "= MIN(actual time worked past 5:00 PM, hours approved on an Overtime Request for that date). Unapproved late clock-outs are never counted — see the Overtime page for the request/approval workflow."],
+      [],
+      ["Daily Detail sheet", "One row per employee per scheduled workday. Late/Undertime/Absent/Overtime are real Excel duration values (format [h]\"h \"mm\"m\"), not text, so they can be summed or recalculated directly."],
+      ["Summary sheet", "Each employee's totals are =SUM(...) formulas over that employee's own row range in Daily Detail — click a total cell in Excel to see which rows and dates were added."],
+    ];
+    const notesSheet = XLSX.utils.aoa_to_sheet(notesAoa);
+    notesSheet["!cols"] = [{ wch: 16 }, { wch: 100 }];
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, detailSheet, "Daily Detail");
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
-    const suffix = range === "cutoff" ? `${cutoffMonth}_cutoff${cutoffHalf}` : `${dateFrom}_to_${dateTo}`;
+    XLSX.utils.book_append_sheet(workbook, notesSheet, "Formula Notes");
+    const scopeSuffix = exportScope === "overall" ? "_overall" : "";
+    const suffix = (range === "cutoff" ? `${cutoffMonth}_cutoff${cutoffHalf}` : `${dateFrom}_to_${dateTo}`) + scopeSuffix;
     XLSX.writeFile(workbook, `attendance_detailed_${suffix}.xlsx`);
   }
 
@@ -380,6 +449,10 @@ export default function Reports() {
           <EmployeeMultiSelect options={employees} selected={employeeFilter} onChange={setEmployeeFilter} className="w-56" />
           <Button onClick={generate} loading={loading}><FileBarChart className="h-4 w-4" /> Generate</Button>
           {rows.length > 0 && <Button variant="secondary" onClick={exportCsv}><Download className="h-4 w-4" /> Export CSV</Button>}
+          <Select label="Export Scope" value={exportScope} onChange={(e) => setExportScope(e.target.value as "filtered" | "overall")} className="w-52">
+            <option value="filtered">Selected Filters</option>
+            <option value="overall">Overall (All Employees)</option>
+          </Select>
           <Button variant="secondary" onClick={exportDetailedExcel} loading={exportingDetail}><Download className="h-4 w-4" /> Export Detailed Excel (Late/Undertime/Absent/OT)</Button>
         </div>
       </Card>
