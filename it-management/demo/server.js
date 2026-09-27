@@ -2,7 +2,7 @@
 // frontend's /api requests without a network. Used only by the browser preview build.
 const initSqlJs = require('sql.js/dist/sql-asm.js');
 const db = require('../server/db/connection'); // → demo/shims/connection.js
-const { loadUser, requireAuth, createSession } = require('../server/lib/auth');
+const { loadUser, requireAuth } = require('../server/lib/auth');
 const vault = require('../server/lib/vault'); // → demo/shims/vault.js
 const fs = require('fs'); // → demo/shims/fs.js
 const store = require('./store');
@@ -57,18 +57,11 @@ async function init() {
   if (saved) { try { bytes = fromB64(saved); } catch { bytes = null; } }
   db.attach(SQL, bytes);
   if (db.isEmpty()) {
+    // New install: the app opens on "Let's set up your application".
     store.del('itms-demo-vault-key');
     vault.resetKey();
-    require('../server/db/seed').seed();
-    persist();
   }
   sessionToken = store.get(SESSION_KEY);
-  // Preview: open in a working state by signing in as the demo admin the first time.
-  // The Android app always asks for a sign-in.
-  if (!__APP__ && !sessionToken && !store.get('itms-demo-signed-out')) {
-    const admin = db.get("SELECT id FROM users WHERE username = 'admin' AND status = 'Active'");
-    if (admin) { createSession(fakeRes(), admin.id); persist(); }
-  }
   return SQL;
 }
 
@@ -77,10 +70,7 @@ async function resetData() {
   store.del(DB_KEY); store.del('itms-demo-vault-key'); store.del(SESSION_KEY); store.del('itms-demo-signed-out');
   vault.resetKey();
   db.attach(SQL, null);
-  require('../server/db/seed').seed();
   sessionToken = null;
-  const admin = db.get("SELECT id FROM users WHERE username = 'admin'");
-  createSession(fakeRes(), admin.id);
   persistNow();
 }
 

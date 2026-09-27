@@ -37,7 +37,7 @@ export async function detail(el, [id]) {
   const checked = au.total - au.pending;
   el.innerHTML = `<div class="crumbs"><a href="#/audits">Audits</a> / ${esc(au.name)}</div>
   <div class="page-head"><div><h1>${esc(au.name)}</h1><p>${fmtDate(au.audit_date, true)} · ${esc(au.location || 'All locations')} · ${esc(au.department || 'All departments')} ${badge(au.status)}</p></div>
-    <div class="page-actions">${can('reports.export') ? `<a class="btn" href="/api/reports/audit?audit_id=${au.id}&format=pdf">Audit report (PDF)</a><a class="btn" href="/api/reports/audit?audit_id=${au.id}&format=csv">CSV</a>` : ''}
+    <div class="page-actions">${can('reports.export') ? `<a class="btn needs-pdf" href="/api/reports/audit?audit_id=${au.id}&format=pdf">Audit report (PDF)</a><a class="btn" href="/api/reports/audit?audit_id=${au.id}&format=csv">CSV</a>` : ''}
       ${open ? '<button class="btn primary" data-complete>Complete audit</button><button class="btn ghost" data-delete>Delete</button>' : ''}</div></div>
   <div class="stats" style="margin-bottom:16px">
     <div class="stat"><div class="label">Assets in scope</div><div class="value">${au.total}</div><div class="sub">${checked} checked</div></div>

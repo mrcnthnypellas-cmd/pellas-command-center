@@ -24,8 +24,8 @@ export async function view(el, [key], params) {
   el.innerHTML = `<div class="crumbs no-print"><a href="#/reports">Reports</a> / ${esc(r.title)}</div>
     <div class="page-head"><div><h1>${esc(r.title)}</h1><p>${esc(state.company?.name || '')} · generated ${new Date().toLocaleString()} · ${r.rows.length} record(s)</p></div>
     <div class="page-actions no-print">${extra}${exp ? `<button class="btn" data-print>${icon('printer').replace('<svg', '<svg width="15" height="15"')} Print</button>
-      <a class="btn" href="/api/reports/${key}?format=pdf${q ? `&${q}` : ''}">${icon('download').replace('<svg', '<svg width="15" height="15"')} PDF</a>
-      <a class="btn primary" href="/api/reports/${key}?format=csv${q ? `&${q}` : ''}">Excel / CSV</a>` : '<span class="muted">Export requires reports.export</span>'}</div></div>
+      <a class="btn needs-pdf" href="/api/reports/${key}?format=pdf${q ? `&${q}` : ''}">${icon('download').replace('<svg', '<svg width="15" height="15"')} PDF</a>
+      <a class="btn primary" href="/api/reports/${key}?format=csv${q ? `&${q}` : ''}"><span class="needs-xlsx">Excel / </span>CSV</a>` : '<span class="muted">Export requires reports.export</span>'}</div></div>
     <section class="card" data-t></section>`;
   mountTable(el.querySelector('[data-t]'), {
     rows: r.rows, pageSize: 1000, empty: 'No records for this report',

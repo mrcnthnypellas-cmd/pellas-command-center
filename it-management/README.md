@@ -30,35 +30,27 @@ npm start
 
 Then open **http://localhost:4000** in your browser.
 
-On the first start the database is created and loaded with sample data automatically.
+On the first start you'll see **Let's set up your application**. Enter the company name and create your own admin account (name, username and password). You can tick **Add sample data** to try the system with example assets first; erase it later in **Settings → Backup & Restore → Start fresh**.
 
 For development with auto-restart when server files change: `npm run dev`.
 
-## 4. Default development accounts
+## 4. Accounts
 
-| Username  | Password     | Role | What it shows |
-|-----------|--------------|------|---------------|
-| `admin`   | `admin123`   | Admin | Full access |
-| `itstaff` | `itstaff123` | IT Staff | Asset & network management, can reveal passwords |
-| `jtech`   | `jtech123`   | IT Staff (restricted) | Can't reveal passwords, except a per-credential grant on the Access Point credential |
-| `viewer`  | `viewer123`  | Viewer | Read-only, no access to passwords |
+There are no default passwords: the first-run setup creates the admin account. Add more users in **Settings → Users**.
 
-These are for local testing only and are **not shown on the sign-in page**. Change or disable them before any real use (Settings → Users).
+If you ticked **Add sample data**, the sample staff accounts (`itstaff`, `jtech`, `viewer`) are included but disabled. Turn them on and give them passwords in Settings → Users if you want to try the roles.
 
-## 5. Reset / reload sample data
+## 5. Start over
 
-```bash
-npm run db:reset
-```
-
-This deletes `data/itms.db` and uploaded files, then loads fresh sample data. Stop the server first, then start it again afterwards.
+- **In the app:** Settings → Backup & Restore → **Start fresh** erases the records but keeps your account.
+- **Everything, from the command line** (stop the server first): `npm run db:reset` deletes the database and uploads, and the next start shows the setup again. `npm run db:seed` loads the sample data with the development logins (`admin` / `admin123`, `itstaff` / `itstaff123`, `jtech` / `jtech123`, `viewer` / `viewer123`).
 
 ## 6. Back up, or move to another PC
 
 **Settings → Backup & Restore** (Admin):
 
 1. **Create a backup.** Choose a backup password and download one `.itmsbackup` file. It contains everything: all records, users, settings, saved passwords, and uploaded photos and documents. The file is encrypted with your backup password (AES-256-GCM), so keep the password safe. It can't be recovered.
-2. **On the other PC:** install and start the system, sign in with the default `admin` account, and open **Settings → Backup & Restore**.
+2. **On the other PC:** install and start the system, complete the first-run setup, and open **Settings → Backup & Restore**.
 3. **Restore.** Choose the file, enter the backup password, click **Check backup** to see what's inside, type `RESTORE`, and confirm. Everything is replaced with the backup's data, including users; sign in again with your usual accounts.
 
 Saved passwords are re-locked with the new PC's own encryption key during restore. Before anything is replaced, a safety copy of the current data is written to `data/backups/before-restore-…/`.
@@ -110,7 +102,7 @@ The first build creates the signing key `android/release.keystore` and its passw
 
 To install, copy the `.apk` to the phone, open it, and allow "Install unknown apps" for the file manager or browser when asked.
 
-The phone app doesn't have Excel (.xlsx) files or PDF export: use CSV and **Print** (Print can also save a PDF).
+The phone app doesn't have Excel (.xlsx) files or PDF export. It shows **CSV** buttons for export and import instead, and **Print** (which can also save a PDF).
 
 ---
 

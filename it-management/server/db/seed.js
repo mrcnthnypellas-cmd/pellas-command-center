@@ -1,16 +1,43 @@
-// Sample data for local development. All credentials below are FAKE sample values.
+// seedBase(): what every new system needs (roles, permissions, asset categories, departments).
+// seed(): the full sample data set for trying the system and for tests. All credentials are FAKE.
 const db = require('./connection');
 const vault = require('../lib/vault');
 const { hashPassword } = require('../lib/passwords');
 const { PERMISSIONS, ROLE_DEFAULTS } = require('../lib/permissions');
 const ipu = require('../lib/ip');
 
+const ins = (table, data) => {
+  const keys = Object.keys(data);
+  return Number(db.run(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`, ...keys.map((k) => data[k])).lastInsertRowid);
+};
+
+const DEFAULT_SETTINGS = { tag_padding: '4', tag_separator: '-', warranty_alert_days: '60', contract_alert_days: '60', currency_symbol: '₱' };
+const DEPARTMENTS = [['IT', 'IT'], ['HR', 'HR'], ['Accounting', 'ACC'], ['Operations', 'OPS'], ['Management', 'MGT'], ['Other', 'OTH']];
+const CATEGORIES = [
+  ['Laptop', 'LAP', 'Laptop', 0], ['Desktop', 'DESK', 'Desktop', 0], ['Monitor', 'MON', 'Monitor', 0], ['Printer', 'PRN', 'Printer', 0],
+  ['Router', 'NET', 'Network Device', 1], ['Switch', 'SW', 'Network Device', 1], ['Access Point', 'AP', 'Network Device', 1],
+  ['Firewall', 'FW', 'Network Device', 1], ['Mobile Phone', 'MOB', 'Mobile', 0], ['Tablet', 'TAB', 'Mobile', 0],
+  ['Server', 'SRV', 'Server', 0], ['UPS', 'UPS', 'Other', 0], ['Keyboard', 'KEY', 'Accessories', 0], ['Headset', 'HDS', 'Accessories', 0],
+];
+
+// Roles, permissions, settings, departments and asset categories. Call inside a transaction.
+function seedBase(settings = {}) {
+  for (const [k, v] of Object.entries({ ...DEFAULT_SETTINGS, ...settings })) ins('settings', { key: k, value: v });
+  for (const [key, module, description] of PERMISSIONS) ins('permissions', { key, module, description });
+  const roles = {};
+  for (const [name, description] of [['Admin', 'Full access to everything'], ['IT Staff', 'Asset and network management'], ['Viewer', 'Read-only access, no passwords']]) {
+    roles[name] = ins('roles', { name, description });
+    for (const k of ROLE_DEFAULTS[name]) ins('role_permissions', { role_id: roles[name], permission_key: k });
+  }
+  const dept = {};
+  for (const [name, code] of DEPARTMENTS) dept[name] = ins('departments', { name, code });
+  const cat = {};
+  for (const [name, prefix, type_group, is_network] of CATEGORIES) cat[name] = ins('asset_categories', { name, prefix, type_group, is_network });
+  return { roles, dept, cat };
+}
+
 function seed() {
   db.open();
-  const ins = (table, data) => {
-    const keys = Object.keys(data);
-    return Number(db.run(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`, ...keys.map((k) => data[k])).lastInsertRowid);
-  };
   const iso = (d) => d.toISOString().slice(0, 10);
   const rel = (days) => iso(new Date(Date.now() + days * 86400e3));
   const TODAY = rel(0);
@@ -18,21 +45,11 @@ function seed() {
   const stamp = (date) => { minute = (minute + 7) % 50; return `${date} 0${1 + (minute % 8)}:${String(minute + 5).padStart(2, '0')}:00`; };
 
   db.tx(() => {
-    // ── Settings ──
-    const settings = {
+    // ── Settings, security, departments, categories ──
+    const { roles, dept, cat } = seedBase({
       company_name: 'Pellas Corporation', company_address: '2F Pellas Building, 123 Sample Avenue, Makati City, Metro Manila',
       company_phone: '+63 2 8123 4567', company_email: 'it@pellas.example', company_website: 'https://pellas.example',
-      tag_padding: '4', tag_separator: '-', warranty_alert_days: '60', contract_alert_days: '60', currency_symbol: '₱',
-    };
-    for (const [k, v] of Object.entries(settings)) ins('settings', { key: k, value: v });
-
-    // ── Security ──
-    for (const [key, module, description] of PERMISSIONS) ins('permissions', { key, module, description });
-    const roles = {};
-    for (const [name, description] of [['Admin', 'Full access to everything'], ['IT Staff', 'Asset and network management'], ['Viewer', 'Read-only access, no passwords']]) {
-      roles[name] = ins('roles', { name, description });
-      for (const k of ROLE_DEFAULTS[name]) ins('role_permissions', { role_id: roles[name], permission_key: k });
-    }
+    });
     const users = {};
     for (const [username, full_name, pw, role, email] of [
       ['admin', 'IT Admin', 'admin123', 'Admin', 'admin@pellas.example'],
@@ -53,8 +70,6 @@ function seed() {
     });
 
     // ── Organisation ──
-    const dept = {};
-    for (const [name, code] of [['IT', 'IT'], ['HR', 'HR'], ['Accounting', 'ACC'], ['Operations', 'OPS'], ['Management', 'MGT'], ['Other', 'OTH']]) dept[name] = ins('departments', { name, code });
     const loc = {};
     for (const [key, name, building, floor, room] of [
       ['GF', 'Main Office - Ground Floor', 'Main Office', 'Ground Floor', 'Reception'],
@@ -65,13 +80,6 @@ function seed() {
       ['IT', 'IT Stock Room', 'Main Office', '2nd Floor', 'Room 205'],
     ]) loc[key] = ins('locations', { name, building, floor, room });
 
-    const cat = {};
-    for (const [name, prefix, type_group, is_network] of [
-      ['Laptop', 'LAP', 'Laptop', 0], ['Desktop', 'DESK', 'Desktop', 0], ['Monitor', 'MON', 'Monitor', 0], ['Printer', 'PRN', 'Printer', 0],
-      ['Router', 'NET', 'Network Device', 1], ['Switch', 'SW', 'Network Device', 1], ['Access Point', 'AP', 'Network Device', 1],
-      ['Firewall', 'FW', 'Network Device', 1], ['Mobile Phone', 'MOB', 'Mobile', 0], ['Tablet', 'TAB', 'Mobile', 0],
-      ['Server', 'SRV', 'Server', 0], ['UPS', 'UPS', 'Other', 0], ['Keyboard', 'KEY', 'Accessories', 0], ['Headset', 'HDS', 'Accessories', 0],
-    ]) cat[name] = ins('asset_categories', { name, prefix, type_group, is_network });
 
     const emp = {};
     for (const [code, full_name, position, d, l, email, phone, status] of [
@@ -336,4 +344,4 @@ function seed() {
   });
 }
 
-module.exports = { seed };
+module.exports = { seed, seedBase };

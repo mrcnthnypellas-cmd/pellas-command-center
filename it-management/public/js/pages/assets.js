@@ -58,7 +58,7 @@ export async function list(el, _m, params) {
   el.innerHTML = `<div class="page-head"><div><h1>All Assets</h1><p>Every IT asset, who has it, where it is and what IP it uses.</p></div>
     <div class="page-actions"><a class="btn" href="#/print/labels" title="Print QR stickers for assets">${icon('qr').replace('<svg', '<svg width="15" height="15"')} Print QR labels</a>
     ${can('assets.create') || can('assets.edit') ? `<a class="btn" href="#/assets/import">${icon('upload').replace('<svg', '<svg width="15" height="15"')} Import</a>` : ''}
-    ${can('reports.export') ? `<a class="btn" data-export href="/api/assets/export">${icon('download').replace('<svg', '<svg width="15" height="15"')} Export to Excel</a>` : ''}
+    ${can('reports.export') ? `<a class="btn needs-xlsx" data-export href="/api/assets/export">${icon('download').replace('<svg', '<svg width="15" height="15"')} Export to Excel</a><a class="btn only-no-xlsx" data-export-csv href="/api/assets/export?format=csv">${icon('download').replace('<svg', '<svg width="15" height="15"')} Export CSV</a>` : ''}
     ${can('assets.create') ? '<a class="btn primary" href="#/assets/new">+ Add Asset</a>' : ''}</div></div>
     <section class="card">${filterBar([
     { type: 'search', name: 'q', placeholder: 'Search tag, name, serial, brand, employee, IP…' },
@@ -95,6 +95,7 @@ export async function list(el, _m, params) {
     const f = readFilters(el);
     history.replaceState(null, '', `#/assets${qs(f)}`);
     el.querySelector('[data-export]')?.setAttribute('href', `/api/assets/export${qs(f)}`); // export what is filtered
+    el.querySelector('[data-export-csv]')?.setAttribute('href', `/api/assets/export${qs({ ...f, format: 'csv' })}`);
     rows = await api.get(`/assets${qs(f)}`);
     table.update(rows);
     // Total value of what is shown (retired/disposed items count only if you filter for them).
@@ -266,7 +267,7 @@ export async function profile(el, [idOrTag], params) {
       ]) : `<div class="empty-state">Not assigned. ${can('assets.assign') && a.status === 'Available' ? '<button class="btn primary sm" data-do="assign">Deploy now</button>' : ''}</div>`)}
       <section class="card"><div class="card-head"><h3>Assignment history</h3><span class="muted">previous assignments are never deleted</span></div><div class="card-body flush" data-assign></div></section></div>`;
     },
-    history: () => card('Asset timeline', timeline(a.history), can('reports.export') ? `<a class="btn sm" href="/api/reports/history?asset_id=${a.id}&format=pdf">PDF</a>` : ''),
+    history: () => card('Asset timeline', timeline(a.history), can('reports.export') ? `<a class="btn sm needs-pdf" href="/api/reports/history?asset_id=${a.id}&format=pdf">PDF</a><a class="btn sm only-no-pdf" href="/api/reports/history?asset_id=${a.id}&format=csv">CSV</a>` : ''),
     maintenance: () => `<section class="card"><div class="card-head"><h3>Maintenance & repairs</h3>${can('maintenance.manage') && !['Retired', 'Disposed'].includes(a.status) ? '<button class="btn sm primary" data-do="maint">+ Log maintenance</button>' : ''}</div><div class="card-body flush" data-maint></div></section>`,
     network: () => `<div class="grid g2"><div class="stack">${card('Network details', kv([
       ['IP address', primaryIp ? `<span class="mono"><b>${esc(primaryIp.address)}</b></span> ${badge(primaryIp.ip_type)} ${badge(primaryIp.status)}` : ''],

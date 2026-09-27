@@ -461,3 +461,13 @@ a.stat:hover { border-color: var(--primary); text-decoration: none; }
 .card.danger-zone { border-color: var(--red); }
 .card.danger-zone .card-head h3 { color: var(--red); }
 .erase-options { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+/* Builds without an Excel or PDF engine (phone app): hide those buttons, show the CSV alternatives. */
+.only-no-xlsx, .only-no-pdf { display: none !important; }
+html.no-xlsx .needs-xlsx, html.no-pdf .needs-pdf { display: none !important; }
+html.no-xlsx .only-no-xlsx, html.no-pdf .only-no-pdf { display: revert !important; }
+html.no-xlsx a.btn.only-no-xlsx, html.no-pdf a.btn.only-no-pdf { display: inline-flex !important; }
+.login-card.setup-card { max-width: 460px; }
+.setup-card .field small { display: block; margin-top: 4px; font-size: 12px; }
+.setup-section { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3, var(--muted)); }
+.setup-sample { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2, var(--bg)); font-size: 13px; line-height: 1.4; }
+.setup-sample input { margin-top: 3px; }

@@ -17,10 +17,13 @@ PELLAS IT COMMAND - PAANO I-INSTALL (Windows)
      at i-Refresh.
    - Huwag isara ang itim na window; iyon ang server.
 
-4. Mag-login
-   - admin / admin123  (PALITAN agad sa Settings -> Users)
-   - Sample data muna ang laman. Para simulan nang malinis, i-edit/burahin
-     ang sample records, o i-restore ang backup mo (Settings -> Backup & Restore).
+4. I-set up (unang bukas lang)
+   - Lalabas ang "Let's set up your application": ilagay ang company name,
+     pangalan mo, username at password. Iyan na ang login mo.
+   - Kung gusto mong subukan muna, i-check ang "Add sample data".
+     Mabubura ito sa Settings -> Backup & Restore -> Start fresh.
+   - May backup ka galing sa ibang PC o phone? Tapusin muna ang setup,
+     tapos i-restore sa Settings -> Backup & Restore.
 
 5. Buksan sa ibang PC o phone sa office
    - http://<IPv4 ng server PC>:4000   (makikita sa itim na window)

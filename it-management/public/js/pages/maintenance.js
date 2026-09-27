@@ -44,7 +44,7 @@ export async function warranty(el, _m, params) {
   const filter = params.filter || 'all';
   const days = params.days || '30';
   el.innerHTML = `<div class="page-head"><div><h1>Warranty</h1><p>Active, expiring and expired warranty coverage.</p></div>
-    <div class="page-actions">${can('maintenance.manage') ? '<button class="btn primary" data-new>+ Add warranty</button>' : ''}${can('reports.export') ? '<a class="btn" href="/api/reports/warranty?format=pdf">PDF</a>' : ''}</div></div>
+    <div class="page-actions">${can('maintenance.manage') ? '<button class="btn primary" data-new>+ Add warranty</button>' : ''}${can('reports.export') ? '<a class="btn needs-pdf" href="/api/reports/warranty?format=pdf">PDF</a><a class="btn only-no-pdf" href="/api/reports/warranty?format=csv">CSV</a>' : ''}</div></div>
     <div class="stats" data-stats style="margin-bottom:16px"></div>
     <section class="card"><div class="filters" style="align-items:center">
       <div class="pill-tabs" data-f>${[['all', 'All'], ['active', 'Active'], ['expiring', 'Expiring soon'], ['expired', 'Expired'], ['none', 'No warranty']].map(([k, l]) => `<button data-v="${k}" class="${k === filter ? 'active' : ''}">${l}</button>`).join('')}</div>

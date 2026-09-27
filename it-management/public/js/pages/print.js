@@ -43,7 +43,7 @@ export async function labels(el, _m, params) {
 
   el.innerHTML = `<div class="page-head no-print"><div><div class="crumbs"><a href="#/assets">Assets</a> / QR labels</div><h1>Asset QR Labels</h1>
       <p>Print stickers with a QR code and the asset number, then stick them on each item. Scanning the QR opens the asset's profile.</p></div>
-    <div class="page-actions"><button class="btn" type="button" data-print>Print labels</button><a class="btn primary" data-pdf href="#">Download PDF (exact size)</a></div></div>
+    <div class="page-actions"><button class="btn" type="button" data-print>Print labels</button><a class="btn primary needs-pdf" data-pdf href="#">Download PDF (exact size)</a></div></div>
   <div class="grid label-layout">
     <div class="stack no-print">
       <section class="card"><div class="card-head"><h3>Label paper</h3></div><div class="card-body">

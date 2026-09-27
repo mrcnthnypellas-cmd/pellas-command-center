@@ -522,7 +522,6 @@ test('backup on one PC, restore on another', async () => {
   try {
     await new Promise((resolve, reject) => { pc2.stdout.on('data', (d) => { if (String(d).includes('running at')) resolve(); }); pc2.on('exit', reject); setTimeout(() => reject(new Error('PC2 did not start')), 20000); });
     const b2 = `http://127.0.0.1:${port2}`;
-    assert.notEqual(fs.readFileSync(path.join(dir2, 'vault.key'), 'utf8'), fs.readFileSync(path.join(tmp, 'vault.key'), 'utf8'), 'different key');
     const login2 = async (u, p) => {
       const res = await fetch(`${b2}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
       return res.status === 200 ? res.headers.get('set-cookie').split(';')[0] : null;
@@ -534,6 +533,9 @@ test('backup on one PC, restore on another', async () => {
       const res = await fetch(`${b2}/api/backup/${pathname}`, { method: 'POST', headers: { Cookie: cookie, 'X-Requested-With': 'itms' }, body: f });
       return { status: res.status, data: await res.json() };
     };
+    // A new install starts at the first-run setup.
+    const setup2 = await fetch(`${b2}/api/public/setup`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'itms' }, body: JSON.stringify({ company_name: 'PC Two', full_name: 'PC Two Admin', username: 'admin', password: 'admin123' }) });
+    assert.equal(setup2.status, 200);
     const c2 = await login2('admin', 'admin123');
     assert.equal((await send(c2, 'check', { password: 'wrong-password-1' })).status, 400);
     const tampered = Buffer.from(file); tampered[tampered.length - 5] ^= 0xff;
@@ -556,6 +558,7 @@ test('backup on one PC, restore on another', async () => {
     assert.equal(photo.status, 200, 'uploaded photo moved too');
     const secret = await (await fetch(`${b2}/api/vault/credentials/${cred.id}/secret`, { method: 'POST', headers: { Cookie: c2b, 'X-Requested-With': 'itms', 'Content-Type': 'application/json' }, body: '{"purpose":"reveal"}' })).json();
     assert.equal(secret.password, 'Moved#Across-PCs1', 'saved passwords re-locked with PC2 key');
+    assert.notEqual(fs.readFileSync(path.join(dir2, 'vault.key'), 'utf8'), fs.readFileSync(path.join(tmp, 'vault.key'), 'utf8'), 'PC2 has its own key');
     const log = await get2('/activity?q=restored');
     assert.ok(log.some((l) => l.action === 'System restored from backup'));
   } finally {
@@ -676,6 +679,69 @@ test('migration adds new permissions to an existing database', () => {
   assert.ok(got.some((g) => g.name === 'Viewer' && g.key === 'directory.view'));
   assert.ok(!got.some((g) => g.name === 'Viewer' && g.key === 'directory.manage'));
   assert.ok(got.some((g) => g.name === 'IT Staff' && g.key === 'directory.manage'));
+});
+
+// A fresh install (empty data folder) as a separate server process.
+async function freshServer() {
+  const { spawn } = require('child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'itms-new-'));
+  const port = 40000 + Math.floor(Math.random() * 20000);
+  const proc = spawn(process.execPath, [path.join(__dirname, '../server/index.js')], { env: { ...process.env, PORT: String(port), ITMS_DATA_DIR: dir, ITMS_DB_FILE: path.join(dir, 'itms.db') }, stdio: 'pipe' });
+  let out = '';
+  await new Promise((resolve, reject) => { proc.stdout.on('data', (d) => { out += d; if (out.includes('running at')) setTimeout(resolve, 200); }); proc.on('exit', reject); setTimeout(() => reject(new Error('server did not start')), 20000); });
+  const url = `http://127.0.0.1:${port}`;
+  const post = (u, body, cookie) => fetch(`${url}/api${u}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'itms', ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body) });
+  const get = async (u, cookie) => (await fetch(`${url}/api${u}`, { headers: cookie ? { Cookie: cookie } : {} })).json();
+  return { url, out, post, get, stop: () => { proc.kill(); fs.rmSync(dir, { recursive: true, force: true }); } };
+}
+
+test('first-run setup: company and own admin account, no default passwords', async () => {
+  const s = await freshServer();
+  try {
+    assert.match(s.out, /set up the system/);
+    assert.doesNotMatch(s.out, /admin123/);
+    assert.deepEqual(await s.get('/public/setup'), { needed: true });
+    assert.equal((await fetch(`${s.url}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'admin123' }) })).status, 401, 'no default account');
+    const good = { company_name: 'Acme Trading', full_name: 'Mark Reyes', username: 'Mark', password: 'my-secret-99', confirm: 'my-secret-99' };
+    for (const [field, value] of [['company_name', ''], ['full_name', ' '], ['username', 'a b'], ['password', 'short'], ['confirm', 'different-1']]) {
+      const r = await s.post('/public/setup', { ...good, [field]: value });
+      assert.equal(r.status, 400, field);
+    }
+    const r = await s.post('/public/setup', good);
+    assert.equal(r.status, 200);
+    const cookie = r.headers.get('set-cookie').split(';')[0];
+    const me = await s.get('/auth/me', cookie);
+    assert.equal(me.username, 'mark');
+    assert.equal(me.role, 'Admin');
+    assert.equal(me.company.name, 'Acme Trading');
+    assert.deepEqual(me.features, { xlsx: true, pdf: true });
+    const L = await s.get('/settings/lookups', cookie);
+    assert.ok(L.categories.some((c) => c.prefix === 'LAP'), 'asset categories ready');
+    assert.ok(L.departments.length > 0);
+    assert.equal(L.locations.length, 0);
+    assert.equal((await s.get('/dashboard', cookie)).assets.total, 0, 'starts empty');
+    assert.deepEqual(await s.get('/public/setup'), { needed: false });
+    assert.equal((await s.post('/public/setup', { ...good, username: 'intruder' })).status, 409, 'cannot run twice');
+    const again = await fetch(`${s.url}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'mark', password: 'my-secret-99' }) });
+    assert.equal(again.status, 200);
+    const log = await s.get('/activity', cookie);
+    assert.ok(log.some((l) => l.action === 'System set up'));
+  } finally { s.stop(); }
+
+  // With sample data: the examples load, but the sample accounts with known passwords are locked.
+  const t = await freshServer();
+  try {
+    const r = await t.post('/public/setup', { company_name: 'Try Co', full_name: 'Tester', username: 'tester', password: 'tester-pass-1', sample_data: true });
+    assert.equal(r.status, 200);
+    const cookie = r.headers.get('set-cookie').split(';')[0];
+    const dash = await t.get('/dashboard', cookie);
+    assert.ok(dash.assets.total > 0, 'sample assets loaded');
+    assert.equal((await t.get('/auth/me', cookie)).company.name, 'Try Co');
+    for (const [u, p] of [['admin', 'admin123'], ['itstaff', 'itstaff123'], ['viewer', 'viewer123']]) {
+      const l = await fetch(`${t.url}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+      assert.equal(l.status, 401, `${u} locked`);
+    }
+  } finally { t.stop(); }
 });
 
 // Keep this last: it erases the shared test database.

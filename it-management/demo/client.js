@@ -146,12 +146,12 @@ if (!__APP__) {
 // Banner explaining what this build is.
 const bar = document.createElement('div');
 bar.id = 'demo-bar';
-bar.innerHTML = `<span><b>Browser preview.</b> Runs entirely in this page with sample data. Your changes are saved only in this browser.</span>
-  <span class="demo-actions"><button type="button" class="btn xs" data-demo-reset>Reset sample data</button></span>`;
+bar.innerHTML = `<span><b>Browser preview.</b> Runs entirely in this page. Your changes are saved only in this browser.</span>
+  <span class="demo-actions"><button type="button" class="btn xs" data-demo-reset>Start over</button></span>`;
 document.body.prepend(bar);
 bar.querySelector('[data-demo-reset]').addEventListener('click', () => {
-  const box = showDialog('Reset sample data?', `<p>This discards every change made in this browser and reloads the original sample data. You'll be signed in as <b>admin</b>.</p>
-    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" type="button" data-no>Cancel</button><button class="btn danger" type="button" data-yes>Reset</button></div>`);
+  const box = showDialog('Start over?', `<p>This erases everything in this preview, including your account, and opens the first-time setup again.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" type="button" data-no>Cancel</button><button class="btn danger" type="button" data-yes>Start over</button></div>`);
   box.querySelector('[data-no]').addEventListener('click', () => box.remove());
   box.querySelector('[data-yes]').addEventListener('click', async () => {
     await server.resetData();

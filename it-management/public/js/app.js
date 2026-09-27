@@ -130,6 +130,58 @@ async function renderLogin() {
   });
 }
 
+// ───────── First-run setup ─────────
+// A new installation has no accounts: the person installing it names the company and creates their admin login.
+function renderSetup() {
+  document.title = "Let's set up your application";
+  window.scrollTo(0, 0);
+  app.innerHTML = `<div class="login-wrap bg-default">
+    <form class="login-card setup-card" novalidate>
+      <div class="brand-logo" style="width:44px;height:44px;color:#fff">IT</div>
+      <h1>Let's set up your application</h1>
+      <p class="muted" style="margin:0">Welcome! This takes a minute. You'll use this account to sign in and manage everything.</p>
+      <div class="alert err hidden" data-err style="margin-top:14px"></div>
+      <div class="setup-section">Company</div>
+      <div class="field"><label for="s-company">Company name</label><input id="s-company" name="company_name" maxlength="80" required autofocus placeholder="e.g. Pellas Corporation"></div>
+      <div class="setup-section">Your admin account</div>
+      <div class="field"><label for="s-name">Your full name</label><input id="s-name" name="full_name" maxlength="80" autocomplete="name" required></div>
+      <div class="field"><label for="s-user">Username</label><input id="s-user" name="username" maxlength="32" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required placeholder="e.g. mark">
+        <small class="muted">3–32 letters or numbers, no spaces. You'll type this to sign in.</small></div>
+      <div class="field"><label for="s-pw">Password</label><input id="s-pw" name="password" type="password" autocomplete="new-password" required>
+        <small class="muted">At least 8 characters. There's no "forgot password" e-mail, so keep it somewhere safe.</small></div>
+      <div class="field"><label for="s-pw2">Confirm password</label><input id="s-pw2" name="confirm" type="password" autocomplete="new-password" required></div>
+      <label class="check" style="margin-top:10px;font-size:13px"><input type="checkbox" data-show> Show passwords</label>
+      <label class="check setup-sample"><input type="checkbox" name="sample_data"> <span><b>Add sample data so I can try the system first</b><br>
+        <span class="muted">Example assets, employees and network. Erase it anytime in Settings → Backup &amp; Restore → Start fresh.</span></span></label>
+      <button class="btn primary" type="submit">Finish setup and sign in</button>
+      <p class="muted" style="font-size:12.5px;margin:14px 0 0">Moving from another PC or phone? Finish this setup first, then restore your backup in <b>Settings → Backup &amp; Restore</b>.</p>
+    </form></div>`;
+  const form = app.querySelector('form');
+  form.querySelector('[data-show]').addEventListener('change', (e) => {
+    form.querySelectorAll('#s-pw, #s-pw2').forEach((i) => { i.type = e.target.checked ? 'text' : 'password'; });
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = form.querySelector('[data-err]');
+    const b = readForm(form);
+    const show = (m) => { err.textContent = m; err.classList.remove('hidden'); err.scrollIntoView({ block: 'nearest' }); };
+    err.classList.add('hidden');
+    if (!b.company_name?.trim()) return show('Enter the company name');
+    if (!b.full_name?.trim()) return show('Enter your name');
+    if (!/^[a-z0-9._-]{3,32}$/i.test((b.username || '').trim())) return show('Username must be 3–32 letters, numbers, dots, dashes or underscores (no spaces)');
+    if ((b.password || '').length < 8) return show('Password must be at least 8 characters');
+    if (b.password !== b.confirm) return show('The two passwords do not match');
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = b.sample_data ? 'Setting up with sample data…' : 'Setting up…';
+    try {
+      await api.post('/public/setup', { ...b, sample_data: !!b.sample_data });
+      location.hash = '#/dashboard';
+      await boot();
+      toast(`Welcome, ${b.full_name.trim().split(/\s+/)[0]}! Your system is ready.`);
+    } catch (ex) { show(ex.message); btn.disabled = false; btn.textContent = 'Finish setup and sign in'; }
+  });
+}
+
 // ───────── Shell ─────────
 function initials(name) { return name.split(/\s+/).map((s) => s[0]).slice(0, 2).join('').toUpperCase(); }
 
@@ -242,10 +294,16 @@ async function boot() {
     const me = await api.get('/auth/me');
     state.user = me;
     state.company = me.company;
+    // Builds without Excel/PDF (phone app) hide those buttons and show CSV instead (see .needs-xlsx / .needs-pdf).
+    const features = me.features || { xlsx: true, pdf: true };
+    document.documentElement.classList.toggle('no-xlsx', !features.xlsx);
+    document.documentElement.classList.toggle('no-pdf', !features.pdf);
     state.company.logo = await resolveImage(me.company.logo);
   } catch {
     state.user = null;
-    return renderLogin();
+    let setup = { needed: false };
+    try { setup = await api.get('/public/setup'); } catch { /* older server: just sign in */ }
+    return setup.needed ? renderSetup() : renderLogin();
   }
   await loadLookups(true);
   renderShell();

@@ -16,7 +16,7 @@ export async function page(el, _m, params) {
   const categories = first.categories;
   el.innerHTML = `<div class="page-head"><div><h1>Phone Directory</h1><p>Company contacts, suppliers, ISPs and emergency numbers in one place. Click a number to call it or ⧉ to copy it.</p></div>
     <div class="page-actions">
-      <a class="btn" data-exp="xlsx" href="/api/directory/export">${icon('download').replace('<svg', '<svg width="15" height="15"')} Export Excel</a>
+      <a class="btn needs-xlsx" data-exp="xlsx" href="/api/directory/export">${icon('download').replace('<svg', '<svg width="15" height="15"')} Export Excel</a>
       <a class="btn" data-exp="csv" href="/api/directory/export?format=csv">Export CSV</a>
       ${manage ? '<button class="btn primary" type="button" data-add>+ Add contact</button>' : ''}</div></div>
     <section class="card">

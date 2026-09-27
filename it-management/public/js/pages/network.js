@@ -311,7 +311,7 @@ export async function isps(el) {
   const list = await api.get('/network/isps');
   const meta = await api.get('/network/meta');
   el.innerHTML = `<div class="page-head"><div><h1>ISP Management</h1><p>Internet connections, contracts and support contacts. Status is updated manually (live monitoring can be added later).</p></div>
-    <div class="page-actions">${can('reports.export') ? '<a class="btn" href="/api/reports/isps?format=pdf">PDF</a>' : ''}${can('network.manage') ? '<button class="btn primary" data-new>+ Add ISP</button>' : ''}</div></div>
+    <div class="page-actions">${can('reports.export') ? '<a class="btn needs-pdf" href="/api/reports/isps?format=pdf">PDF</a><a class="btn only-no-pdf" href="/api/reports/isps?format=csv">CSV</a>' : ''}${can('network.manage') ? '<button class="btn primary" data-new>+ Add ISP</button>' : ''}</div></div>
     <div class="grid g3">${list.map((i) => {
     const soon = i.contract_days_left !== null && i.contract_days_left <= meta.contract_alert_days;
     return `<section class="card"><div class="card-head"><div><h3>${esc(i.provider_name.toUpperCase())}</h3><div class="cell-sub">${esc(i.connection_name)}</div></div><div>${badge(i.role)} ${badge(i.status)}</div></div>

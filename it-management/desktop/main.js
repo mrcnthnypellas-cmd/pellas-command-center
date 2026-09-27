@@ -35,7 +35,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
     const db = require('../server/db/connection');
     const { createApp } = require('../server/app');
     db.open();
-    if (!db.get('SELECT 1 FROM users LIMIT 1')) require('../server/db/seed').seed();
+    // A new install has no users: the window opens on "Let's set up your application".
     await new Promise((resolve, reject) => {
       const srv = createApp().listen(port, '127.0.0.1', resolve);
       srv.once('error', reject);

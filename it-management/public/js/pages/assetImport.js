@@ -17,11 +17,12 @@ export async function page(el) {
   <div class="grid split-2-1">
     <div class="stack">
       ${canImport ? `<section class="card"><div class="card-head"><h3>1 · Get the template</h3><span class="muted">optional if you already have a list</span></div><div class="card-body">
-        <p style="margin-top:0">The Excel template has drop-down lists for Category, Status, Department, Location and employees, plus an instructions sheet. Your own spreadsheet works too if its column names are similar (“Serial No.”, “Item Name”, “Dept”, …).</p>
-        <div class="btn-group"><a class="btn" href="/api/assets/import/template">${ico('download')} Excel template (.xlsx)</a><a class="btn" href="/api/assets/import/template?format=csv">CSV template</a></div>
+        <p class="only-no-xlsx" style="margin-top:0">Download the CSV template and fill it in (Excel or Google Sheets can open it), then save it as CSV and upload it below. Your own list works too if its column names are similar (“Serial No.”, “Item Name”, “Dept”, …).</p>
+        <p class="needs-xlsx" style="margin-top:0">The Excel template has drop-down lists for Category, Status, Department, Location and employees, plus an instructions sheet. Your own spreadsheet works too if its column names are similar (“Serial No.”, “Item Name”, “Dept”, …).</p>
+        <div class="btn-group"><a class="btn needs-xlsx" href="/api/assets/import/template">${ico('download')} Excel template (.xlsx)</a><a class="btn" href="/api/assets/import/template?format=csv">CSV template</a></div>
       </div></section>
       <form class="card" data-upload novalidate><div class="card-head"><h3>2 · Upload and check</h3></div><div class="card-body">
-        <div class="field"><label for="imp-file">Excel (.xlsx) or CSV file · up to 2,000 rows</label><input id="imp-file" type="file" name="file" accept=".xlsx,.csv,text/csv"></div>
+        <div class="field"><label for="imp-file"><span class="needs-xlsx">Excel (.xlsx) or </span>CSV file · up to 2,000 rows</label><input id="imp-file" type="file" name="file" accept=".xlsx,.csv,text/csv"></div>
         <div style="margin-top:14px"><label class="radio-row"><input type="radio" name="mode" value="upsert" checked><span><b>Add new assets and update existing ones</b><br><span class="cell-sub">Rows whose Asset Tag already exists update that asset. Empty cells keep the current value.</span></span></label>
           <label class="radio-row"><input type="radio" name="mode" value="create_only"><span><b>Add new assets only</b><br><span class="cell-sub">Rows with an existing Asset Tag are skipped.</span></span></label></div>
         <label class="check" style="margin-top:6px"><input type="checkbox" name="create_lookups" checked> Create departments and locations that don't exist yet</label>
@@ -36,7 +37,7 @@ export async function page(el) {
           <div class="field"><label for="exp-cat">Category</label><select id="exp-cat"><option value="">All categories</option>${opt(L.categories).map((o) => `<option value="${o.value}">${esc(o.label)}</option>`).join('')}</select></div>
           <div class="field"><label for="exp-loc">Location</label><select id="exp-loc"><option value="">All locations</option>${opt(L.locations).map((o) => `<option value="${o.value}">${esc(o.label)}</option>`).join('')}</select></div>
         </div>
-        <div class="btn-group" style="margin-top:14px"><a class="btn primary" data-exp="xlsx" href="/api/assets/export">${ico('download')} Excel (.xlsx)</a><a class="btn" data-exp="csv" href="/api/assets/export?format=csv">CSV</a></div>
+        <div class="btn-group" style="margin-top:14px"><a class="btn primary needs-xlsx" data-exp="xlsx" href="/api/assets/export">${ico('download')} Excel (.xlsx)</a><a class="btn" data-exp="csv" href="/api/assets/export?format=csv">CSV</a></div>
         <p class="cell-sub" style="margin:10px 0 0">Includes assigned employee and IP for reference. Never includes passwords or credentials.</p>
       </div></section>` : ''}
       <section class="card"><div class="card-head"><h3>Columns</h3></div><div class="card-body" style="font-size:13px">

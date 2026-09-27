@@ -4,16 +4,13 @@ const db = require('./db/connection');
 const { createApp } = require('./app');
 
 db.open();
-if (!db.get('SELECT 1 FROM users LIMIT 1')) {
-  console.log('Empty database detected — loading sample data...');
-  require('./db/seed').seed();
-}
+const firstRun = require('./lib/setup').needsSetup();
 
 createApp().listen(config.PORT, config.HOST, () => {
   const url = `http://${config.HOST === '0.0.0.0' ? 'localhost' : config.HOST}:${config.PORT}`;
   console.log(`\n  IT Management System running at ${url}`);
-  console.log('  Default logins: admin / admin123 · itstaff / itstaff123 · jtech / jtech123 · viewer / viewer123');
-  console.log('  Reset sample data: npm run db:reset\n');
+  if (firstRun) console.log('  First start: open the address above on this PC to set up the system (company name and your admin account).');
+  console.log('');
   // START-SERVER.bat sets this so the browser opens only once the server is ready.
   if (process.env.ITMS_OPEN_BROWSER === '1') {
     const open = `http://127.0.0.1:${config.PORT}`;

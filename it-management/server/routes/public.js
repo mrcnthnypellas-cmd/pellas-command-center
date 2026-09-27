@@ -6,8 +6,23 @@ const fs = require('fs');
 const config = require('../config');
 const { setting } = require('../lib/util');
 const { branding } = require('../lib/branding');
+const { needsSetup, runSetup } = require('../lib/setup');
+const { createSession } = require('../lib/auth');
 
 const r = express.Router();
+
+// First run: no users yet → the app shows "Let's set up your application".
+r.get('/setup', (_req, res) => res.json({ needed: needsSetup() }));
+
+// Only from the computer the system runs on (a shared office server can't be claimed from another PC).
+const LOCAL = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'browser']);
+r.post('/setup', (req, res) => {
+  if (!needsSetup()) return res.status(409).json({ error: 'This system is already set up. Sign in instead.' });
+  if (!LOCAL.has(req.ip)) return res.status(403).json({ error: 'Finish the setup on the computer where the system is installed (open http://localhost:4000 there).' });
+  const id = runSetup(req.body || {});
+  createSession(res, id);
+  res.json({ ok: true });
+});
 
 r.get('/company', (_req, res) => res.json({ name: setting('company_name', 'My Company') }));
 

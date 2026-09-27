@@ -11,7 +11,7 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "db:reset": "node server/db/reset.js",
-    "db:seed": "node server/db/reset.js",
+    "db:seed": "node server/db/reset.js --sample",
     "test": "node --test tests/system.test.js",
     "build:demo": "node demo/build.js"
   },
