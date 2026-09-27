@@ -95,6 +95,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(false);
   const [exportingDetail, setExportingDetail] = useState(false);
   const [exportScope, setExportScope] = useState<"filtered" | "overall">("filtered");
+  const [exportingOverall, setExportingOverall] = useState(false);
 
   useEffect(() => {
     supabase.from("departments").select("*").order("name").then(({ data }) => setDepartments((data as Department[]) ?? []));
@@ -401,6 +402,280 @@ export default function Reports() {
     XLSX.writeFile(workbook, `attendance_detailed_${suffix}.xlsx`);
   }
 
+  // "Export Overall": a single workbook that combines what the Attendance
+  // page's exports and this Reports page's exports each cover separately,
+  // so there's one file with everything instead of juggling several. Does
+  // not touch or replace any of the existing export buttons.
+  //   1. Attendance Records   - every clock-in/out row in range (like
+  //      Attendance's Export CSV, minus its per-employee block below).
+  //   2. Late & Absent by Employee - per-employee Late/Absent count + hours
+  //      (like Attendance's per-employee CSV block), rule-based.
+  //   3. Report Summary       - Present/Late/Absent/Overtime/Undertime/
+  //      Total Hours per employee (like this page's Export CSV).
+  //   4. Daily Detail         - one row per employee per scheduled workday.
+  //   5. Late/Undertime/Overtime/Absent Summary - per-employee totals as
+  //      live =SUM(...) formulas over sheet 4's rows.
+  //   6. Formula Notes        - how each figure is computed, in words.
+  async function exportOverallExcel() {
+    setExportingOverall(true);
+    let profileQuery = supabase
+      .from("profiles")
+      .select("id, first_name, last_name, employee_code, department_id, date_hired, schedule_id, departments(name)")
+      .in("employment_status", ["active", "on_leave"]);
+    if (exportScope === "filtered") {
+      if (deptFilter !== "all") profileQuery = profileQuery.eq("department_id", deptFilter);
+      if (employeeFilter.length > 0) profileQuery = profileQuery.in("id", employeeFilter);
+    }
+
+    const [
+      { data: profilesData, error: profilesError },
+      { data: schedulesData },
+      { data: attendanceData, error: attendanceError },
+      { data: otData },
+    ] = await Promise.all([
+      profileQuery,
+      supabase.from("work_schedules").select("*"),
+      supabase.from("attendance").select("employee_id, work_date, time_in, time_out, status, hours_worked").gte("work_date", dateFrom).lte("work_date", dateTo),
+      supabase.from("overtime_requests").select("employee_id, work_date, approved_hours").eq("status", "approved").gte("work_date", dateFrom).lte("work_date", dateTo),
+    ]);
+    setExportingOverall(false);
+    if (profilesError || attendanceError || !profilesData) {
+      push("error", profilesError?.message ?? attendanceError?.message ?? "Failed to load report data.");
+      return;
+    }
+
+    type ProfileRow = { id: string; first_name: string; last_name: string; employee_code: string | null; date_hired: string | null; schedule_id: string | null; departments?: { name: string } | null };
+    type AttRow = { employee_id: string; work_date: string; time_in: string | null; time_out: string | null; status: string; hours_worked: number | null };
+
+    const profileById = new Map<string, ProfileRow>(((profilesData as unknown as ProfileRow[]) ?? []).map((p) => [p.id, p]));
+    const scheduleMap = new Map<string, WorkSchedule>(((schedulesData as WorkSchedule[]) ?? []).map((s) => [s.id, s]));
+    const attByKey = new Map<string, { time_in: string | null; time_out: string | null }>();
+    const attByEmployee = new Map<string, AttRow[]>();
+    for (const a of (attendanceData as AttRow[]) ?? []) {
+      attByKey.set(`${a.employee_id}|${a.work_date}`, { time_in: a.time_in, time_out: a.time_out });
+      if (!attByEmployee.has(a.employee_id)) attByEmployee.set(a.employee_id, []);
+      attByEmployee.get(a.employee_id)!.push(a);
+    }
+    const approvedOtByKey = new Map<string, number>();
+    for (const o of (otData as { employee_id: string; work_date: string; approved_hours: number | null }[]) ?? []) {
+      const key = `${o.employee_id}|${o.work_date}`;
+      approvedOtByKey.set(key, (approvedOtByKey.get(key) ?? 0) + Number(o.approved_hours ?? 0));
+    }
+
+    // --- Sheet 1: Attendance Records (every raw clock-in/out row) ---
+    const attendanceHeader = ["Employee", "ID", "Date", "Time In", "Time Out", "Hours", "Status"];
+    const attendanceRows = ((attendanceData as AttRow[]) ?? [])
+      .slice()
+      .sort((a, b) => a.work_date.localeCompare(b.work_date))
+      .map((a) => {
+        const p = profileById.get(a.employee_id);
+        return [
+          p ? `${p.first_name} ${p.last_name}` : "—",
+          p?.employee_code ?? "",
+          a.work_date,
+          a.time_in ? formatTime(a.time_in) : "—",
+          a.time_out ? formatTime(a.time_out) : "—",
+          a.hours_worked ?? "",
+          a.status,
+        ];
+      });
+    const attendanceSheet = XLSX.utils.aoa_to_sheet([attendanceHeader, ...attendanceRows]);
+    attendanceSheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 12 }];
+
+    // --- Per-employee accumulators shared by sheets 2, 3, 4 & 5 ---
+    const today = todayInTZ();
+    const detailRows: (string | number)[][] = [];
+    const perEmployee = new Map<
+      string,
+      {
+        name: string; code: string | null; department: string;
+        firstDetailRow: number | null; lastDetailRow: number | null;
+        lateDayCount: number; lateMin: number; absentDayCount: number; absentMin: number;
+      }
+    >();
+
+    for (const p of (profilesData as unknown as ProfileRow[]) ?? []) {
+      const schedule = p.schedule_id ? scheduleMap.get(p.schedule_id) : undefined;
+      const workDays = schedule?.work_days ?? DEFAULT_WORK_DAYS;
+      const shiftStartMin = toMinutes(schedule?.start_time ?? DEFAULT_START_TIME);
+      const shiftEndMin = toMinutes(schedule?.end_time ?? DEFAULT_END_TIME);
+      const breakMinutes = schedule?.break_minutes ?? DEFAULT_BREAK_MINUTES;
+      const shiftMinutes = Math.max(0, shiftEndMin - shiftStartMin - breakMinutes);
+      const name = `${p.first_name} ${p.last_name}`;
+
+      perEmployee.set(p.id, {
+        name, code: p.employee_code, department: p.departments?.name ?? "—",
+        firstDetailRow: null, lastDetailRow: null,
+        lateDayCount: 0, lateMin: 0, absentDayCount: 0, absentMin: 0,
+      });
+      const acc = perEmployee.get(p.id)!;
+
+      const start = p.date_hired && p.date_hired > dateFrom ? p.date_hired : dateFrom;
+      const end = dateTo < today ? dateTo : today;
+      if (start > end) continue;
+
+      const cursor = new Date(`${start}T00:00:00`);
+      const endDate = new Date(`${end}T00:00:00`);
+      while (cursor <= endDate) {
+        const dow = cursor.getDay();
+        if (!workDays.includes(dow)) {
+          cursor.setDate(cursor.getDate() + 1);
+          continue;
+        }
+        const dateKey = localDateKey(cursor);
+        const rec = attByKey.get(`${p.id}|${dateKey}`);
+
+        let lateMin = 0, undertimeMin = 0, overtimeMin = 0, absentMin = 0;
+        let timeInLabel = "—", timeOutLabel = "—", statusLabel: string;
+
+        if (!rec || !rec.time_in) {
+          absentMin = shiftMinutes;
+          statusLabel = "Absent";
+        } else {
+          timeInLabel = formatTime(rec.time_in);
+          const inParts = getLogDateTimeParts(rec.time_in);
+          lateMin = Math.max(0, inParts.hour * 60 + inParts.minute - shiftStartMin);
+
+          if (rec.time_out) {
+            timeOutLabel = formatTime(rec.time_out);
+            const outParts = getLogDateTimeParts(rec.time_out);
+            const outMin = outParts.hour * 60 + outParts.minute;
+            undertimeMin = Math.max(0, shiftEndMin - outMin);
+            const rawOvertimeMin = Math.max(0, outMin - shiftEndMin);
+            const approvedMin = (approvedOtByKey.get(`${p.id}|${dateKey}`) ?? 0) * 60;
+            overtimeMin = Math.min(rawOvertimeMin, approvedMin);
+            statusLabel = lateMin > 0 && undertimeMin > 0 ? "Late & Undertime" : lateMin > 0 ? "Late" : undertimeMin > 0 ? "Undertime" : overtimeMin > 0 ? "Overtime" : "Present";
+          } else {
+            statusLabel = "Incomplete";
+          }
+        }
+
+        detailRows.push([
+          name, p.employee_code ?? "", dateKey, DAY_NAMES[dow],
+          timeInLabel, timeOutLabel,
+          minutesToDayFraction(lateMin), minutesToDayFraction(undertimeMin), minutesToDayFraction(absentMin), minutesToDayFraction(overtimeMin),
+          statusLabel,
+        ]);
+
+        const excelRow = detailRows.length + 1;
+        if (acc.firstDetailRow == null) acc.firstDetailRow = excelRow;
+        acc.lastDetailRow = excelRow;
+        if (lateMin > 0) { acc.lateDayCount++; acc.lateMin += lateMin; }
+        if (absentMin > 0) { acc.absentDayCount++; acc.absentMin += absentMin; }
+
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    // --- Sheet 2: Late & Absent by Employee (Attendance-page style) ---
+    const lateAbsentHeader = ["Employee", "ID", "Total Late", "Total Late Hours", "Total Absent", "Total Absent Hours"];
+    const sortedForLateAbsent = Array.from(perEmployee.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const lateAbsentRows = sortedForLateAbsent.map((e) => [e.name, e.code ?? "", e.lateDayCount, minutesToHM(e.lateMin), e.absentDayCount, minutesToHM(e.absentMin)]);
+    const lateAbsentTotal = sortedForLateAbsent.reduce(
+      (acc, e) => ({ lateDayCount: acc.lateDayCount + e.lateDayCount, lateMin: acc.lateMin + e.lateMin, absentDayCount: acc.absentDayCount + e.absentDayCount, absentMin: acc.absentMin + e.absentMin }),
+      { lateDayCount: 0, lateMin: 0, absentDayCount: 0, absentMin: 0 }
+    );
+    lateAbsentRows.push(["TOTAL", "", lateAbsentTotal.lateDayCount, minutesToHM(lateAbsentTotal.lateMin), lateAbsentTotal.absentDayCount, minutesToHM(lateAbsentTotal.absentMin)]);
+    const lateAbsentSheet = XLSX.utils.aoa_to_sheet([lateAbsentHeader, ...lateAbsentRows]);
+    lateAbsentSheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 13 }, { wch: 16 }];
+
+    // --- Sheet 3: Report Summary (status/hours_worked-based, like this
+    // page's own Export CSV) ---
+    const reportHeader = ["Employee", "ID", "Department", "Present", "Late", "Absent", "Overtime", "Undertime", "Total Hours"];
+    const reportRows: (string | number)[][] = [];
+    for (const p of (profilesData as unknown as ProfileRow[]) ?? []) {
+      const records = attByEmployee.get(p.id) ?? [];
+      let presentDays = 0, lateDays = 0, overtimeDays = 0, undertimeDays = 0, totalHours = 0;
+      for (const r of records) {
+        if (r.status === "present") presentDays++;
+        if (r.status === "late") { presentDays++; lateDays++; }
+        if (r.status === "overtime") { presentDays++; overtimeDays++; }
+        if (r.status === "undertime") { presentDays++; undertimeDays++; }
+        totalHours += Number(r.hours_worked ?? 0);
+      }
+      const schedule = p.schedule_id ? scheduleMap.get(p.schedule_id) : undefined;
+      const workDays = schedule?.work_days ?? DEFAULT_WORK_DAYS;
+      const scheduledDays = countScheduledWorkdays(dateFrom, dateTo, workDays, p.date_hired, today);
+      const absentDays = Math.max(0, scheduledDays - records.length);
+      reportRows.push([`${p.first_name} ${p.last_name}`, p.employee_code ?? "", p.departments?.name ?? "—", presentDays, lateDays, absentDays, overtimeDays, undertimeDays, Number(totalHours.toFixed(2))]);
+    }
+    reportRows.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    const reportTotal = reportRows.reduce(
+      (acc, r) => ({ present: acc.present + Number(r[3]), late: acc.late + Number(r[4]), absent: acc.absent + Number(r[5]), overtime: acc.overtime + Number(r[6]), undertime: acc.undertime + Number(r[7]), hours: acc.hours + Number(r[8]) }),
+      { present: 0, late: 0, absent: 0, overtime: 0, undertime: 0, hours: 0 }
+    );
+    reportRows.push(["TOTAL", "", "", reportTotal.present, reportTotal.late, reportTotal.absent, reportTotal.overtime, reportTotal.undertime, Number(reportTotal.hours.toFixed(2))]);
+    const reportSheet = XLSX.utils.aoa_to_sheet([reportHeader, ...reportRows]);
+    reportSheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 16 }, { wch: 9 }, { wch: 8 }, { wch: 9 }, { wch: 10 }, { wch: 11 }, { wch: 12 }];
+
+    // --- Sheet 4: Daily Detail ---
+    const detailHeader = ["Employee", "ID", "Date", "Day", "Time In", "Time Out", "Late", "Undertime", "Absent", "Overtime", "Status"];
+    const detailSheet = XLSX.utils.aoa_to_sheet([detailHeader, ...detailRows]);
+    detailSheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 6 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
+    for (let r = 2; r <= detailRows.length + 1; r++) {
+      for (const col of ["G", "H", "I", "J"]) {
+        const cell = detailSheet[`${col}${r}`];
+        if (cell) cell.z = DURATION_FORMAT;
+      }
+    }
+
+    // --- Sheet 5: Late/Undertime/Overtime/Absent Summary (formulas over sheet 4) ---
+    const sortedForSummary = Array.from(perEmployee.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const summaryHeader = ["Employee", "ID", "Total Late", "Total Undertime", "Total Overtime", "Total Absent"];
+    const summaryAoa: (string | number)[][] = [summaryHeader, ...sortedForSummary.map((e) => [e.name, e.code ?? "", 0, 0, 0, 0])];
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryAoa);
+    summarySheet["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
+    sortedForSummary.forEach((e, i) => {
+      const excelRow = i + 2;
+      const cols: Record<string, string> = { C: "G", D: "H", E: "I", F: "J" };
+      for (const [summaryCol, detailCol] of Object.entries(cols)) {
+        const cellRef = `${summaryCol}${excelRow}`;
+        if (e.firstDetailRow != null && e.lastDetailRow != null) {
+          summarySheet[cellRef] = { t: "n", f: `SUM('Daily Detail'!${detailCol}${e.firstDetailRow}:${detailCol}${e.lastDetailRow})`, z: DURATION_FORMAT };
+        } else {
+          summarySheet[cellRef] = { t: "n", v: 0, z: DURATION_FORMAT };
+        }
+      }
+    });
+    const totalRow = sortedForSummary.length + 2;
+    summarySheet[`A${totalRow}`] = { t: "s", v: "TOTAL" };
+    summarySheet[`B${totalRow}`] = { t: "s", v: "" };
+    for (const col of ["C", "D", "E", "F"]) {
+      summarySheet[`${col}${totalRow}`] = { t: "n", f: `SUM(${col}2:${col}${totalRow - 1})`, z: DURATION_FORMAT };
+    }
+    summarySheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalRow - 1, c: 5 } });
+
+    // --- Sheet 6: Formula Notes ---
+    const notesAoa = [
+      ["How each figure is computed"],
+      [],
+      ["Shift", "8:00 AM – 5:00 PM, Monday to Friday only (per the employee's assigned schedule, or this default if none is assigned)."],
+      ["Late", "= Time In − 8:00 AM, only if positive. Clocking in earlier than 8:00 AM is not counted (0 late, and that early time is not paid or banked)."],
+      ["Undertime", "= 5:00 PM − Time Out, only if positive. Leaving at or after 5:00 PM gives 0 undertime."],
+      ["Absent", "= the full scheduled shift length (default 8h, after the 1h break) for any scheduled workday with no Time In recorded."],
+      ["Overtime", "= MIN(actual time worked past 5:00 PM, hours approved on an Overtime Request for that date). Unapproved late clock-outs are never counted — see the Overtime page for the request/approval workflow."],
+      [],
+      ["Attendance Records", "Every raw clock-in/out row in the selected date range, same columns as the Attendance page's Export CSV."],
+      ["Late & Absent by Employee", "Per-employee Total Late / Total Absent (count + hours), same figures as the Attendance page's stat cards and per-employee CSV block."],
+      ["Report Summary", "Present/Late/Absent/Overtime/Undertime day counts and Total Hours per employee, same as this page's own Export CSV."],
+      ["Daily Detail", "One row per employee per scheduled workday. Late/Undertime/Absent/Overtime are real Excel duration values (format [h]\"h \"mm\"m\"), not text, so they can be summed or recalculated directly."],
+      ["Hours Summary", "Late/Undertime/Overtime/Absent totals per employee, as =SUM(...) formulas over that employee's own row range in Daily Detail — click a total cell in Excel to see which rows and dates were added."],
+    ];
+    const notesSheet = XLSX.utils.aoa_to_sheet(notesAoa);
+    notesSheet["!cols"] = [{ wch: 22 }, { wch: 100 }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, attendanceSheet, "Attendance Records");
+    XLSX.utils.book_append_sheet(workbook, lateAbsentSheet, "Late & Absent by Employee");
+    XLSX.utils.book_append_sheet(workbook, reportSheet, "Report Summary");
+    XLSX.utils.book_append_sheet(workbook, detailSheet, "Daily Detail");
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Hours Summary");
+    XLSX.utils.book_append_sheet(workbook, notesSheet, "Formula Notes");
+    const scopeSuffix = exportScope === "overall" ? "_overall" : "";
+    const suffix = (range === "cutoff" ? `${cutoffMonth}_cutoff${cutoffHalf}` : `${dateFrom}_to_${dateTo}`) + scopeSuffix;
+    XLSX.writeFile(workbook, `attendance_overall_${suffix}.xlsx`);
+  }
+
   function totals() {
     return rows.reduce(
       (acc, r) => ({
@@ -454,6 +729,7 @@ export default function Reports() {
             <option value="overall">Overall (All Employees)</option>
           </Select>
           <Button variant="secondary" onClick={exportDetailedExcel} loading={exportingDetail}><Download className="h-4 w-4" /> Export Detailed Excel (Late/Undertime/Absent/OT)</Button>
+          <Button onClick={exportOverallExcel} loading={exportingOverall}><Download className="h-4 w-4" /> Export Overall (Attendance + Reports, 1 file)</Button>
         </div>
       </Card>
 
