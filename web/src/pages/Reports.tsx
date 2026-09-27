@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download, FileBarChart } from "lucide-react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { supabase } from "../lib/supabase";
 import { useToast } from "../lib/toast";
 import { Card, Select, Input, Button, Spinner, EmptyState } from "../components/ui/ui";
@@ -76,6 +76,7 @@ function minutesToHM(totalMinutes: number) {
 // format then renders that fraction back as "Xh YYm" (elapsed-time format,
 // the [h] keeps hours from wrapping at 24 like a clock would).
 const DURATION_FORMAT = '[h]"h "mm"m"';
+const TOTAL_ROW_STYLE = { font: { bold: true, color: { rgb: "0000FF" } } };
 function minutesToDayFraction(totalMinutes: number) {
   return Math.max(0, totalMinutes) / 1440;
 }
@@ -589,15 +590,15 @@ export default function Reports() {
     // Grand TOTAL row — sums the per-employee subtotal rows, not the raw
     // data rows again, so nothing gets double-counted.
     const grandTotalRow = attendanceAoa.length + 1;
-    attendanceSheet[`A${grandTotalRow}`] = { t: "s", v: "TOTAL" };
+    attendanceSheet[`A${grandTotalRow}`] = { t: "s", v: "TOTAL", s: TOTAL_ROW_STYLE };
     if (employeeBlocks.length > 0) {
-      attendanceSheet[`F${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `F${b.subtotalRow}`).join(",")})` };
+      attendanceSheet[`F${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `F${b.subtotalRow}`).join(",")})`, s: TOTAL_ROW_STYLE };
       for (const col of ["H", "I", "J", "K"]) {
-        attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `${col}${b.subtotalRow}`).join(",")})`, z: DURATION_FORMAT };
+        attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", f: `SUM(${employeeBlocks.map((b) => `${col}${b.subtotalRow}`).join(",")})`, z: DURATION_FORMAT, s: TOTAL_ROW_STYLE };
       }
     } else {
-      attendanceSheet[`F${grandTotalRow}`] = { t: "n", v: 0 };
-      for (const col of ["H", "I", "J", "K"]) attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", v: 0, z: DURATION_FORMAT };
+      attendanceSheet[`F${grandTotalRow}`] = { t: "n", v: 0, s: TOTAL_ROW_STYLE };
+      for (const col of ["H", "I", "J", "K"]) attendanceSheet[`${col}${grandTotalRow}`] = { t: "n", v: 0, z: DURATION_FORMAT, s: TOTAL_ROW_STYLE };
     }
     attendanceSheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: grandTotalRow - 1, c: 10 } });
 
