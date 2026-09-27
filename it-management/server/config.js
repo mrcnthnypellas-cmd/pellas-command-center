@@ -16,6 +16,7 @@ module.exports = {
   VAULT_KEY: process.env.ITMS_VAULT_KEY || null,
   VAULT_KEY_FILE: path.join(DATA_DIR, 'vault.key'),
   SESSION_HOURS: Number(process.env.ITMS_SESSION_HOURS || 12),
-  COOKIE_SECURE: process.env.NODE_ENV === 'production',
+  // Secure (HTTPS-only) login cookie. ITMS_SECURE_COOKIE=1/0 overrides; plain http:// (LAN, Tailscale) needs 0.
+  COOKIE_SECURE: process.env.ITMS_SECURE_COOKIE ? process.env.ITMS_SECURE_COOKIE === '1' : process.env.NODE_ENV === 'production',
   MAX_UPLOAD_MB: 15,
 };

@@ -1,0 +1,39 @@
+PELLAS IT COMMAND - PAANO I-INSTALL (Windows)
+=============================================
+
+1. I-install ang Node.js (isang beses lang)
+   - Pumunta sa https://nodejs.org at i-download ang "LTS" version.
+   - I-install lang (Next, Next, Finish).
+
+2. I-extract ang ZIP
+   - Right-click ang pellas-it-command.zip -> Extract All.
+   - Ilagay sa madaling hanapin, hal. C:\PellasIT
+
+3. I-double-click ang START-SERVER.bat
+   - Sa unang beses, mag-i-install muna (1-3 minuto, kailangan ng internet).
+   - Kapag nagtanong ang Windows Firewall, i-click ang "Allow access".
+   - Kusang bubukas ang browser sa http://localhost:4000
+   - Huwag isara ang itim na window; iyon ang server.
+
+4. Mag-login
+   - admin / admin123  (PALITAN agad sa Settings -> Users)
+   - Sample data muna ang laman. Para simulan nang malinis, i-edit/burahin
+     ang sample records, o i-restore ang backup mo (Settings -> Backup & Restore).
+
+5. Buksan sa ibang PC o phone sa office
+   - http://<IPv4 ng server PC>:4000   (makikita sa itim na window)
+
+6. Buksan kahit saan (libre): Tailscale
+   - I-install ang Tailscale (https://tailscale.com/download) sa server PC
+     at sa phone/laptop mo; mag-login sa iisang account.
+   - Buksan ang http://<Tailscale IP ng server PC>:4000
+     (makikita ang IP sa Tailscale app, nagsisimula sa 100.)
+   - Private ito: ang mga device mo lang sa Tailscale ang makakapasok.
+
+7. Para laging naka-on
+   - I-off ang Sleep: Settings -> System -> Power -> Sleep: Never.
+   - Para kusang magsimula pagka-on ng PC: pindutin ang Win+R, i-type
+     shell:startup, at maglagay doon ng shortcut ng START-SERVER.bat.
+
+Ang data (database, passwords vault, photos) ay nasa "data" folder.
+Mag-backup paminsan-minsan: Settings -> Backup & Restore.
