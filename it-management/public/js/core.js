@@ -11,6 +11,8 @@ async function request(method, url, body, isForm) {
   }
   const res = await fetch(`/api${url}`, opts);
   if (res.status === 401 && !url.startsWith('/auth/')) { location.hash = '#/login'; throw new Error('Please sign in'); }
+  // License missing or expired while the app is open: the shell switches to the license screen.
+  if (res.status === 402) window.dispatchEvent(new Event('itms:license'));
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : await res.text();
   if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
   return data;

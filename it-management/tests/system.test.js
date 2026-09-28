@@ -14,11 +14,22 @@ const db = require('../server/db/connection');
 const { seed } = require('../server/db/seed');
 const { createApp } = require('../server/app');
 
+// License keys: the tests sign with a throwaway key pair instead of the owner's private key.
+const crypto = require('crypto');
+const { makeKey } = require('../tools/license/sign');
+const TEST_PRIV = crypto.generateKeyPairSync('ed25519').privateKey.export({ format: 'der', type: 'pkcs8' }).subarray(16).toString('hex');
+const TEST_PUB = require('../tools/license/sign').publicKeyHex(TEST_PRIV);
+require('../server/lib/licenseKey').publicKeyHex = TEST_PUB;
+const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+const testKey = (company = 'Pellas Corporation', days = 365) => makeKey(TEST_PRIV, { company, expires: day(days) });
+const license = require('../server/lib/license');
+
 let server;
 let base;
 
 before(async () => {
   seed();
+  license.activate(testKey());
   server = createApp().listen(0);
   await new Promise((r) => server.once('listening', r));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -518,7 +529,7 @@ test('backup on one PC, restore on another', async () => {
   // "PC 2": a separate installation with its own data folder and its own encryption key.
   const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'itms-pc2-'));
   const port2 = 40000 + Math.floor(Math.random() * 20000);
-  const pc2 = spawn(process.execPath, [path.join(__dirname, '../server/index.js')], { env: { ...process.env, PORT: String(port2), ITMS_DATA_DIR: dir2, ITMS_DB_FILE: path.join(dir2, 'itms.db') }, stdio: 'pipe' });
+  const pc2 = spawn(process.execPath, ['-r', path.join(__dirname, 'license-preload.js'), path.join(__dirname, '../server/index.js')], { env: { ...process.env, ITMS_TEST_LICENSE_PUB: TEST_PUB, PORT: String(port2), ITMS_DATA_DIR: dir2, ITMS_DB_FILE: path.join(dir2, 'itms.db') }, stdio: 'pipe' });
   try {
     await new Promise((resolve, reject) => { pc2.stdout.on('data', (d) => { if (String(d).includes('running at')) resolve(); }); pc2.on('exit', reject); setTimeout(() => reject(new Error('PC2 did not start')), 20000); });
     const b2 = `http://127.0.0.1:${port2}`;
@@ -534,7 +545,7 @@ test('backup on one PC, restore on another', async () => {
       return { status: res.status, data: await res.json() };
     };
     // A new install starts at the first-run setup.
-    const setup2 = await fetch(`${b2}/api/public/setup`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'itms' }, body: JSON.stringify({ company_name: 'PC Two', full_name: 'PC Two Admin', username: 'admin', password: 'admin123' }) });
+    const setup2 = await fetch(`${b2}/api/public/setup`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'itms' }, body: JSON.stringify({ company_name: 'PC Two', full_name: 'PC Two Admin', username: 'admin', password: 'admin123', license_key: testKey('PC Two') }) });
     assert.equal(setup2.status, 200);
     const c2 = await login2('admin', 'admin123');
     assert.equal((await send(c2, 'check', { password: 'wrong-password-1' })).status, 400);
@@ -686,7 +697,7 @@ async function freshServer() {
   const { spawn } = require('child_process');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'itms-new-'));
   const port = 40000 + Math.floor(Math.random() * 20000);
-  const proc = spawn(process.execPath, [path.join(__dirname, '../server/index.js')], { env: { ...process.env, PORT: String(port), ITMS_DATA_DIR: dir, ITMS_DB_FILE: path.join(dir, 'itms.db') }, stdio: 'pipe' });
+  const proc = spawn(process.execPath, ['-r', path.join(__dirname, 'license-preload.js'), path.join(__dirname, '../server/index.js')], { env: { ...process.env, ITMS_TEST_LICENSE_PUB: TEST_PUB, PORT: String(port), ITMS_DATA_DIR: dir, ITMS_DB_FILE: path.join(dir, 'itms.db') }, stdio: 'pipe' });
   let out = '';
   await new Promise((resolve, reject) => { proc.stdout.on('data', (d) => { out += d; if (out.includes('running at')) setTimeout(resolve, 200); }); proc.on('exit', reject); setTimeout(() => reject(new Error('server did not start')), 20000); });
   const url = `http://127.0.0.1:${port}`;
@@ -702,8 +713,9 @@ test('first-run setup: company and own admin account, no default passwords', asy
     assert.doesNotMatch(s.out, /admin123/);
     assert.deepEqual(await s.get('/public/setup'), { needed: true });
     assert.equal((await fetch(`${s.url}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'admin123' }) })).status, 401, 'no default account');
-    const good = { company_name: 'Acme Trading', full_name: 'Mark Reyes', username: 'Mark', password: 'my-secret-99', confirm: 'my-secret-99' };
-    for (const [field, value] of [['company_name', ''], ['full_name', ' '], ['username', 'a b'], ['password', 'short'], ['confirm', 'different-1']]) {
+    const good = { company_name: 'Acme Trading', full_name: 'Mark Reyes', username: 'Mark', password: 'my-secret-99', confirm: 'my-secret-99', license_key: testKey('Acme Trading') };
+    const forged = makeKey(crypto.generateKeyPairSync('ed25519').privateKey.export({ format: 'der', type: 'pkcs8' }).subarray(16).toString('hex'), { company: 'Acme', expires: day(999) });
+    for (const [field, value] of [['company_name', ''], ['full_name', ' '], ['username', 'a b'], ['password', 'short'], ['confirm', 'different-1'], ['license_key', ''], ['license_key', forged], ['license_key', testKey('Acme', -1)]]) {
       const r = await s.post('/public/setup', { ...good, [field]: value });
       assert.equal(r.status, 400, field);
     }
@@ -731,7 +743,7 @@ test('first-run setup: company and own admin account, no default passwords', asy
   // With sample data: the examples load, but the sample accounts with known passwords are locked.
   const t = await freshServer();
   try {
-    const r = await t.post('/public/setup', { company_name: 'Try Co', full_name: 'Tester', username: 'tester', password: 'tester-pass-1', sample_data: true });
+    const r = await t.post('/public/setup', { company_name: 'Try Co', full_name: 'Tester', username: 'tester', password: 'tester-pass-1', sample_data: true, license_key: testKey('Try Co') });
     assert.equal(r.status, 200);
     const cookie = r.headers.get('set-cookie').split(';')[0];
     const dash = await t.get('/dashboard', cookie);
@@ -742,6 +754,44 @@ test('first-run setup: company and own admin account, no default passwords', asy
       assert.equal(l.status, 401, `${u} locked`);
     }
   } finally { t.stop(); }
+});
+
+test('license key: status, renewal, lock when expired, backup still allowed', async () => {
+  const a = await login('admin', 'admin123');
+  const me = ok(await a.get('/auth/me'));
+  assert.equal(me.license.state, 'valid');
+  assert.equal(me.license.licensee, 'Pellas Corporation');
+  const v = await login('viewer', 'viewer123');
+  assert.equal((await v.post('/license', { key: testKey('X') })).status, 403, 'only admins enter keys');
+  assert.equal((await a.post('/license', { key: 'ITMS1.garbage.key' })).status, 400);
+  assert.equal((await a.post('/license', { key: testKey('Pellas Corporation', -3) })).status, 400, 'expired key refused');
+
+  // Expiring soon → warning
+  const soon = ok(await a.post('/license', { key: testKey('Pellas Corporation', 10) }));
+  assert.equal(soon.state, 'valid'); assert.equal(soon.warn, true); assert.equal(soon.days_left, 10);
+
+  // Expired (simulate time passing): the system locks, but sign-in, license and backup still work
+  db.run("UPDATE settings SET value = ? WHERE key = 'license_key'", testKey('Pellas Corporation', -1));
+  const locked = await a.get('/assets');
+  assert.equal(locked.status, 402);
+  assert.equal(locked.data.license, 'expired');
+  assert.equal((await a.get('/auth/me')).status, 200);
+  assert.equal(ok(await a.get('/license')).state, 'expired');
+  const bk = await fetch(`${base}/api/backup/download`, { method: 'POST', headers: { Cookie: a.cookie, 'X-Requested-With': 'itms', 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'backup-pass-123' }) });
+  assert.equal(bk.status, 200, 'backup allowed while expired');
+  assert.equal((await a.post('/directory', { name: 'x', mobile: '0917 555 0000' })).status, 402);
+
+  // Renew → unlocked, logged
+  const renewed = ok(await a.post('/license', { key: testKey('Pellas Corporation', 365) }));
+  assert.equal(renewed.state, 'valid');
+  assert.equal((await a.get('/assets')).status, 200);
+  assert.ok(ok(await a.get('/activity?q=License')).some((l) => l.action === 'License key entered'));
+
+  // Turning the clock back is noticed
+  assert.equal(license.status(undefined, { today: day(400) }).state, 'expired');
+  assert.equal(license.status(undefined, { today: day(0) }).state, 'clock');
+  db.run("DELETE FROM settings WHERE key = 'license_last_seen'");
+  assert.equal(license.status().state, 'valid');
 });
 
 // Keep this last: it erases the shared test database.

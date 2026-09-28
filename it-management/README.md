@@ -104,6 +104,21 @@ To install, copy the `.apk` to the phone, open it, and allow "Install unknown ap
 
 The phone app doesn't have Excel (.xlsx) files or PDF export. It shows **CSV** buttons for export and import instead, and **Print** (which can also save a PDF).
 
+## 11. License keys
+
+The system needs a license key: it's entered in the first-run setup, and renewed in **Settings → License**. A key names the customer and its last valid day. It's signed with the owner's private Ed25519 key, so it can't be edited or made up, and it's checked offline.
+
+- **30 days before expiry:** a reminder bar shows at the top.
+- **After expiry:** the system locks until a renewed key is entered. Signing in and **downloading a backup** still work, so the customer's data is never held back.
+- **Clock set back:** turning the computer's clock back is noticed, because the system remembers the latest date it has seen.
+
+**Making keys (software owner only):**
+
+- **Easiest:** open `license-generator.html` (build it with `node tools/license/build-generator.js` → `tools/license/dist/`). Load `private-key.txt`, enter the customer and the expiry date, and copy the key.
+- **Command line:** `node tools/license/generate.js --company "Acme Trading" --days 365`.
+
+The private key (`tools/license/private-key.txt`) is **never committed**. Keep it safe and backed up: without it no new keys can be made, and anyone who has it can make keys. The matching public key is in `server/lib/licenseKey.js`. Changing it makes all existing keys invalid.
+
 ---
 
 ## What's included

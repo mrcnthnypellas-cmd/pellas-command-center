@@ -14,3 +14,7 @@ android/dist/
 android/app/src/main/assets/
 android/release.keystore
 android/release.keystore.password
+
+# License signing key: private, never commit
+tools/license/private-key.txt
+tools/license/dist/

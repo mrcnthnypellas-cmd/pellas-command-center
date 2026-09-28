@@ -14,6 +14,7 @@ export async function render(el, _m, params) {
     can('users.manage') && ['users', 'Users'],
     can('users.manage') && ['roles', 'Roles & Permissions'],
     can('settings.manage') && can('users.manage') && ['backup', 'Backup & Restore'],
+    can('settings.manage') && ['license', 'License'],
     ['system', 'System'],
   ].filter(Boolean);
   const tab = tabs.find((t) => t[0] === params.tab) ? params.tab : tabs[0][0];
@@ -27,6 +28,33 @@ export async function render(el, _m, params) {
 const fmtWhen = (iso) => (iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Never');
 
 const PANES = {
+  async license(el) {
+    const L = await api.get('/license');
+    const tone = L.state === 'valid' ? (L.warn ? 'amber' : 'green') : 'red';
+    const label = { valid: L.warn ? 'Expiring soon' : 'Active', expired: 'Expired', missing: 'No license', invalid: 'Invalid key', clock: 'Check the computer date' }[L.state] || L.state;
+    el.innerHTML = `<div class="grid split-2-1"><section class="card"><div class="card-head"><h3>License</h3>${badge(label, tone)}</div><div class="card-body">
+        ${L.licensee ? `<dl class="license-facts">
+          <dt>Licensed to</dt><dd>${esc(L.licensee)}</dd>
+          <dt>Valid until</dt><dd>${esc(L.expires)}${L.state === 'valid' ? ` <span class="muted" style="font-weight:400">(${L.days_left} day(s) left)</span>` : ''}</dd>
+          ${L.issued ? `<dt>Issued</dt><dd>${esc(L.issued)}</dd>` : ''}
+          ${L.id ? `<dt>Key ID</dt><dd class="mono">${esc(L.id)}</dd>` : ''}
+        </dl>` : '<p class="muted" style="margin:0">No license key has been entered.</p>'}
+      </div></section>
+      <form class="card" data-renew novalidate><div class="card-head"><h3>Enter a new or renewed key</h3></div><div class="card-body">
+        <div class="field"><label for="renew-key">License key</label><textarea id="renew-key" name="key" rows="4" class="license-input" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="ITMS1.…"></textarea></div>
+        <p class="cell-sub" style="margin:8px 0 0">The new key replaces the current one right away. Your data isn't affected.</p>
+      </div><div class="form-actions"><button class="btn primary" type="submit">Activate key</button></div></form></div>`;
+    const f = el.querySelector('[data-renew]');
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const s = await api.post('/license', { key: f.elements.key.value });
+        state.user.license = s;
+        toast(`License active until ${s.expires}`);
+        window.dispatchEvent(new Event('itms:license'));
+      } catch (ex) { toast(ex.message, 'err'); }
+    });
+  },
   async backup(el) {
     const st = await api.get('/backup/status');
     el.innerHTML = `<div class="grid split-2-1">

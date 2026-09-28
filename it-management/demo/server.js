@@ -6,6 +6,7 @@ const { loadUser, requireAuth } = require('../server/lib/auth');
 const vault = require('../server/lib/vault'); // → demo/shims/vault.js
 const fs = require('fs'); // → demo/shims/fs.js
 const store = require('./store');
+const { licenseGate } = require('../server/lib/licenseGate');
 
 const MOUNTS = [
   ['/api/public', require('../server/routes/public')],
@@ -26,6 +27,7 @@ const MOUNTS = [
   ['/api/documents', require('../server/routes/documents')],
   ['/api/backup', require('../server/routes/backup')],
   ['/api/directory', require('../server/routes/directory')],
+  ['/api/license', require('../server/routes/license')],
 ];
 
 const DB_KEY = 'itms-demo-db-v1';
@@ -115,8 +117,10 @@ async function request({ method = 'GET', url, body, files }) {
         if (f) res.type(f.mime || 'application/octet-stream').send(f.data); else res.status(404).json({ error: 'Not found' });
       }
     } else {
-      const mount = MOUNTS.find(([p]) => u.pathname === p || u.pathname.startsWith(`${p}/`));
-      if (!mount) res.status(404).json({ error: 'Not found' });
+      let allowed = false;
+      licenseGate({ path: u.pathname.replace(/^\/api/, '') }, res, () => { allowed = true; });
+      const mount = allowed && MOUNTS.find(([p]) => u.pathname === p || u.pathname.startsWith(`${p}/`));
+      if (!allowed) { /* licenseGate answered 402 */ } else if (!mount) res.status(404).json({ error: 'Not found' });
       else {
         const sub = u.pathname.slice(mount[0].length) || '/';
         for (const route of mount[1].routes) {

@@ -29,6 +29,7 @@ function createApp() {
   });
 
   app.use(loadUser);
+  app.use('/api', require('./lib/licenseGate').licenseGate);
 
   app.use('/api/public', require('./routes/public'));
   app.use('/api/auth', require('./routes/auth'));
@@ -48,6 +49,7 @@ function createApp() {
   app.use('/api/documents', require('./routes/documents'));
   app.use('/api/backup', require('./routes/backup'));
   app.use('/api/directory', require('./routes/directory'));
+  app.use('/api/license', require('./routes/license'));
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 
   // Uploaded photos are private: signed-in users only.

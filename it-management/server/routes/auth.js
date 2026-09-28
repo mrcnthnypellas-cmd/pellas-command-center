@@ -44,6 +44,7 @@ r.get('/me', auth.requireAuth, (req, res) => {
     id: u.id, username: u.username, full_name: u.full_name, email: u.email, role: u.role,
     permissions: [...u.permissions],
     features: require('../lib/features'),
+    license: require('../lib/license').status(),
     company: (({ company_name, system_name, dashboard_title, dashboard_subtitle, logo_url }) => ({ name: company_name, system_name, dashboard_title, dashboard_subtitle, logo: logo_url }))(branding()),
   });
 });

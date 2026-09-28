@@ -141,8 +141,11 @@ function renderSetup() {
       <h1>Let's set up your application</h1>
       <p class="muted" style="margin:0">Welcome! This takes a minute. You'll use this account to sign in and manage everything.</p>
       <div class="alert err hidden" data-err style="margin-top:14px"></div>
+      <div class="setup-section">License</div>
+      <div class="field"><label for="s-license">License key</label><textarea id="s-license" name="license_key" rows="3" class="license-input" autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus placeholder="ITMS1.…"></textarea>
+        <small class="muted">Paste the license key you received. It starts with <b>ITMS1.</b></small></div>
       <div class="setup-section">Company</div>
-      <div class="field"><label for="s-company">Company name</label><input id="s-company" name="company_name" maxlength="80" required autofocus placeholder="e.g. Pellas Corporation"></div>
+      <div class="field"><label for="s-company">Company name</label><input id="s-company" name="company_name" maxlength="80" required placeholder="e.g. Pellas Corporation"></div>
       <div class="setup-section">Your admin account</div>
       <div class="field"><label for="s-name">Your full name</label><input id="s-name" name="full_name" maxlength="80" autocomplete="name" required></div>
       <div class="field"><label for="s-user">Username</label><input id="s-user" name="username" maxlength="32" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required placeholder="e.g. mark">
@@ -166,6 +169,7 @@ function renderSetup() {
     const b = readForm(form);
     const show = (m) => { err.textContent = m; err.classList.remove('hidden'); err.scrollIntoView({ block: 'nearest' }); };
     err.classList.add('hidden');
+    if (!/^ITMS1\./.test((b.license_key || '').replace(/\s+/g, ''))) return show('Paste your license key (it starts with ITMS1.)');
     if (!b.company_name?.trim()) return show('Enter the company name');
     if (!b.full_name?.trim()) return show('Enter your name');
     if (!/^[a-z0-9._-]{3,32}$/i.test((b.username || '').trim())) return show('Username must be 3–32 letters, numbers, dots, dashes or underscores (no spaces)');
@@ -179,6 +183,57 @@ function renderSetup() {
       await boot();
       toast(`Welcome, ${b.full_name.trim().split(/\s+/)[0]}! Your system is ready.`);
     } catch (ex) { show(ex.message); btn.disabled = false; btn.textContent = 'Finish setup and sign in'; }
+  });
+}
+
+// ───────── License required / expired ─────────
+function renderLicenseLock() {
+  const L = state.user.license || {};
+  const admin = can('settings.manage');
+  const title = L.state === 'expired' ? 'Your license has expired' : L.state === 'clock' ? "This computer's date looks wrong" : 'A license key is needed';
+  const msg = L.state === 'expired' ? `The license for <b>${esc(L.licensee)}</b> ended on <b>${esc(L.expires)}</b>. Enter a renewed key to continue. Your data is safe and nothing was deleted.`
+    : L.state === 'clock' ? `The date on this computer is earlier than the last date the system was used (${esc(L.last_seen)}). Set the correct date and time, then reopen the app.`
+      : 'Enter a valid license key to use the system.';
+  document.title = title;
+  window.scrollTo(0, 0);
+  app.innerHTML = `<div class="login-wrap bg-default"><div class="login-card setup-card">
+    <div class="brand-logo" style="width:44px;height:44px;color:#fff">IT</div>
+    <h1>${esc(title)}</h1><p class="muted" style="margin:0">${msg}</p>
+    ${admin ? `<form data-lic novalidate>
+      <div class="alert err hidden" data-err style="margin-top:14px"></div>
+      <div class="field"><label for="lic-key">New license key</label><textarea id="lic-key" name="key" rows="3" class="license-input" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="ITMS1.…"></textarea></div>
+      <button class="btn primary" type="submit">Activate license</button></form>
+      <form data-bk novalidate>
+        <div class="setup-section">Keep a copy of your data</div>
+        <p class="muted" style="margin:6px 0 0;font-size:13px">You can still download a full backup while the license is inactive.</p>
+        <div class="field"><label for="lic-bk">Backup password (8+ characters)</label><input id="lic-bk" name="password" type="password" autocomplete="new-password"></div>
+        <button class="btn" type="submit">Download backup</button></form>`
+    : '<p class="alert warn" style="margin-top:14px">Ask your system administrator to enter a renewed license key.</p>'}
+    <button class="btn ghost" type="button" data-out>Sign out</button>
+  </div></div>`;
+  app.querySelector('[data-out]').addEventListener('click', async () => { await api.post('/auth/logout'); state.user = null; renderLogin(); });
+  const f = app.querySelector('[data-lic]');
+  f?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = f.querySelector('[data-err]');
+    err.classList.add('hidden');
+    try {
+      await api.post('/license', { key: f.elements.key.value });
+      await boot();
+      toast('License activated. Thank you!');
+    } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
+  });
+  const bk = app.querySelector('[data-bk]');
+  bk?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = bk.elements.password.value;
+    if (password.length < 8) { toast('The backup password must be at least 8 characters', 'err'); return; }
+    const res = await fetch('/api/backup/download', { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'itms', 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+    if (!res.ok) { toast((await res.json().catch(() => ({}))).error || 'Backup failed', 'err'); return; }
+    const name = (res.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'backup.itmsbackup';
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    toast('Backup downloaded. Keep it and its password safe.');
   });
 }
 
@@ -208,6 +263,7 @@ function renderShell() {
         <form class="global-search" id="gsearch" role="search">${icon('search')}<input name="q" type="search" placeholder="Search asset tag, serial, employee, IP, MAC, device, ISP, network, location…" autocomplete="off"></form>
         <div class="user-chip" id="userChip"><div class="avatar">${esc(initials(u.full_name))}</div><div class="who"><b>${esc(u.full_name)}</b><small>${esc(u.role)}</small></div></div>
       </header>
+      ${state.user.license?.warn ? `<div class="license-banner">License for <b>${esc(state.user.license.licensee)}</b> expires in <b>${state.user.license.days_left} day(s)</b> (${esc(state.user.license.expires)}).${can('settings.manage') ? ' <a href="#/settings?tab=license">Enter a renewed key</a>' : ' Please tell your administrator.'}</div>` : ''}
       <main class="content" id="content"></main>
     </div></div>`;
   document.getElementById('gsearch').addEventListener('submit', (e) => {
@@ -305,13 +361,16 @@ async function boot() {
     try { setup = await api.get('/public/setup'); } catch { /* older server: just sign in */ }
     return setup.needed ? renderSetup() : renderLogin();
   }
+  if (!state.user.license?.valid) return renderLicenseLock();
   await loadLookups(true);
   renderShell();
   if (!location.hash || location.hash === '#/login') location.hash = can('dashboard.view') ? '#/dashboard' : '#/assets';
   route();
 }
 
-window.addEventListener('hashchange', () => { if (state.user) route(); });
+window.addEventListener('hashchange', () => { if (state.user && state.user.license?.valid !== false) route(); });
+let licenseRecheck = null;
+window.addEventListener('itms:license', () => { clearTimeout(licenseRecheck); licenseRecheck = setTimeout(boot, 50); });
 // Let pages ask for a re-render of the current route (after saves).
 window.addEventListener('itms:refresh', () => route());
 boot();

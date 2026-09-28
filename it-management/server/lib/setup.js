@@ -5,6 +5,7 @@ const db = require('../db/connection');
 const { seed, seedBase } = require('../db/seed');
 const { hashPassword } = require('./passwords');
 const { bad } = require('./util');
+const license = require('./license');
 
 const needsSetup = () => !db.get('SELECT 1 AS x FROM users LIMIT 1');
 
@@ -32,11 +33,17 @@ function logSetup(userId, v, sample) {
 function runSetup(d) {
   const v = validate(d);
   if (!needsSetup()) throw Object.assign(new Error('This system is already set up. Sign in instead.'), { status: 409 });
+  const lic = license.status(d.license_key, { remember: false });
+  if (lic.state === 'missing') throw bad('Enter your license key');
+  if (lic.state === 'invalid') throw bad('This license key is not valid. Check that it was copied completely.');
+  if (lic.state === 'expired') throw bad(`This license key expired on ${lic.expires}. Ask for a renewed key.`);
+  if (!lic.valid) throw bad("This computer's date looks wrong. Set the correct date and try again.");
   const sample = !!d.sample_data;
   if (sample) {
     seed();
     return db.tx(() => {
       db.run("UPDATE settings SET value = ? WHERE key = 'company_name'", v.company);
+      license.activate(d.license_key);
       const admin = db.get("SELECT id FROM users WHERE username = 'admin'");
       db.run('UPDATE users SET username = ?, full_name = ?, email = ?, password_hash = ? WHERE id = ?', v.username, v.fullName, v.email, hashPassword(v.password), admin.id);
       // The sample staff accounts have well-known passwords: lock them.
@@ -49,6 +56,7 @@ function runSetup(d) {
   }
   return db.tx(() => {
     const { roles } = seedBase({ company_name: v.company });
+    license.activate(d.license_key);
     const id = Number(db.run('INSERT INTO users (username, full_name, email, password_hash, role_id) VALUES (?, ?, ?, ?, ?)',
       v.username, v.fullName, v.email, hashPassword(v.password), roles.Admin).lastInsertRowid);
     logSetup(id, v, false);
