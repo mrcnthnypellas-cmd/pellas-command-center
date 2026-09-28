@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Monitor, Moon, Palette, Sun, Upload } from "lucide-react";
 import { api, rel } from "../api";
-import { ACCENTS, DEFAULT_APPEARANCE, LOGIN_PRESETS, SIDEBARS, loginBackground, readPicture, type Appearance } from "../appearance";
+import { ACCENTS, DEFAULT_APPEARANCE, DEFAULT_LOGIN, LOGIN_PRESETS, SIDEBARS, loginBackground, readPicture, type LoginBg } from "../appearance";
 import { useSession } from "../session";
 import { Button, Card, Field, PageError, Pill, Table, Toggle, cx, inputCls, useAction, useLoad, useToast } from "../ui";
 
@@ -19,7 +19,7 @@ export default function SettingsPage() {
         {sec === "General" && <ServerSettings part="general" />}
         {sec === "Security" && <ServerSettings part="security" />}
         {sec === "Network" && <ServerSettings part="network" />}
-        {sec === "Appearance" && <AppearanceSettings />}
+        {sec === "Appearance" && <><AppearanceSettings />{canAdmin && <SignInScreenSettings />}</>}
         {sec === "My account" && <Account />}
         {sec === "Sessions" && <Sessions />}
       </div>
@@ -73,11 +73,10 @@ function ServerSettings({ part }: { part: "general" | "security" | "network" }) 
   );
 }
 
-export function LoginBackgroundControls({ appearance: ap, setAppearance }: { appearance: Appearance; setAppearance: (a: Appearance) => void }) {
+function LoginBackgroundControls({ value: l, onChange }: { value: LoginBg; onChange: (l: LoginBg) => void }) {
   const toast = useToast();
   const file = useRef<HTMLInputElement>(null);
-  const l = ap.login;
-  const set = (patch: Partial<Appearance["login"]>) => setAppearance({ ...ap, login: { ...l, ...patch } });
+  const set = (patch: Partial<LoginBg>) => onChange({ ...l, ...patch });
   return (
     <div className="grid gap-3.5">
       <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2.5">
@@ -86,10 +85,10 @@ export function LoginBackgroundControls({ appearance: ap, setAppearance }: { app
         <button onClick={() => (l.image ? set({ kind: "image" }) : file.current?.click())} className={cx("flex h-[72px] flex-col items-center justify-center gap-1 rounded-lg border-2 text-xs font-semibold", l.image ? "text-white [text-shadow:0_1px_3px_rgb(0_0_0/.6)]" : "border-dashed border-line-2 text-ink-2", l.kind === "image" && "!border-solid border-accent ring-2 ring-accent")}
           style={l.image ? { background: `linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.25)), url('${l.image}') center / cover` } : undefined}>{l.image ? "My picture" : <><Upload size={18} />Upload picture</>}</button>
       </div>
-      <input ref={file} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; try { set({ kind: "image", image: await readPicture(f) }); toast("Sign-in background updated"); } catch (err: any) { toast(err.message, "bad"); } }} />
+      <input ref={file} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; try { set({ kind: "image", image: await readPicture(f) }); } catch (err: any) { toast(err.message, "bad"); } }} />
       {l.kind === "color" && <div className="flex flex-wrap gap-4 text-xs text-muted"><label className="flex items-center gap-2">Top color <input type="color" value={l.c1} onChange={(e) => set({ c1: e.target.value })} className="h-9 w-9 cursor-pointer rounded border border-line-2 bg-surface p-0.5" /></label><label className="flex items-center gap-2">Bottom color <input type="color" value={l.c2} onChange={(e) => set({ c2: e.target.value })} className="h-9 w-9 cursor-pointer rounded border border-line-2 bg-surface p-0.5" /></label></div>}
       {l.kind === "image" && l.image && <div className="flex flex-wrap items-center gap-3"><Button size="sm" onClick={() => file.current?.click()}>Change picture</Button><Button size="sm" variant="danger" onClick={() => set({ kind: "preset", image: "" })}>Remove picture</Button><label className="flex items-center gap-2 text-xs text-muted">Darken <input type="range" min={0} max={80} value={l.dim} onChange={(e) => set({ dim: Number(e.target.value) })} className="accent-[var(--accent)]" /></label></div>}
-      <Field label="Welcome message"><input className={inputCls} value={l.message} maxLength={80} onChange={(e) => set({ message: e.target.value })} /></Field>
+      <Field label="Welcome message"><input className={inputCls} value={l.message} maxLength={120} onChange={(e) => set({ message: e.target.value })} /></Field>
       <div className="grid h-52 place-items-center overflow-hidden rounded-[10px] border border-line p-4" style={{ background: loginBackground(l) }}>
         <div className="grid w-56 gap-1.5 rounded-[10px] border border-[#21363f] bg-[rgb(18_30_37/.86)] p-3.5 text-[11px] text-[#e1e8ed] shadow-xl"><b className="text-xs">Sign-in preview</b><span className="text-[#8ea0aa]">{l.message}</span><i className="block h-4 rounded bg-[#0e181d]" /><i className="block h-4 rounded bg-[#0e181d]" /><i className="block h-5 rounded bg-accent" /></div>
       </div>
@@ -107,7 +106,7 @@ function AppearanceSettings() {
   );
   return (
     <Card pad={false} footer={<><span className="text-xs text-muted">Appearance is saved in this browser.</span><span className="flex-1" /><Button variant="danger" onClick={() => setAppearance(structuredClone(DEFAULT_APPEARANCE))}>Reset appearance</Button></>}>
-      <div className="flex items-center gap-3 border-b border-line px-4.5 py-4"><span className="grid h-9 w-9 place-items-center rounded-lg bg-accent-soft text-accent"><Palette size={18} /></span><div><b className="block">Appearance</b><span className="text-[12.5px] text-muted">Theme, colors and the sign-in screen</span></div></div>
+      <div className="flex items-center gap-3 border-b border-line px-4.5 py-4"><span className="grid h-9 w-9 place-items-center rounded-lg bg-accent-soft text-accent"><Palette size={18} /></span><div><b className="block">Appearance</b><span className="text-[12.5px] text-muted">Theme and colors for this browser</span></div></div>
       <Row label="Theme" hint="Light, dark, or follow the device">
         <div className="inline-flex overflow-hidden rounded-[7px] border border-line-2">
           {([["light", "Light", Sun], ["dark", "Dark", Moon], ["system", "System", Monitor]] as const).map(([k, l, I]) => <button key={k} onClick={() => setAppearance({ ...ap, mode: k })} className={cx("flex items-center gap-1.5 border-l border-line-2 px-3 py-1.5 text-[12.5px] first:border-l-0", ap.mode === k ? "bg-accent-soft font-semibold text-accent" : "text-ink-2")}><I size={14} />{l}</button>)}
@@ -115,7 +114,34 @@ function AppearanceSettings() {
       </Row>
       <Row label="Accent color" hint="Buttons, highlights, charts and links">{swatch(ACCENTS, ap.accent, (v) => setAppearance({ ...ap, accent: v }), "accent color")}</Row>
       <Row label="Sidebar color" hint="Background of the navigation menu">{swatch(SIDEBARS, ap.sidebar, (v) => setAppearance({ ...ap, sidebar: v }), "sidebar color")}</Row>
-      <div className="grid gap-3 border-t border-line px-4.5 py-4"><div><b className="block text-[13.5px]">Sign-in screen background</b><span className="text-[12.5px] text-muted">A preset, your own two colors, or a picture</span></div><LoginBackgroundControls appearance={ap} setAppearance={setAppearance} /></div>
+    </Card>
+  );
+}
+
+/** The sign-in screen is shared by every device, so it is saved on the server and only administrators can change it. */
+function SignInScreenSettings() {
+  const s = useSession();
+  const toast = useToast();
+  const { busy, run } = useAction();
+  const [saved, setSaved] = useState<LoginBg | null>(null);
+  const [draft, setDraft] = useState<LoginBg | null>(null);
+  useEffect(() => { api<LoginBg>("/api/branding/login").then((l) => { const v = { ...DEFAULT_LOGIN, ...l }; setSaved(v); setDraft(v); }).catch((e) => toast(e.message, "bad")); }, [toast]);
+  if (!draft || !saved) return null;
+  const changed = JSON.stringify(draft) !== JSON.stringify(saved);
+  const save = () => run(async () => {
+    const r = await api<LoginBg>("/api/branding/login", { method: "PUT", body: {
+      kind: draft.kind, preset: draft.preset, c1: draft.c1, c2: draft.c2, dim: draft.dim, message: draft.message,
+      image: draft.image.startsWith("data:") ? draft.image : null, removeImage: !draft.image && !!saved.image,
+    } });
+    const v = { ...DEFAULT_LOGIN, ...r }; setSaved(v); setDraft(v); s.refreshServer();
+  }, "Sign-in screen saved");
+  return (
+    <Card pad={false} className="mt-4" footer={<><span className="text-xs text-muted">Shown to everyone on the sign-in page, on every device.</span><span className="flex-1" />
+      <Button disabled={!changed || busy} onClick={() => setDraft(saved)}>Undo</Button>
+      <Button variant="danger" disabled={busy} onClick={() => setDraft({ ...DEFAULT_LOGIN, image: "" })}>Use default</Button>
+      <Button variant="primary" disabled={!changed || busy} onClick={save}>Save</Button></>}>
+      <div className="flex items-center gap-3 border-b border-line px-4.5 py-4"><span className="grid h-9 w-9 place-items-center rounded-lg bg-accent-soft text-accent"><Palette size={18} /></span><div><b className="block">Sign-in screen</b><span className="text-[12.5px] text-muted">Background and welcome message for the sign-in page</span></div></div>
+      <div className="px-4.5 py-4"><LoginBackgroundControls value={draft} onChange={setDraft} /></div>
     </Card>
   );
 }

@@ -220,3 +220,34 @@ public class ApiTests(ServerFixture f)
         await admin.PostJsonAsync("/api/remote-access/disable", new { });
     }
 }
+
+[Collection("server")]
+public class BrandingTests(ServerFixture f)
+{
+    [Fact]
+    public async Task Sign_in_screen_is_public_to_read_and_admin_only_to_change()
+    {
+        var anon = f.Factory.CreateClient();
+        var view = await anon.GetFromJsonAsync<JsonElement>("/api/branding/login");
+        Assert.False(string.IsNullOrEmpty(view.GetProperty("kind").GetString()));
+
+        var stranger = f.Client();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await stranger.PutJsonAsync("/api/branding/login", new { kind = "color" })).StatusCode);
+
+        var admin = await f.LoginAsync("admin", "Admin-Passw0rd!");
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutJsonAsync("/api/branding/login", new { kind = "image", image = "data:image/png;base64,PHN2Zz4=" })).StatusCode);
+
+        byte[] jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F', 0, 1, 1, 0, 0xFF, 0xD9];
+        var r = await admin.PutJsonAsync("/api/branding/login", new { kind = "image", message = "Welcome to QMARC", dim = 40, image = "data:image/jpeg;base64," + Convert.ToBase64String(jpeg) });
+        Assert.True(r.IsSuccessStatusCode, await r.Content.ReadAsStringAsync());
+        view = await anon.GetFromJsonAsync<JsonElement>("/api/branding/login");
+        Assert.Equal("image", view.GetProperty("kind").GetString());
+        Assert.Equal("Welcome to QMARC", view.GetProperty("message").GetString());
+        var pic = await anon.GetAsync(view.GetProperty("image").GetString());
+        Assert.Equal("image/jpeg", pic.Content.Headers.ContentType?.MediaType);
+
+        r = await admin.PutJsonAsync("/api/branding/login", new { kind = "preset", preset = "aurora", removeImage = true });
+        Assert.True(r.IsSuccessStatusCode);
+        Assert.Equal("", (await anon.GetFromJsonAsync<JsonElement>("/api/branding/login")).GetProperty("image").GetString());
+    }
+}

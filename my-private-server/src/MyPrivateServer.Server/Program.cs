@@ -196,6 +196,7 @@ app.MapDockerEndpoints();
 app.MapBackupEndpoints();
 app.MapRemoteAccessEndpoints();
 app.MapSystemEndpoints();
+app.MapBrandingEndpoints();
 
 // Single-page dashboard: any non-API route serves index.html.
 app.MapFallback(async ctx =>

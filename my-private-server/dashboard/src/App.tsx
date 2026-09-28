@@ -5,7 +5,7 @@ import {
   ScrollText, Settings as SettingsIcon, Shield, Sun, Users as UsersIcon, Archive, Code2,
 } from "lucide-react";
 import { api, ApiError } from "./api";
-import { applyAppearance, isDark, loadAppearance, saveAppearance, type Appearance } from "./appearance";
+import { DEFAULT_LOGIN, applyAppearance, isDark, loadAppearance, saveAppearance, type Appearance, type LoginBg } from "./appearance";
 import { Session, useSession, type Me } from "./session";
 import { ToastProvider, cx } from "./ui";
 import Login from "./pages/Login";
@@ -69,11 +69,13 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [server, setServer] = useState({ name: "My Private Server", id: "" });
   const [appearance, setAppearanceState] = useState<Appearance>(loadAppearance);
+  const [login, setLogin] = useState<LoginBg>(DEFAULT_LOGIN);
 
   const setAppearance = useCallback((a: Appearance) => { setAppearanceState(a); applyAppearance(a); saveAppearance(a); }, []);
   const refreshServer = useCallback(async () => {
     const s = await api("/api/setup/status");
     setServer({ name: s.serverName, id: s.serverId });
+    api<LoginBg>("/api/branding/login").then((l) => setLogin({ ...DEFAULT_LOGIN, ...l })).catch(() => {});
     return s;
   }, []);
 
@@ -102,7 +104,7 @@ export default function App() {
     <ToastProvider>
       {phase.kind === "loading" && <div className="grid h-full place-items-center text-muted">Connecting to the server…</div>}
       {phase.kind === "setup" && <Setup onDone={() => { refreshServer(); setPhase({ kind: "login" }); }} />}
-      {phase.kind === "login" && <Login serverName={server.name} serverId={server.id} appearance={appearance} setAppearance={setAppearance} onLogin={(me) => setPhase({ kind: "app", me })} />}
+      {phase.kind === "login" && <Login serverName={server.name} serverId={server.id} login={login} onLogin={(me) => setPhase({ kind: "app", me })} />}
       {phase.kind === "app" && (
         <Session.Provider value={{
           me: phase.me, serverName: server.name, serverId: server.id, logout, appearance, setAppearance,

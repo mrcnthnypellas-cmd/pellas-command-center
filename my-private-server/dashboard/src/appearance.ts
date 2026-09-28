@@ -1,8 +1,8 @@
-// Per-browser appearance preferences (theme, accent, sidebar colour, sign-in background).
-// Carried over from the approved Phase 1 prototype. Stored in localStorage only.
+// Per-browser appearance preferences (theme, accent, sidebar colour), stored in localStorage.
+// The sign-in background is shared by all devices and stored on the server (/api/branding/login).
 
 export type LoginBg = { kind: "preset" | "color" | "image"; preset: string; c1: string; c2: string; image: string; dim: number; message: string };
-export type Appearance = { mode: "light" | "dark" | "system"; accent: string; sidebar: string; login: LoginBg };
+export type Appearance = { mode: "light" | "dark" | "system"; accent: string; sidebar: string };
 
 export const ACCENTS: [string, string][] = [["Teal", "#0d7680"], ["Blue", "#2563c9"], ["Indigo", "#4f46e5"], ["Green", "#1d8048"], ["Amber", "#b7791f"], ["Orange", "#c2571a"], ["Red", "#c0392b"], ["Pink", "#c02672"], ["Slate", "#475569"]];
 export const SIDEBARS: [string, string][] = [["Midnight", "#0f1b23"], ["Graphite", "#18191d"], ["Navy", "#0d1830"], ["Plum", "#1c1226"], ["Forest", "#0e1c16"], ["Espresso", "#1e1611"], ["Steel", "#243240"]];
@@ -16,15 +16,13 @@ export const LOGIN_PRESETS: [string, string, string][] = [
   ["sky", "Sky", "linear-gradient(160deg,#8fb6d9,#3d6e9e)"],
 ];
 
-export const DEFAULT_APPEARANCE: Appearance = {
-  mode: "system", accent: "#0d7680", sidebar: "#0f1b23",
-  login: { kind: "preset", preset: "aurora", c1: "#1d3b6a", c2: "#0a1020", image: "", dim: 35, message: "Sign in to manage your server." },
-};
+export const DEFAULT_APPEARANCE: Appearance = { mode: "system", accent: "#0d7680", sidebar: "#0f1b23" };
+export const DEFAULT_LOGIN: LoginBg = { kind: "preset", preset: "aurora", c1: "#1d3b6a", c2: "#0a1020", image: "", dim: 35, message: "Sign in to manage your server." };
 
 export function loadAppearance(): Appearance {
   try {
     const raw = localStorage.getItem("mps-appearance");
-    if (raw) { const v = JSON.parse(raw); return { ...DEFAULT_APPEARANCE, ...v, login: { ...DEFAULT_APPEARANCE.login, ...(v.login ?? {}) } }; }
+    if (raw) { const { login: _old, ...v } = JSON.parse(raw); return { ...DEFAULT_APPEARANCE, ...v }; }
   } catch { /* storage unavailable */ }
   return structuredClone(DEFAULT_APPEARANCE);
 }
