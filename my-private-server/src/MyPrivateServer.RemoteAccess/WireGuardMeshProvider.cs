@@ -66,7 +66,34 @@ public sealed class WireGuardMeshProvider(IProcessRunner runner, SettingsStore s
         var r = await runner.RunAsync("tailscale", ["status", "--json"], new ProcessOptions { Timeout = TimeSpan.FromSeconds(10) }, ct);
         if (r.ExitCode != 0 && !r.Output.TrimStart().StartsWith('{'))
             return RemoteStatus.Simple(RemoteState.Error, Id, Name, "The Tailscale service is not running on this PC. " + r.Output.Trim().Split('\n')[0]);
-        return ParseStatus(r.Output[r.Output.IndexOf('{')..], settings.Get().Network.HttpPort);
+        var status = ParseStatus(r.Output[r.Output.IndexOf('{')..], settings.Get().Network.HttpPort);
+        if (status.State != RemoteState.Connected) return status;
+        // A public Tailscale Funnel address (https://name.tailnet.ts.net) works from any browser, so show it first.
+        var f = await runner.RunAsync("tailscale", ["funnel", "status", "--json"], new ProcessOptions { Timeout = TimeSpan.FromSeconds(10) }, ct);
+        var funnel = f.ExitCode == 0 && f.Output.Contains('{') ? FunnelUrls(f.Output[f.Output.IndexOf('{')..]) : [];
+        return funnel.Count == 0 ? status : status with { AccessAddresses = [.. funnel, .. status.AccessAddresses.Except(funnel)] };
+    }
+
+    /// <summary>Public HTTPS addresses from "tailscale funnel status --json" (AllowFunnel: {"host:443": true}).</summary>
+    internal static List<string> FunnelUrls(string json)
+    {
+        var urls = new List<string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("AllowFunnel", out var allow) || allow.ValueKind != JsonValueKind.Object) return urls;
+            foreach (var hp in allow.EnumerateObject())
+            {
+                if (hp.Value.ValueKind != JsonValueKind.True) continue;
+                var i = hp.Name.LastIndexOf(':');
+                if (i <= 0) continue;
+                var host = hp.Name[..i].TrimEnd('.');
+                var port = hp.Name[(i + 1)..];
+                urls.Add(port == "443" ? $"https://{host}" : $"https://{host}:{port}");
+            }
+        }
+        catch (JsonException) { }
+        return urls.OrderBy(u => u.Count(c => c == ':')).ToList();
     }
 
     internal RemoteStatus ParseStatus(string json, int httpPort)
@@ -92,6 +119,8 @@ public sealed class WireGuardMeshProvider(IProcessRunner runner, SettingsStore s
             foreach (var p in peerMap.EnumerateObject())
             {
                 var v = p.Value;
+                // Tailscale's own Funnel relays appear as peers; they are not the owner's devices.
+                if (v.TryGetProperty("HostName", out var h0) && h0.GetString()?.StartsWith("funnel-ingress-node", StringComparison.OrdinalIgnoreCase) == true) continue;
                 var online = v.TryGetProperty("Online", out var on) && on.ValueKind == JsonValueKind.True;
                 var active = v.TryGetProperty("Active", out var ac) && ac.ValueKind == JsonValueKind.True;
                 var cur = v.TryGetProperty("CurAddr", out var ca) ? ca.GetString() : null;

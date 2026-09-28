@@ -180,7 +180,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.Use(Csrf.Middleware);
 
-app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
+var appVersion = typeof(Program).Assembly.GetName().Version is { } av ? $"{av.Major}.{av.Minor}.{av.Build}" : "dev";
+app.MapGet("/api/health", () => Results.Ok(new { status = "ok", version = appVersion }));
 app.MapAuthEndpoints();
 app.MapSetupEndpoints();
 app.MapUserEndpoints();

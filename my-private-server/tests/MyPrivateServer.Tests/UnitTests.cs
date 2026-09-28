@@ -320,3 +320,15 @@ public class CloudflareHostnameTests
     public void Normalizes_public_hostname(string input, string? expected) =>
         Assert.Equal(expected, CloudflareQuickTunnelProvider.NormalizeHostname(input));
 }
+
+public class TailscaleFunnelTests
+{
+    [Fact]
+    public void Reads_public_funnel_addresses()
+    {
+        var json = """{"TCP":{"443":{"HTTPS":true}},"AllowFunnel":{"qmarc-nas.tailb6fc00.ts.net:443":true,"qmarc-nas.tailb6fc00.ts.net:8443":true,"x.ts.net:10000":false}}""";
+        Assert.Equal(["https://qmarc-nas.tailb6fc00.ts.net", "https://qmarc-nas.tailb6fc00.ts.net:8443"], WireGuardMeshProvider.FunnelUrls(json));
+        Assert.Empty(WireGuardMeshProvider.FunnelUrls("{}"));
+        Assert.Empty(WireGuardMeshProvider.FunnelUrls("not json"));
+    }
+}

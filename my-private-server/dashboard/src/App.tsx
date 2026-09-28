@@ -120,6 +120,8 @@ function Shell() {
   const s = useSession();
   const loc = useLocation();
   const [open, setOpen] = useState(false);
+  const [version, setVersion] = useState("");
+  useEffect(() => { api<{ version?: string }>("/api/health").then((h) => setVersion(h.version ?? "")).catch(() => {}); }, []);
   useEffect(() => setOpen(false), [loc.pathname]);
   const base = "/" + (loc.pathname.split("/")[1] ?? "");
   const [title, sub] = TITLES[base] ?? ["My Private Server", ""];
@@ -150,7 +152,7 @@ function Shell() {
             );
           })}
         </nav>
-        <div className="border-t border-side-line px-4 py-3 text-[11.5px] text-side-muted">My Private Server 0.2 · prototype</div>
+        <div className="border-t border-side-line px-4 py-3 text-[11.5px] text-side-muted">My Private Server {version}</div>
       </aside>
       {open && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setOpen(false)} />}
 
