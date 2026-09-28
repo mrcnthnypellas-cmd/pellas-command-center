@@ -73,7 +73,7 @@ export default function Login() {
           <div className="flex-1 p-8">
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus autoComplete="username" />
-              <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+              <Input label="Password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
 
               {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
