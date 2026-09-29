@@ -1,5 +1,5 @@
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
-import { Loader2, Inbox, X } from "lucide-react";
+import { Loader2, Inbox, X, ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
 import { statusColor, statusLabel } from "../../lib/format";
 
 export function Button({
@@ -33,6 +33,53 @@ export function StatCard({ label, value, accent = "bg-brand-600" }: { label: str
     <div className={`rounded-xl p-4 text-white shadow-sm ${accent}`}>
       <p className="text-xs font-medium uppercase tracking-wide opacity-80">{label}</p>
       <p className="mt-1 text-2xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+const ICON_TONES: Record<string, string> = {
+  blue: "bg-blue-50 text-blue-600",
+  green: "bg-emerald-50 text-emerald-600",
+  amber: "bg-amber-50 text-amber-600",
+  red: "bg-red-50 text-red-600",
+  violet: "bg-violet-50 text-violet-600",
+  slate: "bg-slate-100 text-slate-600",
+  sky: "bg-sky-50 text-sky-600",
+  orange: "bg-orange-50 text-orange-600",
+};
+
+export function IconStatCard({
+  label,
+  value,
+  icon: Icon,
+  tone = "blue",
+  trend,
+}: {
+  label: string;
+  value: string | number;
+  icon: LucideIcon;
+  tone?: keyof typeof ICON_TONES;
+  trend?: { value: string; positive: boolean };
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between">
+        <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${ICON_TONES[tone]}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        {trend && (
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+              trend.positive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
+            }`}
+          >
+            {trend.positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+            {trend.value}
+          </span>
+        )}
+      </div>
+      <p className="mt-4 text-2xl font-bold text-slate-800">{value}</p>
+      <p className="mt-1 text-sm text-slate-500">{label}</p>
     </div>
   );
 }
