@@ -305,6 +305,8 @@ export default function Users() {
                 {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </Select>
               <Input label="Position" value={editUser.position ?? ""} onChange={(e) => setEditUser({ ...editUser, position: e.target.value })} />
+              <Input label="Email" value={editUser.email ?? ""} onChange={(e) => setEditUser({ ...editUser, email: e.target.value })} placeholder="e.g. juan@company.com" />
+              <Input label="Phone" value={editUser.phone ?? ""} onChange={(e) => setEditUser({ ...editUser, phone: e.target.value })} />
               <Select label="Employment Status" value={editUser.employment_status} onChange={(e) => setEditUser({ ...editUser, employment_status: e.target.value as any })}>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
