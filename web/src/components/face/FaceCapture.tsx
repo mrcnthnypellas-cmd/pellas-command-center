@@ -8,14 +8,29 @@ interface FaceCaptureProps {
   busy?: boolean;
   statusText?: string;
   statusKind?: "idle" | "success" | "error";
+  /** "manual" (default) shows a Capture Face button. "auto" scans continuously
+   * and calls onCapture as soon as a face is found, no button needed. */
+  mode?: "manual" | "auto";
+  /** auto mode only: how often (ms) to scan for a face. */
+  scanIntervalMs?: number;
 }
 
-export default function FaceCapture({ onCapture, busy = false, statusText, statusKind = "idle" }: FaceCaptureProps) {
+export default function FaceCapture({
+  onCapture,
+  busy = false,
+  statusText,
+  statusKind = "idle",
+  mode = "manual",
+  scanIntervalMs = 1200,
+}: FaceCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [modelsReady, setModelsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +80,31 @@ export default function FaceCapture({ onCapture, busy = false, statusText, statu
     onCapture(descriptor);
   }
 
+  const onCaptureRef = useRef(onCapture);
+  onCaptureRef.current = onCapture;
+
+  useEffect(() => {
+    if (mode !== "auto" || !cameraReady || !modelsReady) return;
+    let disposed = false;
+    let inFlight = false;
+    const id = setInterval(async () => {
+      if (disposed || inFlight || busyRef.current || !videoRef.current) return;
+      inFlight = true;
+      setScanning(true);
+      try {
+        const descriptor = await getFaceDescriptor(videoRef.current);
+        if (descriptor && !disposed) onCaptureRef.current(descriptor);
+      } finally {
+        inFlight = false;
+        if (!disposed) setScanning(false);
+      }
+    }, scanIntervalMs);
+    return () => {
+      disposed = true;
+      clearInterval(id);
+    };
+  }, [mode, cameraReady, modelsReady, scanIntervalMs]);
+
   const canCapture = cameraReady && modelsReady && !busy;
 
   return (
@@ -93,9 +133,24 @@ export default function FaceCapture({ onCapture, busy = false, statusText, statu
         </p>
       )}
 
-      <Button type="button" className="w-full" onClick={handleCapture} loading={busy} disabled={!canCapture}>
-        <Camera className="h-4 w-4" /> Capture Face
-      </Button>
+      {mode === "auto" ? (
+        !statusText && (
+          <p className="flex items-center justify-center gap-2 text-sm text-slate-500">
+            {canCapture ? (
+              <>
+                <span className={`h-2 w-2 rounded-full ${scanning ? "bg-brand-600 animate-pulse" : "bg-slate-300"}`} />
+                Nakaharap ka na ba sa camera? Awtomatiko itong makikilala…
+              </>
+            ) : (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
+          </p>
+        )
+      ) : (
+        <Button type="button" className="w-full" onClick={handleCapture} loading={busy} disabled={!canCapture}>
+          <Camera className="h-4 w-4" /> Capture Face
+        </Button>
+      )}
     </div>
   );
 }

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LogIn, LogOut, CheckCircle2, Clock, ScanFace, CalendarDays } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
-import { Button, Card, Badge, Modal } from "../../components/ui/ui";
+import { Card, Badge } from "../../components/ui/ui";
 import { formatDate, formatTime, todayInTZ } from "../../lib/format";
 import { getPosition, friendlyClockError } from "../../lib/geo";
 import { euclideanDistance, FACE_MATCH_THRESHOLD } from "../../lib/faceRecognition";
@@ -20,12 +20,10 @@ export default function EmployeeDashboard() {
   const [now, setNow] = useState(new Date());
   const [lastAction, setLastAction] = useState<"in" | "out" | null>(null);
 
-  const [faceModalOpen, setFaceModalOpen] = useState(false);
-  const [faceMode, setFaceMode] = useState<"enroll" | "verify">("verify");
-  const [pendingKind, setPendingKind] = useState<"in" | "out" | null>(null);
   const [faceBusy, setFaceBusy] = useState(false);
   const [faceStatus, setFaceStatus] = useState<{ kind: "idle" | "success" | "error"; text?: string }>({ kind: "idle" });
   const [monthRecords, setMonthRecords] = useState<Attendance[]>([]);
+  const [autoDone, setAutoDone] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -98,47 +96,41 @@ export default function EmployeeDashboard() {
     }
   }
 
-  function requestClock(kind: "in" | "out") {
-    if (profile?.face_recognition_required === false) {
-      handleClock(kind);
-      return;
-    }
-    setPendingKind(kind);
-    setFaceStatus({ kind: "idle" });
-    setFaceMode(profile?.face_descriptor ? "verify" : "enroll");
-    setFaceModalOpen(true);
-  }
+  const hasActedRef = useRef(false);
 
-  async function handleFaceCapture(descriptor: Float32Array) {
-    setFaceBusy(true);
-    try {
-      if (faceMode === "enroll") {
+  async function handleAutoFaceCapture(descriptor: Float32Array) {
+    if (hasActedRef.current) return;
+    const kind: "in" | "out" | null = canClockIn ? "in" : canClockOut ? "out" : null;
+    if (!kind) return;
+
+    if (!profile?.face_descriptor) {
+      hasActedRef.current = true;
+      setFaceBusy(true);
+      try {
         const { error } = await supabase.rpc("enroll_face", { p_descriptor: Array.from(descriptor) });
         if (error) throw error;
         await refreshProfile();
-        setFaceModalOpen(false);
-        push("success", "Face ID set up!");
-        if (pendingKind) await handleClock(pendingKind);
-      } else {
-        const stored = profile?.face_descriptor;
-        if (!stored) {
-          setFaceStatus({ kind: "error", text: "No enrolled face found. Please contact your administrator." });
-          return;
-        }
-        const distance = euclideanDistance(Array.from(descriptor), stored);
-        if (distance > FACE_MATCH_THRESHOLD) {
-          setFaceStatus({ kind: "error", text: "Face not recognized. Please try again." });
-          return;
-        }
-        setFaceStatus({ kind: "success", text: "Face verified!" });
-        setFaceModalOpen(false);
-        if (pendingKind) await handleClock(pendingKind);
+        setFaceStatus({ kind: "success", text: `Na-set up ang Face ID! Nagta-time ${kind}...` });
+        setAutoDone(true);
+        await handleClock(kind);
+      } catch (err) {
+        hasActedRef.current = false;
+        setFaceStatus({ kind: "error", text: (err as Error).message || "May problema sa pag-set up ng Face ID. Subukan ulit." });
+      } finally {
+        setFaceBusy(false);
       }
-    } catch (err) {
-      setFaceStatus({ kind: "error", text: (err as Error).message || "Something went wrong. Please try again." });
-    } finally {
-      setFaceBusy(false);
+      return;
     }
+
+    const distance = euclideanDistance(Array.from(descriptor), profile.face_descriptor);
+    if (distance > FACE_MATCH_THRESHOLD) {
+      setFaceStatus({ kind: "error", text: "Hindi nakilala ang mukha. Subukan ulit." });
+      return;
+    }
+    hasActedRef.current = true;
+    setFaceStatus({ kind: "success", text: `Nakilala! Nagta-time ${kind} ka na...` });
+    setAutoDone(true);
+    await handleClock(kind);
   }
 
   const calendarMonth = useMemo(() => new Date(now.getFullYear(), now.getMonth(), 1), [now.getFullYear(), now.getMonth()]);
@@ -182,33 +174,53 @@ export default function EmployeeDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <button
-          onClick={() => requestClock("in")}
-          disabled={!canClockIn || busy !== null}
-          className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-10 text-white shadow-lg transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <LogIn className="h-10 w-10" />
-          <span className="text-lg font-bold tracking-wide">{busy === "in" ? "Processing…" : "TIME IN"}</span>
-        </button>
-        <button
-          onClick={() => requestClock("out")}
-          disabled={!canClockOut || busy !== null}
-          className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-red-600 py-10 text-white shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <LogOut className="h-10 w-10" />
-          <span className="text-lg font-bold tracking-wide">{busy === "out" ? "Processing…" : "TIME OUT"}</span>
-        </button>
-      </div>
-
-      <p className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
-        <ScanFace className="h-3.5 w-3.5" />
-        {profile.face_recognition_required === false
-          ? "Face ID verification is turned off for your account."
-          : profile.face_descriptor
-          ? "Face ID is set up for Time In/Out verification."
-          : "You'll set up Face ID on your next Time In/Out."}
-      </p>
+      {loading ? null : profile.face_recognition_required === false ? (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => handleClock("in")}
+              disabled={!canClockIn || busy !== null}
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-10 text-white shadow-lg transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <LogIn className="h-10 w-10" />
+              <span className="text-lg font-bold tracking-wide">{busy === "in" ? "Processing…" : "TIME IN"}</span>
+            </button>
+            <button
+              onClick={() => handleClock("out")}
+              disabled={!canClockOut || busy !== null}
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-red-600 py-10 text-white shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <LogOut className="h-10 w-10" />
+              <span className="text-lg font-bold tracking-wide">{busy === "out" ? "Processing…" : "TIME OUT"}</span>
+            </button>
+          </div>
+          <p className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
+            <ScanFace className="h-3.5 w-3.5" />
+            Face ID verification is turned off for your account.
+          </p>
+        </>
+      ) : !canClockIn && !canClockOut ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+          <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-600" />
+          <p className="mt-2 text-base font-bold text-emerald-700">Kumpleto ka na sa Time In at Time Out ngayong araw!</p>
+        </div>
+      ) : autoDone ? null : (
+        <Card className="p-6">
+          <div className="mb-3 flex items-center justify-center gap-2 text-slate-700">
+            <ScanFace className="h-5 w-5" />
+            <p className="text-sm font-semibold">
+              {canClockIn ? "Itapat ang mukha sa camera para mag Time In" : "Itapat ang mukha sa camera para mag Time Out"}
+            </p>
+          </div>
+          <FaceCapture
+            mode="auto"
+            onCapture={handleAutoFaceCapture}
+            busy={faceBusy || busy !== null}
+            statusText={faceStatus.text}
+            statusKind={faceStatus.kind}
+          />
+        </Card>
+      )}
 
       <Card className="p-5">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -237,19 +249,6 @@ export default function EmployeeDashboard() {
         </h2>
         <AttendanceCalendar month={calendarMonth} records={monthRecords} workDays={profile.work_schedules?.work_days ?? [1, 2, 3, 4, 5]} />
       </Card>
-
-      <Modal
-        open={faceModalOpen}
-        onClose={() => { if (!faceBusy) setFaceModalOpen(false); }}
-        title={faceMode === "enroll" ? "Set Up Face ID" : "Verify Your Face"}
-      >
-        <p className="mb-3 text-sm text-slate-500">
-          {faceMode === "enroll"
-            ? "This is your first Time In/Out — let's set up Face ID so we can verify it's really you next time."
-            : `Look at the camera to verify your identity before clocking ${pendingKind === "in" ? "in" : "out"}.`}
-        </p>
-        <FaceCapture onCapture={handleFaceCapture} busy={faceBusy} statusText={faceStatus.text} statusKind={faceStatus.kind} />
-      </Modal>
     </div>
   );
 }
