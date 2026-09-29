@@ -23,7 +23,11 @@ export default function EmployeeDashboard() {
   const [faceBusy, setFaceBusy] = useState(false);
   const [faceStatus, setFaceStatus] = useState<{ kind: "idle" | "success" | "error"; text?: string }>({ kind: "idle" });
   const [monthRecords, setMonthRecords] = useState<Attendance[]>([]);
-  const [autoDone, setAutoDone] = useState(false);
+  // "scanning": camera active. "success": done for this page load, camera
+  // hidden. "cooldown": a clock attempt failed (e.g. outside the geofence,
+  // dropped connection) — camera stays open but paused, showing the error,
+  // then auto-resumes scanning after a few seconds.
+  const [autoPhase, setAutoPhase] = useState<"scanning" | "success" | "cooldown">("scanning");
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -74,7 +78,7 @@ export default function EmployeeDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
-  async function handleClock(kind: "in" | "out") {
+  async function handleClock(kind: "in" | "out"): Promise<boolean> {
     setBusy(kind);
     try {
       const pos = await getPosition();
@@ -89,32 +93,54 @@ export default function EmployeeDashboard() {
       setToday(data as Attendance);
       setLastAction(kind);
       push("success", kind === "in" ? "Time In successful!" : "Time Out successful!");
+      return true;
     } catch (err) {
       push("error", friendlyClockError(err));
+      return false;
     } finally {
       setBusy(null);
     }
   }
 
-  const hasActedRef = useRef(false);
+  // Synchronous gate against overlapping/duplicate auto-capture calls —
+  // separate from autoPhase since state updates aren't applied in time to
+  // block a capture that fires in the same tick.
+  const busyRef = useRef(false);
+
+  // Re-arms auto-scanning after a failed attempt (e.g. outside the
+  // geofence, or a dropped connection) so the employee doesn't have to
+  // reload the page just to try again.
+  function reArmAfterFailure(text: string) {
+    setFaceStatus({ kind: "error", text });
+    setAutoPhase("cooldown");
+    window.setTimeout(() => {
+      busyRef.current = false;
+      setAutoPhase("scanning");
+      setFaceStatus({ kind: "idle" });
+    }, 4000);
+  }
 
   async function handleAutoFaceCapture(descriptor: Float32Array) {
-    if (hasActedRef.current) return;
+    if (busyRef.current) return;
     const kind: "in" | "out" | null = canClockIn ? "in" : canClockOut ? "out" : null;
     if (!kind) return;
 
     if (!profile?.face_descriptor) {
-      hasActedRef.current = true;
+      busyRef.current = true;
       setFaceBusy(true);
       try {
         const { error } = await supabase.rpc("enroll_face", { p_descriptor: Array.from(descriptor) });
         if (error) throw error;
         await refreshProfile();
         setFaceStatus({ kind: "success", text: `Na-set up ang Face ID! Nagta-time ${kind}...` });
-        setAutoDone(true);
-        await handleClock(kind);
+        const ok = await handleClock(kind);
+        if (ok) {
+          setAutoPhase("success");
+        } else {
+          reArmAfterFailure(`Nakuha na ang Face ID, pero hindi na-time ${kind}. Susubukan ulit sa ilang segundo.`);
+        }
       } catch (err) {
-        hasActedRef.current = false;
+        busyRef.current = false;
         setFaceStatus({ kind: "error", text: (err as Error).message || "May problema sa pag-set up ng Face ID. Subukan ulit." });
       } finally {
         setFaceBusy(false);
@@ -127,10 +153,14 @@ export default function EmployeeDashboard() {
       setFaceStatus({ kind: "error", text: "Hindi nakilala ang mukha. Subukan ulit." });
       return;
     }
-    hasActedRef.current = true;
+    busyRef.current = true;
     setFaceStatus({ kind: "success", text: `Nakilala! Nagta-time ${kind} ka na...` });
-    setAutoDone(true);
-    await handleClock(kind);
+    const ok = await handleClock(kind);
+    if (ok) {
+      setAutoPhase("success");
+    } else {
+      reArmAfterFailure(`Nakilala ka, pero hindi na-time ${kind}. Susubukan ulit sa ilang segundo.`);
+    }
   }
 
   const calendarMonth = useMemo(() => new Date(now.getFullYear(), now.getMonth(), 1), [now.getFullYear(), now.getMonth()]);
@@ -204,7 +234,7 @@ export default function EmployeeDashboard() {
           <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-600" />
           <p className="mt-2 text-base font-bold text-emerald-700">Kumpleto ka na sa Time In at Time Out ngayong araw!</p>
         </div>
-      ) : autoDone ? null : (
+      ) : autoPhase === "success" ? null : (
         <Card className="p-6">
           <div className="mb-3 flex items-center justify-center gap-2 text-slate-700">
             <ScanFace className="h-5 w-5" />
@@ -215,7 +245,7 @@ export default function EmployeeDashboard() {
           <FaceCapture
             mode="auto"
             onCapture={handleAutoFaceCapture}
-            busy={faceBusy || busy !== null}
+            busy={faceBusy || busy !== null || autoPhase === "cooldown"}
             statusText={faceStatus.text}
             statusKind={faceStatus.kind}
           />
