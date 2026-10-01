@@ -31,11 +31,11 @@ const PANES = {
   async license(el) {
     const L = await api.get('/license');
     const tone = L.state === 'valid' ? (L.warn ? 'amber' : 'green') : 'red';
-    const label = { valid: L.warn ? 'Expiring soon' : 'Active', expired: 'Expired', missing: 'No license', invalid: 'Invalid key', clock: 'Check the computer date' }[L.state] || L.state;
+    const label = { valid: L.lifetime ? 'Lifetime' : L.warn ? 'Expiring soon' : 'Active', expired: 'Expired', missing: 'No license', invalid: 'Invalid key', clock: 'Check the computer date' }[L.state] || L.state;
     el.innerHTML = `<div class="grid split-2-1"><section class="card"><div class="card-head"><h3>License</h3>${badge(label, tone)}</div><div class="card-body">
         ${L.licensee ? `<dl class="license-facts">
           <dt>Licensed to</dt><dd>${esc(L.licensee)}</dd>
-          <dt>Valid until</dt><dd>${esc(L.expires)}${L.state === 'valid' ? ` <span class="muted" style="font-weight:400">(${L.days_left} day(s) left)</span>` : ''}</dd>
+          <dt>Valid until</dt><dd>${L.lifetime ? 'No expiry (lifetime license)' : `${esc(L.expires)}${L.state === 'valid' ? ` <span class="muted" style="font-weight:400">(${L.days_left} day(s) left)</span>` : ''}`}</dd>
           ${L.issued ? `<dt>Issued</dt><dd>${esc(L.issued)}</dd>` : ''}
           ${L.id ? `<dt>Key ID</dt><dd class="mono">${esc(L.id)}</dd>` : ''}
         </dl>` : '<p class="muted" style="margin:0">No license key has been entered.</p>'}
@@ -50,7 +50,7 @@ const PANES = {
       try {
         const s = await api.post('/license', { key: f.elements.key.value });
         state.user.license = s;
-        toast(`License active until ${s.expires}`);
+        toast(s.lifetime ? 'Lifetime license activated' : `License active until ${s.expires}`);
         window.dispatchEvent(new Event('itms:license'));
       } catch (ex) { toast(ex.message, 'err'); }
     });

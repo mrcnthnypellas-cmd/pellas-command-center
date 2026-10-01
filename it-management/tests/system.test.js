@@ -792,6 +792,15 @@ test('license key: status, renewal, lock when expired, backup still allowed', as
   assert.equal(license.status(undefined, { today: day(0) }).state, 'clock');
   db.run("DELETE FROM settings WHERE key = 'license_last_seen'");
   assert.equal(license.status().state, 'valid');
+
+  // Lifetime key: never expires, no reminder, and the computer's date doesn't matter
+  const life = ok(await a.post('/license', { key: makeKey(TEST_PRIV, { company: 'Pellas Corporation', expires: 'never' }) }));
+  assert.equal(life.state, 'valid'); assert.equal(life.lifetime, true); assert.equal(life.warn, false); assert.equal(life.days_left, null);
+  assert.equal(license.status(undefined, { today: '2099-12-31' }).state, 'valid');
+  assert.equal(license.status(undefined, { today: '2000-01-01' }).state, 'valid');
+  assert.equal((await a.get('/assets')).status, 200);
+  assert.throws(() => makeKey(TEST_PRIV, { company: 'X', expires: 'forever' }), /never/);
+  db.run("DELETE FROM settings WHERE key = 'license_last_seen'");
 });
 
 // Keep this last: it erases the shared test database.

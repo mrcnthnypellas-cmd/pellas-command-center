@@ -23,6 +23,7 @@ button.primary { background: var(--primary); border-color: var(--primary); color
 table { width: 100%; border-collapse: collapse; font-size: 13px; } th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--border); } .mono { font-family: ui-monospace, Consolas, monospace; }
 .warn { background: #fef3c7; color: #78350f; border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-top: 12px; } @media (prefers-color-scheme: dark) { .warn { background:#2d2410; color:#fde68a; } }
 .table-wrap { overflow-x: auto; }
+.lifetime { display: flex; gap: 8px; align-items: center; font-weight: 400; font-size: 14px; margin-top: 12px; } .lifetime input { width: auto; }
 </style></head><body><main>
 <h1>License Generator</h1><p class="muted" style="margin:0">Make license keys for Pellas IT Command. Works offline; nothing is sent anywhere.</p>
 <section><h2>1 · Load your private key</h2>
@@ -33,6 +34,7 @@ table { width: 100%; border-collapse: collapse; font-size: 13px; } th, td { text
 <form id="form" novalidate><section><h2>2 · Customer and expiry</h2>
 <label for="company">Customer / company name</label><input id="company" maxlength="80" placeholder="e.g. Acme Trading">
 <label for="expires">Valid until (last day it works)</label><input id="expires" type="date">
+<label class="lifetime"><input id="lifetime" type="checkbox"> <span><b>Lifetime license</b> (never expires)</span></label>
 <div class="row"><button type="button" data-months="1">1 month</button><button type="button" data-months="6">6 months</button><button type="button" data-years="1">1 year</button><button type="button" data-years="2">2 years</button><button type="button" data-years="3">3 years</button></div>
 <p id="err"></p><button id="make" class="primary" type="submit" disabled>Make license key</button></section></form>
 <section id="result" hidden><h2>3 · Send this key to the customer</h2><p id="summary" class="muted" style="margin-top:0"></p>

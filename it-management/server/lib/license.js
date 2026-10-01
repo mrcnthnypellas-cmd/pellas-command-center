@@ -1,5 +1,5 @@
 // License keys: "ITMS1.<payload>.<signature>", both parts base64url. The payload is JSON:
-//   { c: licensed company, e: expiry date (YYYY-MM-DD, last valid day), i: issue date, n: key id }
+//   { c: licensed company, e: expiry date (YYYY-MM-DD, last valid day) or "never" (lifetime), i: issue date, n: key id }
 // Keys are signed by the software owner (see tools/license), so the dates can't be edited.
 // Works offline. A clock set far back is noticed through the last date the system saw.
 const db = require('../db/connection');
@@ -7,6 +7,7 @@ const signer = require('./licenseKey');
 
 const PREFIX = 'ITMS1';
 const WARN_DAYS = 30;
+const LIFETIME = 'never';
 
 const b64urlToBytes = (s) => {
   const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4);
@@ -27,7 +28,7 @@ function decodeKey(raw) {
     if (sig.length !== 64 || !signer.verify(new TextEncoder().encode(`${PREFIX}.${parts[1]}`), sig)) return { ok: false, reason: 'invalid' };
     payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[1])));
   } catch { return { ok: false, reason: 'invalid' }; }
-  if (!payload || typeof payload.c !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(payload.e || '')) return { ok: false, reason: 'invalid' };
+  if (!payload || typeof payload.c !== 'string' || !(payload.e === LIFETIME || /^\d{4}-\d{2}-\d{2}$/.test(payload.e || ''))) return { ok: false, reason: 'invalid' };
   return { ok: true, key, payload };
 }
 
@@ -39,6 +40,8 @@ function status(raw = setting('license_key'), { today = localDate(), remember = 
   const d = decodeKey(raw);
   if (!d.ok) return { state: d.reason, valid: false };
   const { c: licensee, e: expires, i: issued, n: id } = d.payload;
+  // Lifetime keys never expire, so the computer's date doesn't matter for them.
+  if (expires === LIFETIME) return { licensee, expires, lifetime: true, issued: issued || null, id: id || null, days_left: null, state: 'valid', valid: true, warn: false };
   // Remember the latest date seen, so turning the computer's clock back doesn't revive an expired key.
   const lastSeen = setting('license_last_seen');
   if (lastSeen && dayNumber(today) < dayNumber(lastSeen) - 1) {
@@ -62,4 +65,4 @@ function activate(raw) {
   return status();
 }
 
-module.exports = { decodeKey, status, activate, localDate, PREFIX };
+module.exports = { decodeKey, status, activate, localDate, PREFIX, LIFETIME };
