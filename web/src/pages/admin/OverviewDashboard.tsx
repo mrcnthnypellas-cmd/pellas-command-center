@@ -130,6 +130,8 @@ export default function OverviewDashboard() {
         <p className="text-sm text-slate-500">Live overview — updates automatically as employees clock in/out.</p>
       </div>
 
+      <MyTasksCard />
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <IconStatCard label="Total Employees" value={stats.totalEmployees} icon={Users} tone="blue" />
         <IconStatCard label="Present Today" value={stats.presentToday} icon={UserCheck} tone="green" />
@@ -208,8 +210,6 @@ export default function OverviewDashboard() {
           attendance, corrections, and reports.
         </p>
       </Card>
-
-      <MyTasksCard />
 
       <ContactDirectoryCard />
     </div>
