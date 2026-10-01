@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
-import { Plus, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
-import { Card, Button, Modal, Input, Select, Badge } from "./ui/ui";
+import { Card, Badge } from "./ui/ui";
 import { formatDate, todayInTZ } from "../lib/format";
-import type { Task, TaskPriority, TaskStatus } from "../types";
+import type { Task, TaskStatus } from "../types";
 
-const emptyForm = { title: "", description: "", due_date: "", priority: "normal" as TaskPriority };
 const TABS: { key: "all" | TaskStatus; label: string }[] = [
   { key: "all", label: "All" },
   { key: "pending", label: "Pending" },
@@ -22,9 +21,6 @@ export function MyTasksCard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"all" | TaskStatus>("all");
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
 
   async function load() {
     if (!profile) return;
@@ -52,29 +48,6 @@ export function MyTasksCard() {
     completed: tasks.filter((t) => t.status === "completed").length,
   };
 
-  async function submit() {
-    if (!profile || !form.title.trim()) {
-      push("error", "Please enter a task title.");
-      return;
-    }
-    setSaving(true);
-    const { error } = await supabase.from("tasks").insert({
-      company_id: profile.company_id,
-      title: form.title,
-      description: form.description || null,
-      assigned_to: profile.id,
-      assigned_by: profile.id,
-      due_date: form.due_date || null,
-      priority: form.priority,
-    });
-    setSaving(false);
-    if (error) return push("error", error.message);
-    push("success", "Task added.");
-    setOpen(false);
-    setForm(emptyForm);
-    load();
-  }
-
   async function markDone(t: Task) {
     const { error } = await supabase.rpc("mark_task_done", { p_task_id: t.id });
     if (error) return push("error", error.message);
@@ -83,14 +56,9 @@ export function MyTasksCard() {
 
   return (
     <Card className="p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-800">My Tasks</h2>
-          <p className="text-xs text-slate-400">{counts.pending} pending &middot; {counts.completed} completed</p>
-        </div>
-        <Button variant="secondary" className="!px-3 !py-1.5 text-xs" onClick={() => { setForm(emptyForm); setOpen(true); }}>
-          <Plus className="h-3.5 w-3.5" /> Add Task
-        </Button>
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold text-slate-800">My Tasks</h2>
+        <p className="text-xs text-slate-400">{counts.pending} pending &middot; {counts.completed} completed</p>
       </div>
 
       <div className="mb-3 flex flex-wrap gap-1.5">
@@ -131,34 +99,9 @@ export function MyTasksCard() {
         </ul>
       )}
 
-      {tasks.length > 6 && (
-        <Link to="/tasks" className="mt-3 block text-center text-xs font-medium text-brand-600 hover:underline">
-          View all tasks
-        </Link>
-      )}
-
-      <Modal open={open} onClose={() => setOpen(false)} title="Add Task">
-        <div className="space-y-3">
-          <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Submit weekly report" />
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-slate-700">Description (optional)</span>
-            <textarea className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" rows={2}
-              value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Due Date" type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
-            <Select label="Priority" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })}>
-              <option value="low">Low</option>
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-            </Select>
-          </div>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={submit} loading={saving}>Add Task</Button>
-        </div>
-      </Modal>
+      <Link to="/tasks" className="mt-3 block text-center text-xs font-medium text-brand-600 hover:underline">
+        View all tasks
+      </Link>
     </Card>
   );
 }
