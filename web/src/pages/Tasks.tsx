@@ -62,7 +62,7 @@ export default function Tasks() {
 
   function startAdd() {
     setEditing(null);
-    setForm({ ...emptyForm, assigned_to: isStaff ? "" : profile!.id });
+    setForm(emptyForm);
     setOpen(true);
   }
 
@@ -77,7 +77,7 @@ export default function Tasks() {
       push("error", "Please enter a task title.");
       return;
     }
-    const assignedTo = isStaff ? form.assigned_to : profile.id;
+    const assignedTo = form.assigned_to;
     if (!assignedTo) {
       push("error", "Please select who this task is for.");
       return;
@@ -147,7 +147,7 @@ export default function Tasks() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-800">Tasks</h1>
-        <Button onClick={startAdd}><Plus className="h-4 w-4" /> Add Task</Button>
+        {isStaff && <Button onClick={startAdd}><Plus className="h-4 w-4" /> Add Task</Button>}
       </div>
 
       <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-44">
@@ -163,7 +163,7 @@ export default function Tasks() {
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">Task</th>
-                {isStaff && <th className="px-4 py-3">Assigned To</th>}
+                <th className="px-4 py-3">Assigned To</th>
                 <th className="px-4 py-3">Due Date</th>
                 <th className="px-4 py-3">Priority</th>
                 <th className="px-4 py-3">Status</th>
@@ -180,9 +180,7 @@ export default function Tasks() {
                       <p className={`font-medium ${t.status === "completed" ? "text-slate-400 line-through" : "text-slate-700"}`}>{t.title}</p>
                       {t.description && <p className="text-xs text-slate-400">{t.description}</p>}
                     </td>
-                    {isStaff && (
-                      <td className="px-4 py-3 text-slate-600">{t.assignee?.first_name} {t.assignee?.last_name}</td>
-                    )}
+                    <td className="px-4 py-3 text-slate-600">{t.assignee?.first_name} {t.assignee?.last_name}</td>
                     <td className="px-4 py-3">{t.due_date ? formatDate(t.due_date) : "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${PRIORITY_COLOR[t.priority]}`}>{t.priority}</span>
@@ -223,12 +221,10 @@ export default function Tasks() {
             <textarea className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" rows={2}
               value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </label>
-          {isStaff && (
-            <Select label="Assign To" value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}>
-              <option value="">Select employee…</option>
-              {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </Select>
-          )}
+          <Select label="Assign To" value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}>
+            <option value="">Select employee…</option>
+            {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </Select>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Due Date" type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
             <Select label="Priority" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })}>
