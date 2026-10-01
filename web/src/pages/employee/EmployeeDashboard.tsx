@@ -260,10 +260,11 @@ export default function EmployeeDashboard() {
         {loading ? (
           <p className="text-sm text-slate-400">Loading…</p>
         ) : today ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             <Stat label="Time In" value={formatTime(today.time_in)} />
             <Stat label="Time Out" value={formatTime(today.time_out)} />
             <Stat label="Hours Worked" value={today.hours_worked != null ? String(today.hours_worked) : "—"} />
+            {today.overtime_hours > 0 && <Stat label="Overtime (Approved)" value={`+${today.overtime_hours}h`} />}
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-400">Status</p>
               <Badge status={today.status} />

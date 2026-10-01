@@ -63,6 +63,7 @@ export interface Attendance {
   time_out_lat: number | null;
   time_out_lng: number | null;
   hours_worked: number | null;
+  overtime_hours: number;
   status: AttendanceStatus;
   created_at: string;
   updated_at: string;
@@ -90,6 +91,8 @@ export interface OvertimeRequest {
   id: string;
   employee_id: string;
   work_date: string;
+  start_time: string | null;
+  end_time: string | null;
   requested_hours: number;
   approved_hours: number | null;
   reason: string;
