@@ -93,6 +93,7 @@ export interface OvertimeRequest {
   work_date: string;
   start_time: string | null;
   end_time: string | null;
+  is_open_ended: boolean;
   requested_hours: number;
   approved_hours: number | null;
   reason: string;
