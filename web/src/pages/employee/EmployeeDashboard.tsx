@@ -193,6 +193,8 @@ export default function EmployeeDashboard() {
         </div>
       </Card>
 
+      <MyTasksCard />
+
       {!loading && lastAction && today && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
           <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
@@ -282,8 +284,6 @@ export default function EmployeeDashboard() {
         </h2>
         <AttendanceCalendar month={calendarMonth} records={monthRecords} workDays={profile.work_schedules?.work_days ?? [1, 2, 3, 4, 5]} />
       </Card>
-
-      <MyTasksCard />
 
       <ContactDirectoryCard />
     </div>
