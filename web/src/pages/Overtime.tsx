@@ -7,7 +7,7 @@ import { Button, Card, Modal, Input, Select, Badge, Spinner, EmptyState } from "
 import { formatDate, todayInTZ } from "../lib/format";
 import type { OvertimeRequest } from "../types";
 
-const emptyForm = { work_date: todayInTZ(), start_time: "", end_time: "", reason: "" };
+const emptyForm = { work_date: todayInTZ(), start_time: "", end_time: "", openEnded: false, reason: "" };
 
 // Plain "HH:MM" (or "HH:MM:SS") time string -> "5:00 PM", no timezone conversion.
 function formatPlainTime(t: string | null) {
@@ -65,8 +65,8 @@ export default function Overtime() {
       push("error", "Please provide a reason for this overtime request.");
       return;
     }
-    const hours = hoursBetween(form.start_time, form.end_time);
-    if (!hours) {
+    const hours = form.openEnded ? 0 : hoursBetween(form.start_time, form.end_time);
+    if (!form.openEnded && !hours) {
       push("error", "Enter a valid Start Time and End Time (end must be after start).");
       return;
     }
@@ -74,8 +74,9 @@ export default function Overtime() {
     const { error } = await supabase.from("overtime_requests").insert({
       employee_id: profile.id,
       work_date: form.work_date,
-      start_time: form.start_time,
-      end_time: form.end_time,
+      start_time: form.start_time || null,
+      end_time: form.openEnded ? null : form.end_time,
+      is_open_ended: form.openEnded,
       requested_hours: hours,
       reason: form.reason,
     });
@@ -147,9 +148,13 @@ export default function Overtime() {
                   {isStaff && <td className="px-4 py-3 font-medium text-slate-700">{r.profiles?.first_name} {r.profiles?.last_name}</td>}
                   <td className="px-4 py-3">{formatDate(r.work_date)}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {r.start_time ? `${formatPlainTime(r.start_time)} – ${formatPlainTime(r.end_time)}` : "—"}
+                    {r.is_open_ended
+                      ? `Open${r.start_time ? ` from ${formatPlainTime(r.start_time)}` : ""}`
+                      : r.start_time
+                        ? `${formatPlainTime(r.start_time)} – ${formatPlainTime(r.end_time)}`
+                        : "—"}
                   </td>
-                  <td className="px-4 py-3">{r.requested_hours}h</td>
+                  <td className="px-4 py-3">{r.is_open_ended ? "—" : `${r.requested_hours}h`}</td>
                   <td className="px-4 py-3">{r.approved_hours != null ? `${r.approved_hours}h` : "—"}</td>
                   <td className="px-4 py-3 max-w-xs truncate" title={r.reason}>{r.reason}</td>
                   <td className="px-4 py-3"><Badge status={r.status} /></td>
@@ -173,14 +178,33 @@ export default function Overtime() {
       <Modal open={open} onClose={() => setOpen(false)} title="Request Overtime">
         <div className="space-y-3">
           <Input label="Date" type="date" value={form.work_date} onChange={(e) => setForm({ ...form, work_date: e.target.value })} max={todayInTZ()} />
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Start Time" type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
-            <Input label="End Time" type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
-          </div>
-          {hoursBetween(form.start_time, form.end_time) != null && (
-            <p className="text-xs text-slate-500">
-              = {hoursBetween(form.start_time, form.end_time)} hour{hoursBetween(form.start_time, form.end_time) === 1 ? "" : "s"} of overtime
-            </p>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={form.openEnded}
+              onChange={(e) => setForm({ ...form, openEnded: e.target.checked })}
+            />
+            Open-ended (hanggang sa mag-time out ako)
+          </label>
+          {form.openEnded ? (
+            <>
+              <Input label="Start Time (optional)" type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+              <p className="text-xs text-slate-500">
+                Walang fixed End Time — kung ano ang oras ng actual Time Out mo pagkatapos ng iskedyul mong shift, `yun na ang macre-credit na overtime hours.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Start Time" type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+                <Input label="End Time" type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+              </div>
+              {hoursBetween(form.start_time, form.end_time) != null && (
+                <p className="text-xs text-slate-500">
+                  = {hoursBetween(form.start_time, form.end_time)} hour{hoursBetween(form.start_time, form.end_time) === 1 ? "" : "s"} of overtime
+                </p>
+              )}
+            </>
           )}
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Reason</span>
@@ -199,18 +223,28 @@ export default function Overtime() {
           <div className="space-y-3">
             <p className="text-sm text-slate-600">
               {reviewTarget.row.profiles?.first_name} {reviewTarget.row.profiles?.last_name} — {formatDate(reviewTarget.row.work_date)}
-              {reviewTarget.row.start_time && (
-                <> &middot; {formatPlainTime(reviewTarget.row.start_time)} – {formatPlainTime(reviewTarget.row.end_time)}</>
+              {reviewTarget.row.is_open_ended ? (
+                <> &middot; Open-ended{reviewTarget.row.start_time ? ` from ${formatPlainTime(reviewTarget.row.start_time)}` : ""}</>
+              ) : (
+                reviewTarget.row.start_time && (
+                  <> &middot; {formatPlainTime(reviewTarget.row.start_time)} – {formatPlainTime(reviewTarget.row.end_time)}</>
+                )
               )}
             </p>
             <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">{reviewTarget.row.reason}</p>
             {reviewTarget.decision === "approved" && (
-              <>
-                <Input label="Approved Hours" type="number" step="0.5" min="0.5" value={approvedHours} onChange={(e) => setApprovedHours(e.target.value)} />
+              reviewTarget.row.is_open_ended ? (
                 <p className="text-xs text-slate-500">
-                  Approving will automatically add these hours to {reviewTarget.row.profiles?.first_name}'s attendance for {formatDate(reviewTarget.row.work_date)}.
+                  Open-ended request — hindi na kailangan maglagay ng oras dito. Awtomatikong macre-credit bilang overtime ang anumang oras na ma-clock out ni {reviewTarget.row.profiles?.first_name} lagpas sa iskedyul niyang shift sa {formatDate(reviewTarget.row.work_date)}.
                 </p>
-              </>
+              ) : (
+                <>
+                  <Input label="Approved Hours" type="number" step="0.5" min="0.5" value={approvedHours} onChange={(e) => setApprovedHours(e.target.value)} />
+                  <p className="text-xs text-slate-500">
+                    Approving will automatically add these hours to {reviewTarget.row.profiles?.first_name}'s attendance for {formatDate(reviewTarget.row.work_date)}.
+                  </p>
+                </>
+              )
             )}
             <label className="block text-sm">
               <span className="mb-1 block font-medium text-slate-700">Review notes (optional)</span>
