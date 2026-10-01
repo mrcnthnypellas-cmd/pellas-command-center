@@ -70,9 +70,12 @@ export function statusColor(status: string) {
     case "pending":
       return "bg-amber-100 text-amber-700 ring-amber-600/20";
     case "approved":
+    case "completed":
       return "bg-emerald-100 text-emerald-700 ring-emerald-600/20";
     case "rejected":
       return "bg-red-100 text-red-700 ring-red-600/20";
+    case "in_progress":
+      return "bg-blue-100 text-blue-700 ring-blue-600/20";
     default:
       return "bg-slate-100 text-slate-700 ring-slate-600/20";
   }
