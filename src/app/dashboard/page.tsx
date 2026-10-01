@@ -22,6 +22,7 @@ import { DonutChart } from '@/components/dashboard/DonutChart';
 import { StaticMap } from '@/components/dashboard/StaticMap';
 import { EmployeeHomeDashboard } from '@/components/dashboard/EmployeeHomeDashboard';
 import { AnnouncementCard } from '@/components/dashboard/AnnouncementCard';
+import { ContactDirectoryCard } from '@/components/dashboard/ContactDirectoryCard';
 import { formatCurrency } from '@/lib/utils';
 
 export default async function DashboardHomePage() {
@@ -337,6 +338,8 @@ export default async function DashboardHomePage() {
           </div>
         </div>
       </div>
+
+      <ContactDirectoryCard canEdit={ctx.role === 'COMPANY_ADMIN'} />
     </div>
   );
 }

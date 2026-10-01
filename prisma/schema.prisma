@@ -149,6 +149,7 @@ model Company {
   announcements   Announcement[]
   countEvents     CountEvent[]
   chatMessages    ChatMessage[]
+  contactDirectoryEntries ContactDirectoryEntry[]
 }
 
 model User {
@@ -182,6 +183,7 @@ model User {
   platformSettingUpdates PlatformSetting[]
   createdAnnouncements  Announcement[]
   createdCountEvents    CountEvent[]
+  createdContactDirectoryEntries ContactDirectoryEntry[]
   sentChatMessages      ChatMessage[]        @relation("ChatMessageSender")
   receivedChatMessages  ChatMessage[]        @relation("ChatMessageRecipient")
 
@@ -694,4 +696,27 @@ model Announcement {
 
   @@index([companyId, isActive])
   @@index([companyId, eventDate])
+}
+
+// ---------- Contact Directory ----------
+// A short list of company contact points (HR, Admin, IT Support, Accounting,
+// Emergency Contact, etc.) shown as a read-only widget on every role's dashboard.
+// Fully editable (add/edit/delete/reorder) by Company Admin / Super Admin only.
+model ContactDirectoryEntry {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id])
+  sortOrder       Int      @default(0)
+  name            String // e.g. "HR Department", "Emergency Contact"
+  description     String? // e.g. "Recruitment, Benefits, Personnel"
+  phone           String
+  extension       String?
+  icon            String   @default("phone") // allow-listed key, mapped to a lucide icon client-side
+  isEmergency     Boolean  @default(false) // styles the row with the red/urgent treatment
+  createdByUserId String
+  createdByUser   User     @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([companyId, sortOrder])
 }
