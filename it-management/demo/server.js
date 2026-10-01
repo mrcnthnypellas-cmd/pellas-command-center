@@ -6,6 +6,7 @@ const { loadUser, requireAuth } = require('../server/lib/auth');
 const vault = require('../server/lib/vault'); // → demo/shims/vault.js
 const fs = require('fs'); // → demo/shims/fs.js
 const store = require('./store');
+const { describeError } = require('../server/lib/errors');
 const { licenseGate } = require('../server/lib/licenseGate');
 
 const MOUNTS = [
@@ -135,9 +136,9 @@ async function request({ method = 'GET', url, body, files }) {
       }
     }
   } catch (err) {
-    const status = err.status || 500;
+    const { status, message } = describeError(err);
     if (status === 500) console.error(err);
-    res.status(status).json({ error: status === 500 ? `Unexpected error: ${err.message}` : err.message });
+    res.status(status).json({ error: status === 500 ? `Unexpected error: ${err.message}` : message || err.message });
   }
   if (method !== 'GET' && res.statusCode < 400) persist();
   return { status: res.statusCode, headers: res.headers, body: res.body };

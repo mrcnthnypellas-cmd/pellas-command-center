@@ -814,6 +814,7 @@ test('start fresh: erase data keeps the admin, roles and categories', async () =
   assert.equal((await a.post('/backup/erase', { password: 'wrong', confirm: 'ERASE' })).status, 400);
   assert.ok(ok(await a.get('/assets')).length > 0, 'nothing erased by failed attempts');
 
+  const oldLocation = ok(await a.get('/settings/lookups')).locations[0].id;
   const r = ok(await a.post('/backup/erase', { password: 'admin123', confirm: 'ERASE', departments: false }));
   assert.equal(r.erased.assets, before.assets);
   const after = ok(await a.get('/backup/erase-preview'));
@@ -831,6 +832,13 @@ test('start fresh: erase data keeps the admin, roles and categories', async () =
   const L = ok(await a.get('/settings/lookups'));
   const cat = L.categories.find((c) => c.prefix === 'LAP');
   assert.ok(cat, 'categories kept');
+  // A form still showing an erased location gets a clear message, not "Unexpected server error"
+  const stale = await a.post('/assets', { name: 'Stale form', category_id: cat.id, location_id: oldLocation });
+  assert.equal(stale.status, 400);
+  assert.match(stale.data.error, /no longer exists/);
+  const fd = new FormData(); fd.append('name', 'With stray file'); fd.append('category_id', String(cat.id)); fd.append('document', new Blob(['%PDF-1.4']), 'x.pdf');
+  const stray = await fetch(`${base}/api/assets`, { method: 'POST', headers: { Cookie: a.cookie, 'X-Requested-With': 'itms' }, body: fd });
+  assert.equal(stray.status, 400);
   const made = ok(await a.post('/assets', { name: 'First real laptop', category_id: cat.id, purchase_cost: 45000 }));
   assert.match(made.asset_tag, /^LAP-0*1$/);
 });

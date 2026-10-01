@@ -59,10 +59,11 @@ function createApp() {
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
-    const status = err.status || (err.code === 'LIMIT_FILE_SIZE' ? 400 : 500);
+    const known = require('./lib/errors').describeError(err);
+    const { status } = known;
     if (status >= 500) console.error(err);
     const message = err.code === 'LIMIT_FILE_SIZE' ? `File is too large (max ${config.MAX_UPLOAD_MB} MB)`
-      : status >= 500 ? 'Unexpected server error' : err.message;
+      : status >= 500 ? 'Unexpected server error' : known.message;
     res.status(status).json({ error: message });
   });
   return app;

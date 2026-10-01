@@ -1,4 +1,4 @@
-import { api, esc, badge, can, mountTable, setTitle, on, openModal, formHtml, readForm, formData, opt, confirmDialog, toast, fmtDateTime, state, kv, card, resolveImage } from '../core.js';
+import { api, esc, badge, can, mountTable, setTitle, on, openModal, formHtml, readForm, formData, opt, confirmDialog, toast, fmtDateTime, state, kv, card, resolveImage, loadLookups } from '../core.js';
 import { afterChange } from './actions.js';
 import { applyBranding } from './branding.js';
 
@@ -119,6 +119,7 @@ const PANES = {
       btn.disabled = true; btn.textContent = 'Erasing…';
       try {
         const r = await api.post('/backup/erase', { password: f.password.value, confirm: 'ERASE', locations: f.locations.checked, departments: f.departments.checked, users: f.users.checked });
+        await loadLookups(true); // the erased locations, employees and devices must leave every drop-down list
         toast(`Done. ${r.erased.assets} assets and ${r.erased.employees} employees were erased. You can start adding your own data.`);
         location.hash = '#/dashboard';
       } catch (ex) { toast(ex.message, 'err'); } finally { btn.disabled = false; btn.textContent = 'Erase data and start fresh'; }
