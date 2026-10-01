@@ -120,4 +120,18 @@ describe('RBAC permission matrix — required negative test cases (spec §3)', (
     const clientA = ctx({ userId: 'client-a', role: 'CLIENT', companyId: companyA });
     expect(can(clientA, { resource: 'document', action: 'list', resourceCompanyId: companyA })).toBe(true);
   });
+
+  it('Company Admin CAN manage the contact directory; HR Admin, IT Admin, Employee, Client are read-only', () => {
+    const companyAdmin = ctx({ userId: 'admin-1', role: 'COMPANY_ADMIN', companyId: companyA });
+    expect(can(companyAdmin, { resource: 'contactDirectory', action: 'create', resourceCompanyId: companyA })).toBe(true);
+    expect(can(companyAdmin, { resource: 'contactDirectory', action: 'delete', resourceCompanyId: companyA })).toBe(true);
+
+    const readOnlyRoles = ['HR_ADMIN', 'IT_ADMIN', 'EMPLOYEE', 'CLIENT'] as const;
+    for (const role of readOnlyRoles) {
+      const user = ctx({ userId: `${role}-user`, role, companyId: companyA });
+      expect(can(user, { resource: 'contactDirectory', action: 'list', resourceCompanyId: companyA })).toBe(true);
+      expect(can(user, { resource: 'contactDirectory', action: 'create', resourceCompanyId: companyA })).toBe(false);
+      expect(can(user, { resource: 'contactDirectory', action: 'delete', resourceCompanyId: companyA })).toBe(false);
+    }
+  });
 });

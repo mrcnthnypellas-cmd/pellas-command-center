@@ -25,7 +25,8 @@ export type Resource =
   | 'announcement'
   | 'countEvent' // client-branded attendance/payroll count sheets (e.g. Mondelez)
   | 'ledBanner' // scrolling dashboard banner — Super Admin, HR Admin, IT Admin
-  | 'chatMessage'; // Employee <-> Admin chat thread
+  | 'chatMessage' // Employee <-> Admin chat thread
+  | 'contactDirectory'; // company contact list shown on every dashboard — admin-editable
 
 export type Action = 'create' | 'read' | 'update' | 'delete' | 'list';
 
@@ -73,6 +74,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
     ledBanner: ['read', 'update'],
     chatMessage: ['create', 'read', 'list', 'delete'],
+    contactDirectory: ['create', 'read', 'update', 'delete', 'list'],
   },
   COMPANY_ADMIN: {
     user: ['create', 'read', 'update', 'delete', 'list'],
@@ -92,6 +94,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     announcement: ['create', 'read', 'update', 'delete', 'list'],
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
     chatMessage: ['create', 'read', 'list', 'delete'],
+    contactDirectory: ['create', 'read', 'update', 'delete', 'list'],
   },
   HR_ADMIN: {
     employee: ['create', 'read', 'update', 'delete', 'list'],
@@ -107,6 +110,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     countEvent: ['create', 'read', 'update', 'delete', 'list'],
     ledBanner: ['read', 'update'],
     chatMessage: ['create', 'read', 'list', 'delete'],
+    contactDirectory: ['read', 'list'],
   },
   IT_ADMIN: {
     // Explicitly denied: employee.confidential, payroll, payslip.
@@ -118,6 +122,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     announcement: ['read', 'list'],
     ledBanner: ['read', 'update'],
     chatMessage: ['create', 'read', 'list', 'delete'],
+    contactDirectory: ['read', 'list'],
   },
   EMPLOYEE: {
     // All owner-scoped: ownerUserId must equal ctx.userId, enforced by requireAbility below.
@@ -130,6 +135,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     notification: ['read', 'update', 'list'],
     announcement: ['read', 'list'],
     chatMessage: ['create', 'read', 'list', 'delete'],
+    contactDirectory: ['read', 'list'],
   },
   CLIENT: {
     client: ['read'],
@@ -137,6 +143,7 @@ const ROLE_RESOURCE_MATRIX: Record<Role, Partial<Record<Resource, Action[]>>> = 
     document: ['read', 'list'],
     notification: ['read', 'update', 'list'],
     announcement: ['read', 'list'],
+    contactDirectory: ['read', 'list'],
   },
 };
 

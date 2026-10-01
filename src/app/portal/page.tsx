@@ -4,6 +4,7 @@ import { requireCtx } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { AnnouncementCard } from '@/components/dashboard/AnnouncementCard';
+import { ContactDirectoryCard } from '@/components/dashboard/ContactDirectoryCard';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 export default async function PortalHomePage() {
@@ -69,6 +70,8 @@ export default async function PortalHomePage() {
           </ul>
         )}
       </div>
+
+      <ContactDirectoryCard canEdit={false} />
     </div>
   );
 }

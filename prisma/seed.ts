@@ -245,6 +245,29 @@ async function main() {
       },
     });
 
+    const CONTACT_SEED = [
+      { name: 'HR Department', description: 'Recruitment, Benefits, Personnel', phone: '+63 912 345 6789', extension: '101', icon: 'hr' },
+      { name: 'Admin Department', description: 'Supplies, Facilities, General Admin', phone: '+63 917 222 3344', extension: '102', icon: 'admin' },
+      { name: 'IT Support', description: 'Technical Support, System Issues', phone: '+63 915 555 7788', extension: '103', icon: 'it' },
+      { name: 'Accounting / Payroll', description: 'Payroll, Billing, Finance', phone: '+63 927 888 1111', extension: '104', icon: 'accounting' },
+      { name: 'Emergency Contact', description: 'For urgent matters only', phone: '+63 998 777 6666', extension: null, icon: 'emergency', isEmergency: true },
+    ];
+    for (const [i, c] of CONTACT_SEED.entries()) {
+      await prisma.contactDirectoryEntry.create({
+        data: {
+          companyId: company.id,
+          sortOrder: i,
+          name: c.name,
+          description: c.description,
+          phone: c.phone,
+          extension: c.extension,
+          icon: c.icon,
+          isEmergency: c.isEmergency ?? false,
+          createdByUserId: companyAdmin.id,
+        },
+      });
+    }
+
     return { companyAdmin, hrAdminUser, itAdminUser, employeeA, employeeUserA, employeeB, employeeUserB, clientA, clientUserA, clientB, clientUserB };
   }
 

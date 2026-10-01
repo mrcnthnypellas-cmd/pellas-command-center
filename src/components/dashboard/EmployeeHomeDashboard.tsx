@@ -24,6 +24,7 @@ import { formatDate, cn } from '@/lib/utils';
 import { distanceMeters } from '@/lib/geo';
 import { StaticMap, type MapPin as StaticMapPin } from './StaticMap';
 import { DigitalAnnouncementsCard, type DigitalAnnouncement, type DigitalAnnouncementsCardHandle } from './DigitalAnnouncementsCard';
+import { ContactDirectoryCard } from './ContactDirectoryCard';
 
 interface ShiftNotice {
   id: string;
@@ -556,6 +557,8 @@ export function EmployeeHomeDashboard({ userId, firstName }: { userId: string; f
           )}
         </div>
       </div>
+
+      <ContactDirectoryCard canEdit={false} />
 
       {payslip && (
         <div className="card flex flex-wrap items-center justify-between gap-3 p-5">

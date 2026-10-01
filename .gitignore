@@ -31,3 +31,7 @@ next-env.d.ts
 
 .vercel
 .env*
+# Public Supabase config for the new attendance-system frontend (safe to commit —
+# the anon key is designed to be public; access control is enforced by RLS).
+!web/.env.example
+!web/.env.production
