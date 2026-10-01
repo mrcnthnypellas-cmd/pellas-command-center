@@ -112,6 +112,19 @@ export interface CompanySettings {
   overtime_after_minutes: number;
 }
 
+export interface Contact {
+  id: string;
+  company_id: string;
+  sort_order: number;
+  name: string;
+  description: string | null;
+  phone: string;
+  extension: string | null;
+  icon: string;
+  is_emergency: boolean;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;

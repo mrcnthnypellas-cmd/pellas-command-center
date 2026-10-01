@@ -9,6 +9,7 @@ import { getPosition, friendlyClockError } from "../../lib/geo";
 import { euclideanDistance, FACE_MATCH_THRESHOLD } from "../../lib/faceRecognition";
 import FaceCapture from "../../components/face/FaceCapture";
 import AttendanceCalendar from "../../components/employee/AttendanceCalendar";
+import ContactDirectoryCard from "../../components/ContactDirectoryCard";
 import type { Attendance } from "../../types";
 
 export default function EmployeeDashboard() {
@@ -279,6 +280,8 @@ export default function EmployeeDashboard() {
         </h2>
         <AttendanceCalendar month={calendarMonth} records={monthRecords} workDays={profile.work_schedules?.work_days ?? [1, 2, 3, 4, 5]} />
       </Card>
+
+      <ContactDirectoryCard />
     </div>
   );
 }
