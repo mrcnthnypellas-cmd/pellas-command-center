@@ -73,6 +73,7 @@ export default function Overtime() {
     setSaving(true);
     const { error } = await supabase.from("overtime_requests").insert({
       employee_id: profile.id,
+      company_id: profile.company_id,
       work_date: form.work_date,
       start_time: form.start_time || null,
       end_time: form.openEnded ? null : form.end_time,
