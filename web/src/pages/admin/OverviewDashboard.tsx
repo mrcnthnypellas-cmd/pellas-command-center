@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { IconStatCard, Card, Spinner, EmptyState, Badge } from "../../components/ui/ui";
 import ContactDirectoryCard from "../../components/ContactDirectoryCard";
+import { MyTasksCard } from "../../components/MyTasksCard";
 import { todayInTZ, formatTime, formatDate } from "../../lib/format";
 
 interface Stats {
@@ -207,6 +208,8 @@ export default function OverviewDashboard() {
           attendance, corrections, and reports.
         </p>
       </Card>
+
+      <MyTasksCard />
 
       <ContactDirectoryCard />
     </div>

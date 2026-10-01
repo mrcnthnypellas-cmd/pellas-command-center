@@ -129,6 +129,26 @@ export interface Contact {
   created_at: string;
 }
 
+export type TaskPriority = "low" | "normal" | "high";
+export type TaskStatus = "pending" | "in_progress" | "completed";
+
+export interface Task {
+  id: string;
+  company_id: string;
+  title: string;
+  description: string | null;
+  assigned_to: string;
+  assigned_by: string;
+  due_date: string | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  assignee?: { first_name: string; last_name: string } | null;
+  assigner?: { first_name: string; last_name: string } | null;
+}
+
 export interface Notification {
   id: string;
   user_id: string;

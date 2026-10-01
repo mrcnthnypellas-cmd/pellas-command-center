@@ -2,7 +2,7 @@ import { NavLink, Outlet, Navigate, useLocation, useNavigate } from "react-route
 import {
   LayoutDashboard, Users, UserCog, ClipboardList, CalendarClock, FileBarChart,
   Building2, ScrollText, Settings, LogOut, Menu, X, FileWarning, Clock,
-  Search, Bell, ChevronDown,
+  Search, Bell, ChevronDown, ListTodo,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/auth";
@@ -21,6 +21,7 @@ const NAV: NavItem[] = [
   { to: "/my-attendance", label: "My Attendance", title: "My Attendance", icon: ClipboardList, roles: ["employee"], group: "main" },
   { to: "/corrections", label: "Corrections", title: "Attendance Corrections", icon: FileWarning, roles: ["admin", "hr", "employee"], group: "main" },
   { to: "/overtime", label: "Overtime", title: "Overtime Requests", icon: Clock, roles: ["admin", "hr", "employee"], group: "main" },
+  { to: "/tasks", label: "Tasks", title: "Tasks", icon: ListTodo, roles: ["admin", "hr", "employee"], group: "main" },
   { to: "/reports", label: "Reports", title: "Reports & Analytics", icon: FileBarChart, roles: ["admin", "hr"], group: "main" },
   { to: "/users", label: "Users", title: "User Accounts", icon: UserCog, roles: ["admin"], group: "system" },
   { to: "/departments", label: "Departments", title: "Departments", icon: Building2, roles: ["admin"], group: "system" },
@@ -32,7 +33,28 @@ const NAV: NavItem[] = [
 export function ProtectedLayout() {
   const { session, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [myOpenTaskCount, setMyOpenTaskCount] = useState(0);
   const banner = useBanner();
+
+  useEffect(() => {
+    if (!profile) return;
+    async function loadTaskCount() {
+      const { count } = await supabase
+        .from("tasks")
+        .select("id", { count: "exact", head: true })
+        .eq("assigned_to", profile!.id)
+        .neq("status", "completed");
+      setMyOpenTaskCount(count ?? 0);
+    }
+    loadTaskCount();
+    const channel = supabase
+      .channel(`tasks-badge-${profile.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `assigned_to=eq.${profile.id}` }, () => loadTaskCount())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile]);
 
   if (loading) return <div className="flex h-screen items-center justify-center text-slate-500">Loading…</div>;
   if (!session || !profile) return <Navigate to="/login" replace />;
@@ -40,6 +62,7 @@ export function ProtectedLayout() {
   const items = NAV.filter((i) => i.roles.includes(profile.role));
   const mainItems = items.filter((i) => i.group === "main");
   const systemItems = items.filter((i) => i.group === "system");
+  const badges: Record<string, number> = myOpenTaskCount > 0 ? { "/tasks": myOpenTaskCount } : {};
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -53,10 +76,10 @@ export function ProtectedLayout() {
         <aside className={`${mobileOpen ? "block" : "hidden"} lg:block w-full lg:w-64 shrink-0 bg-slate-900 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto`}>
           <SidebarBrand />
           <nav className="p-3 space-y-1">
-            <NavGroup label="Main" items={mainItems} onNavigate={() => setMobileOpen(false)} />
+            <NavGroup label="Main" items={mainItems} badges={badges} onNavigate={() => setMobileOpen(false)} />
             {systemItems.length > 0 && (
               <div className="pt-3">
-                <NavGroup label="System" items={systemItems} onNavigate={() => setMobileOpen(false)} />
+                <NavGroup label="System" items={systemItems} badges={badges} onNavigate={() => setMobileOpen(false)} />
               </div>
             )}
           </nav>
@@ -119,7 +142,7 @@ function SidebarBrand() {
   );
 }
 
-function NavGroup({ label, items, onNavigate }: { label: string; items: NavItem[]; onNavigate: () => void }) {
+function NavGroup({ label, items, badges, onNavigate }: { label: string; items: NavItem[]; badges: Record<string, number>; onNavigate: () => void }) {
   return (
     <div>
       <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
@@ -136,7 +159,12 @@ function NavGroup({ label, items, onNavigate }: { label: string; items: NavItem[
             }
           >
             <item.icon className="h-4 w-4 shrink-0" />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {badges[item.to] > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
+                {badges[item.to]}
+              </span>
+            )}
           </NavLink>
         ))}
       </div>

@@ -10,6 +10,7 @@ import { euclideanDistance, FACE_MATCH_THRESHOLD } from "../../lib/faceRecogniti
 import FaceCapture from "../../components/face/FaceCapture";
 import AttendanceCalendar from "../../components/employee/AttendanceCalendar";
 import ContactDirectoryCard from "../../components/ContactDirectoryCard";
+import { MyTasksCard } from "../../components/MyTasksCard";
 import type { Attendance } from "../../types";
 
 export default function EmployeeDashboard() {
@@ -281,6 +282,8 @@ export default function EmployeeDashboard() {
         </h2>
         <AttendanceCalendar month={calendarMonth} records={monthRecords} workDays={profile.work_schedules?.work_days ?? [1, 2, 3, 4, 5]} />
       </Card>
+
+      <MyTasksCard />
 
       <ContactDirectoryCard />
     </div>
