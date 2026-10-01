@@ -249,7 +249,7 @@ export default function Attendance() {
     setExportingCsv(false);
 
     const list = (data as unknown as AttendanceRow[]) ?? [];
-    const header = ["Employee", "ID", "Date", "Time In", "Time Out", "Hours", "Status"];
+    const header = ["Employee", "ID", "Date", "Time In", "Time Out", "Hours", "Overtime Hours", "Status"];
     const lines = list.map((r) => [
       `${r.profiles?.first_name} ${r.profiles?.last_name}`,
       r.profiles?.employee_code ?? "",
@@ -257,6 +257,7 @@ export default function Attendance() {
       formatTime(r.time_in),
       formatTime(r.time_out),
       r.hours_worked ?? "",
+      r.overtime_hours ?? 0,
       r.status,
     ]);
 
@@ -423,6 +424,7 @@ export default function Attendance() {
               <tr>
                 <th className="px-4 py-3">Employee</th><th className="px-4 py-3">ID</th><th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Time In</th><th className="px-4 py-3">Time Out</th><th className="px-4 py-3">Hours</th>
+                <th className="px-4 py-3">Overtime</th>
                 <th className="px-4 py-3">Status</th>
                 {me?.role === "admin" && <th className="px-4 py-3 text-right">Edit</th>}
               </tr>
@@ -436,6 +438,7 @@ export default function Attendance() {
                   <td className="px-4 py-3">{formatTime(r.time_in)}</td>
                   <td className="px-4 py-3">{formatTime(r.time_out)}</td>
                   <td className="px-4 py-3">{r.hours_worked ?? "—"}</td>
+                  <td className="px-4 py-3">{r.overtime_hours ? `+${r.overtime_hours}h` : "—"}</td>
                   <td className="px-4 py-3"><Badge status={r.status} /></td>
                   {me?.role === "admin" && (
                     <td className="px-4 py-3 text-right">

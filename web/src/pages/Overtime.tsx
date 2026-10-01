@@ -7,7 +7,25 @@ import { Button, Card, Modal, Input, Select, Badge, Spinner, EmptyState } from "
 import { formatDate, todayInTZ } from "../lib/format";
 import type { OvertimeRequest } from "../types";
 
-const emptyForm = { work_date: todayInTZ(), requested_hours: "", reason: "" };
+const emptyForm = { work_date: todayInTZ(), start_time: "", end_time: "", reason: "" };
+
+// Plain "HH:MM" (or "HH:MM:SS") time string -> "5:00 PM", no timezone conversion.
+function formatPlainTime(t: string | null) {
+  if (!t) return "—";
+  const [h, m] = t.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+// Hours between two "HH:MM" times, same day, end must be after start.
+function hoursBetween(start: string, end: string): number | null {
+  if (!start || !end) return null;
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  const diff = (eh * 60 + em - (sh * 60 + sm)) / 60;
+  return diff > 0 ? Math.round(diff * 100) / 100 : null;
+}
 
 export default function Overtime() {
   const { profile } = useAuth();
@@ -47,15 +65,17 @@ export default function Overtime() {
       push("error", "Please provide a reason for this overtime request.");
       return;
     }
-    const hours = Number(form.requested_hours);
-    if (!hours || hours <= 0) {
-      push("error", "Enter the number of overtime hours requested.");
+    const hours = hoursBetween(form.start_time, form.end_time);
+    if (!hours) {
+      push("error", "Enter a valid Start Time and End Time (end must be after start).");
       return;
     }
     setSaving(true);
     const { error } = await supabase.from("overtime_requests").insert({
       employee_id: profile.id,
       work_date: form.work_date,
+      start_time: form.start_time,
+      end_time: form.end_time,
       requested_hours: hours,
       reason: form.reason,
     });
@@ -114,7 +134,8 @@ export default function Overtime() {
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 {isStaff && <th className="px-4 py-3">Employee</th>}
-                <th className="px-4 py-3">Date</th><th className="px-4 py-3">Requested Hours</th>
+                <th className="px-4 py-3">Date</th><th className="px-4 py-3">Time Range</th>
+                <th className="px-4 py-3">Requested Hours</th>
                 <th className="px-4 py-3">Approved Hours</th>
                 <th className="px-4 py-3">Reason</th><th className="px-4 py-3">Status</th>
                 {isStaff && <th className="px-4 py-3 text-right">Actions</th>}
@@ -125,6 +146,9 @@ export default function Overtime() {
                 <tr key={r.id}>
                   {isStaff && <td className="px-4 py-3 font-medium text-slate-700">{r.profiles?.first_name} {r.profiles?.last_name}</td>}
                   <td className="px-4 py-3">{formatDate(r.work_date)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {r.start_time ? `${formatPlainTime(r.start_time)} – ${formatPlainTime(r.end_time)}` : "—"}
+                  </td>
                   <td className="px-4 py-3">{r.requested_hours}h</td>
                   <td className="px-4 py-3">{r.approved_hours != null ? `${r.approved_hours}h` : "—"}</td>
                   <td className="px-4 py-3 max-w-xs truncate" title={r.reason}>{r.reason}</td>
@@ -149,7 +173,15 @@ export default function Overtime() {
       <Modal open={open} onClose={() => setOpen(false)} title="Request Overtime">
         <div className="space-y-3">
           <Input label="Date" type="date" value={form.work_date} onChange={(e) => setForm({ ...form, work_date: e.target.value })} max={todayInTZ()} />
-          <Input label="Requested Hours" type="number" step="0.5" min="0.5" value={form.requested_hours} onChange={(e) => setForm({ ...form, requested_hours: e.target.value })} placeholder="e.g. 2" />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Start Time" type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+            <Input label="End Time" type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+          </div>
+          {hoursBetween(form.start_time, form.end_time) != null && (
+            <p className="text-xs text-slate-500">
+              = {hoursBetween(form.start_time, form.end_time)} hour{hoursBetween(form.start_time, form.end_time) === 1 ? "" : "s"} of overtime
+            </p>
+          )}
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Reason</span>
             <textarea className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" rows={2}
@@ -167,10 +199,18 @@ export default function Overtime() {
           <div className="space-y-3">
             <p className="text-sm text-slate-600">
               {reviewTarget.row.profiles?.first_name} {reviewTarget.row.profiles?.last_name} — {formatDate(reviewTarget.row.work_date)}
+              {reviewTarget.row.start_time && (
+                <> &middot; {formatPlainTime(reviewTarget.row.start_time)} – {formatPlainTime(reviewTarget.row.end_time)}</>
+              )}
             </p>
             <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">{reviewTarget.row.reason}</p>
             {reviewTarget.decision === "approved" && (
-              <Input label="Approved Hours" type="number" step="0.5" min="0.5" value={approvedHours} onChange={(e) => setApprovedHours(e.target.value)} />
+              <>
+                <Input label="Approved Hours" type="number" step="0.5" min="0.5" value={approvedHours} onChange={(e) => setApprovedHours(e.target.value)} />
+                <p className="text-xs text-slate-500">
+                  Approving will automatically add these hours to {reviewTarget.row.profiles?.first_name}'s attendance for {formatDate(reviewTarget.row.work_date)}.
+                </p>
+              </>
             )}
             <label className="block text-sm">
               <span className="mb-1 block font-medium text-slate-700">Review notes (optional)</span>
