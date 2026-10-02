@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { loadFaceModels, getFaceDescriptor } from "../../lib/faceRecognition";
+import { Camera, Loader2, CheckCircle2, XCircle, Eye } from "lucide-react";
+import { loadFaceModels, getFaceDescriptor, sampleEyeAspectRatio, BlinkDetector } from "../../lib/faceRecognition";
 import { Button } from "../ui/ui";
 
 interface FaceCaptureProps {
@@ -29,8 +29,10 @@ export default function FaceCapture({
   const [modelsReady, setModelsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [livenessConfirmed, setLivenessConfirmed] = useState(false);
   const busyRef = useRef(busy);
   busyRef.current = busy;
+  const blinkDetectorRef = useRef(new BlinkDetector());
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +85,36 @@ export default function FaceCapture({
   const onCaptureRef = useRef(onCapture);
   onCaptureRef.current = onCapture;
 
+  // Liveness check, separate from the (slower) descriptor-match loop below —
+  // a photo or a phone held up to the camera matches the stored descriptor
+  // just as well as a real face would in a single still frame, so a capture
+  // is only accepted once a genuine blink (eyes closing then reopening) has
+  // been observed. Samples landmarks only (cheap), not the full recognition
+  // descriptor, so it can run much more often than the match loop.
+  useEffect(() => {
+    if (mode !== "auto" || !cameraReady || !modelsReady) return;
+    blinkDetectorRef.current.reset();
+    setLivenessConfirmed(false);
+    let disposed = false;
+    let inFlight = false;
+    const id = setInterval(async () => {
+      if (disposed || inFlight || busyRef.current || !videoRef.current) return;
+      inFlight = true;
+      try {
+        const { ear } = await sampleEyeAspectRatio(videoRef.current);
+        if (disposed) return;
+        blinkDetectorRef.current.sample(ear);
+        if (blinkDetectorRef.current.blinked) setLivenessConfirmed(true);
+      } finally {
+        inFlight = false;
+      }
+    }, 300);
+    return () => {
+      disposed = true;
+      clearInterval(id);
+    };
+  }, [mode, cameraReady, modelsReady]);
+
   useEffect(() => {
     if (mode !== "auto" || !cameraReady || !modelsReady) return;
     let disposed = false;
@@ -92,8 +124,13 @@ export default function FaceCapture({
       inFlight = true;
       setScanning(true);
       try {
+        if (!blinkDetectorRef.current.blinked) return; // no confirmed blink yet — keep scanning, don't match
         const descriptor = await getFaceDescriptor(videoRef.current);
-        if (descriptor && !disposed) onCaptureRef.current(descriptor);
+        if (descriptor && !disposed) {
+          blinkDetectorRef.current.reset(); // require a fresh blink for the next attempt
+          setLivenessConfirmed(false);
+          onCaptureRef.current(descriptor);
+        }
       } finally {
         inFlight = false;
         if (!disposed) setScanning(false);
@@ -137,10 +174,17 @@ export default function FaceCapture({
         !statusText && (
           <p className="flex items-center justify-center gap-2 text-sm text-slate-500">
             {canCapture ? (
-              <>
-                <span className={`h-2 w-2 rounded-full ${scanning ? "bg-brand-600 animate-pulse" : "bg-slate-300"}`} />
-                Nakaharap ka na ba sa camera? Awtomatiko itong makikilala…
-              </>
+              livenessConfirmed ? (
+                <>
+                  <span className={`h-2 w-2 rounded-full ${scanning ? "bg-brand-600 animate-pulse" : "bg-slate-300"}`} />
+                  Nakaharap ka na ba sa camera? Awtomatiko itong makikilala…
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 shrink-0 text-amber-500" />
+                  Kindly kumurap nang natural para ma-confirm na ikaw mismo (hindi litrato)
+                </>
+              )
             ) : (
               <Loader2 className="h-4 w-4 animate-spin" />
             )}
