@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Check, Pencil, Trash2 } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { supabase, callEdgeFunction } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { Button, Card, Modal, Input, Select, Badge, Spinner, EmptyState, ConfirmDialog } from "../components/ui/ui";
@@ -99,15 +99,19 @@ export default function Tasks() {
       if (error) return push("error", error.message);
       push("success", "Task updated.");
     } else {
-      const { error } = await supabase.from("tasks").insert({
-        company_id: profile.company_id,
-        title: form.title,
-        description: form.description || null,
-        assigned_to: assignedTo,
-        assigned_by: profile.id,
-        due_date: form.due_date || null,
-        priority: form.priority,
-      });
+      const { data: created, error } = await supabase
+        .from("tasks")
+        .insert({
+          company_id: profile.company_id,
+          title: form.title,
+          description: form.description || null,
+          assigned_to: assignedTo,
+          assigned_by: profile.id,
+          due_date: form.due_date || null,
+          priority: form.priority,
+        })
+        .select("id")
+        .single();
       setSaving(false);
       if (error) return push("error", error.message);
       if (assignedTo !== profile.id) {
@@ -117,6 +121,7 @@ export default function Tasks() {
           message: `${profile.first_name} ${profile.last_name} assigned you: "${form.title}"`,
           type: "info",
         });
+        void callEdgeFunction("send-task-email", { task_id: created.id });
       }
       push("success", "Task added.");
     }

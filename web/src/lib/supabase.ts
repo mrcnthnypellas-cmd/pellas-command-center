@@ -55,3 +55,26 @@ export async function callAdminFunction<T = any>(op: string, payload: Record<str
   if (!res.ok) throw new Error(json.error || "Request failed");
   return json;
 }
+
+// Generic Edge Function caller (for functions that aren't the admin-users
+// op-dispatch style, e.g. send-task-email). Never throws — email delivery is
+// best-effort and must not block whatever UI action triggered it.
+export async function callEdgeFunction<T = any>(fn: string, payload: Record<string, unknown> = {}): Promise<T | null> {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) return null;
+    const res = await fetch(`${FUNCTIONS_URL}/${fn}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        apikey: anonKey,
+      },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
