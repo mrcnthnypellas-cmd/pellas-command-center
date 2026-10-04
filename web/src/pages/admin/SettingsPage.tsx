@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Save, Image as ImageIcon, Trash2, Radio, Clock, CalendarDays, LayoutGrid } from "lucide-react";
+import { MapPin, Save, Image as ImageIcon, Trash2, Radio, Clock, CalendarDays, LayoutGrid, ScanFace } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
@@ -8,6 +8,7 @@ import { getPosition } from "../../lib/geo";
 import LedBanner from "../../components/layout/LedBanner";
 import { DashboardCardLayout } from "../../components/DashboardCardLayout";
 import ContactDirectoryCard from "../../components/ContactDirectoryCard";
+import { MyTasksCard } from "../../components/MyTasksCard";
 import AttendanceCalendar from "../../components/employee/AttendanceCalendar";
 import type { CompanySettings } from "../../types";
 
@@ -333,13 +334,25 @@ export default function SettingsPage() {
       <Card className="p-5 space-y-4">
         <h2 className="flex items-center gap-2 font-semibold text-slate-700"><LayoutGrid className="h-4 w-4" /> Employee Dashboard Layout</h2>
         <p className="text-sm text-slate-500">
-          Admin never sees the employee home screen day-to-day, so customize its card order here. "My Tasks" and the Time In/Out
-          flow always stay on top for employees — these are the cards below that. Changes apply to every employee's dashboard.
+          Admin never sees the employee home screen day-to-day, so customize its layout here instead — drag cards, resize to half
+          width to place two side by side, or use the up/down buttons. Changes apply to every employee's dashboard.
         </p>
         <DashboardCardLayout
           storageKey="employee_dashboard_layout"
-          defaultOrder={["todayAttendance", "calendar", "contactDirectory"]}
+          defaultOrder={["myTasks", "clockFlow", "todayAttendance", "calendar", "contactDirectory"]}
           cards={{
+            myTasks: { label: "My Tasks", node: <MyTasksCard /> },
+            clockFlow: {
+              label: "Time In / Time Out",
+              node: (
+                <Card className="p-5">
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <ScanFace className="h-4 w-4" /> Time In / Time Out
+                  </h3>
+                  <p className="text-sm text-slate-400">The employee's Time In/Out buttons (or Face ID auto-scan) — the core clock-in action for their day.</p>
+                </Card>
+              ),
+            },
             todayAttendance: {
               label: "Today's Attendance",
               node: (

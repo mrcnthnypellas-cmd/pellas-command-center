@@ -194,73 +194,78 @@ export default function EmployeeDashboard() {
         </div>
       </Card>
 
-      <MyTasksCard />
-
-      {!loading && lastAction && today && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
-          <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
-          <p className="mt-2 text-lg font-bold text-emerald-700">
-            {lastAction === "in" ? "TIME IN SUCCESSFUL" : "TIME OUT SUCCESSFUL"}
-          </p>
-          <p className="text-sm text-emerald-700">
-            Date: {formatDate(today.work_date)} &middot; Time: {formatTime(lastAction === "in" ? today.time_in : today.time_out)}
-            {lastAction === "out" && today.hours_worked != null && <> &middot; Total Hours: {today.hours_worked}</>}
-          </p>
-        </div>
-      )}
-
-      {loading ? null : profile.face_recognition_required === false ? (
-        <>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => handleClock("in")}
-              disabled={!canClockIn || busy !== null}
-              className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-10 text-white shadow-lg transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <LogIn className="h-10 w-10" />
-              <span className="text-lg font-bold tracking-wide">{busy === "in" ? "Processing…" : "TIME IN"}</span>
-            </button>
-            <button
-              onClick={() => handleClock("out")}
-              disabled={!canClockOut || busy !== null}
-              className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-red-600 py-10 text-white shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <LogOut className="h-10 w-10" />
-              <span className="text-lg font-bold tracking-wide">{busy === "out" ? "Processing…" : "TIME OUT"}</span>
-            </button>
-          </div>
-          <p className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
-            <ScanFace className="h-3.5 w-3.5" />
-            Face ID verification is turned off for your account.
-          </p>
-        </>
-      ) : !canClockIn && !canClockOut ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
-          <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-600" />
-          <p className="mt-2 text-base font-bold text-emerald-700">Kumpleto ka na sa Time In at Time Out ngayong araw!</p>
-        </div>
-      ) : autoPhase === "success" ? null : (
-        <Card className="p-6">
-          <div className="mb-3 flex items-center justify-center gap-2 text-slate-700">
-            <ScanFace className="h-5 w-5" />
-            <p className="text-sm font-semibold">
-              {canClockIn ? "Itapat ang mukha sa camera para mag Time In" : "Itapat ang mukha sa camera para mag Time Out"}
-            </p>
-          </div>
-          <FaceCapture
-            mode="auto"
-            onCapture={handleAutoFaceCapture}
-            busy={faceBusy || busy !== null || autoPhase === "cooldown"}
-            statusText={faceStatus.text}
-            statusKind={faceStatus.kind}
-          />
-        </Card>
-      )}
-
       <DashboardCardLayout
         storageKey="employee_dashboard_layout"
-        defaultOrder={["todayAttendance", "calendar", "contactDirectory"]}
+        defaultOrder={["myTasks", "clockFlow", "todayAttendance", "calendar", "contactDirectory"]}
         cards={{
+          myTasks: { label: "My Tasks", node: <MyTasksCard /> },
+          clockFlow: {
+            label: "Time In / Time Out",
+            node: (
+              <div className="space-y-6">
+                {!loading && lastAction && today && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+                    <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
+                    <p className="mt-2 text-lg font-bold text-emerald-700">
+                      {lastAction === "in" ? "TIME IN SUCCESSFUL" : "TIME OUT SUCCESSFUL"}
+                    </p>
+                    <p className="text-sm text-emerald-700">
+                      Date: {formatDate(today.work_date)} &middot; Time: {formatTime(lastAction === "in" ? today.time_in : today.time_out)}
+                      {lastAction === "out" && today.hours_worked != null && <> &middot; Total Hours: {today.hours_worked}</>}
+                    </p>
+                  </div>
+                )}
+
+                {loading ? null : profile.face_recognition_required === false ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        onClick={() => handleClock("in")}
+                        disabled={!canClockIn || busy !== null}
+                        className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-10 text-white shadow-lg transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <LogIn className="h-10 w-10" />
+                        <span className="text-lg font-bold tracking-wide">{busy === "in" ? "Processing…" : "TIME IN"}</span>
+                      </button>
+                      <button
+                        onClick={() => handleClock("out")}
+                        disabled={!canClockOut || busy !== null}
+                        className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-red-600 py-10 text-white shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <LogOut className="h-10 w-10" />
+                        <span className="text-lg font-bold tracking-wide">{busy === "out" ? "Processing…" : "TIME OUT"}</span>
+                      </button>
+                    </div>
+                    <p className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                      <ScanFace className="h-3.5 w-3.5" />
+                      Face ID verification is turned off for your account.
+                    </p>
+                  </>
+                ) : !canClockIn && !canClockOut ? (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+                    <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-600" />
+                    <p className="mt-2 text-base font-bold text-emerald-700">Kumpleto ka na sa Time In at Time Out ngayong araw!</p>
+                  </div>
+                ) : autoPhase === "success" ? null : (
+                  <Card className="p-6">
+                    <div className="mb-3 flex items-center justify-center gap-2 text-slate-700">
+                      <ScanFace className="h-5 w-5" />
+                      <p className="text-sm font-semibold">
+                        {canClockIn ? "Itapat ang mukha sa camera para mag Time In" : "Itapat ang mukha sa camera para mag Time Out"}
+                      </p>
+                    </div>
+                    <FaceCapture
+                      mode="auto"
+                      onCapture={handleAutoFaceCapture}
+                      busy={faceBusy || busy !== null || autoPhase === "cooldown"}
+                      statusText={faceStatus.text}
+                      statusKind={faceStatus.kind}
+                    />
+                  </Card>
+                )}
+              </div>
+            ),
+          },
           todayAttendance: {
             label: "Today's Attendance",
             node: (
