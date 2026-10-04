@@ -11,6 +11,7 @@ import FaceCapture from "../../components/face/FaceCapture";
 import AttendanceCalendar from "../../components/employee/AttendanceCalendar";
 import ContactDirectoryCard from "../../components/ContactDirectoryCard";
 import { MyTasksCard } from "../../components/MyTasksCard";
+import { DashboardCardLayout } from "../../components/DashboardCardLayout";
 import type { Attendance } from "../../types";
 
 export default function EmployeeDashboard() {
@@ -256,36 +257,50 @@ export default function EmployeeDashboard() {
         </Card>
       )}
 
-      <Card className="p-5">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <Clock className="h-4 w-4" /> Today's Attendance
-        </h2>
-        {loading ? (
-          <p className="text-sm text-slate-400">Loading…</p>
-        ) : today ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <Stat label="Time In" value={formatTime(today.time_in)} />
-            <Stat label="Time Out" value={formatTime(today.time_out)} />
-            <Stat label="Hours Worked" value={today.hours_worked != null ? String(today.hours_worked) : "—"} />
-            {today.overtime_hours > 0 && <Stat label="Overtime (Approved)" value={`+${today.overtime_hours}h`} />}
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Status</p>
-              <Badge status={today.status} />
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-400">You haven't timed in yet today.</p>
-        )}
-      </Card>
-
-      <Card className="p-5">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <CalendarDays className="h-4 w-4" /> {new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "Asia/Manila" }).format(calendarMonth)}
-        </h2>
-        <AttendanceCalendar month={calendarMonth} records={monthRecords} workDays={profile.work_schedules?.work_days ?? [1, 2, 3, 4, 5]} />
-      </Card>
-
-      <ContactDirectoryCard />
+      <DashboardCardLayout
+        storageKey="employee_dashboard_layout"
+        defaultOrder={["todayAttendance", "calendar", "contactDirectory"]}
+        cards={{
+          todayAttendance: {
+            label: "Today's Attendance",
+            node: (
+              <Card className="p-5">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Clock className="h-4 w-4" /> Today's Attendance
+                </h2>
+                {loading ? (
+                  <p className="text-sm text-slate-400">Loading…</p>
+                ) : today ? (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                    <Stat label="Time In" value={formatTime(today.time_in)} />
+                    <Stat label="Time Out" value={formatTime(today.time_out)} />
+                    <Stat label="Hours Worked" value={today.hours_worked != null ? String(today.hours_worked) : "—"} />
+                    {today.overtime_hours > 0 && <Stat label="Overtime (Approved)" value={`+${today.overtime_hours}h`} />}
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Status</p>
+                      <Badge status={today.status} />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">You haven't timed in yet today.</p>
+                )}
+              </Card>
+            ),
+          },
+          calendar: {
+            label: "Attendance Calendar",
+            node: (
+              <Card className="p-5">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <CalendarDays className="h-4 w-4" /> {new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "Asia/Manila" }).format(calendarMonth)}
+                </h2>
+                <AttendanceCalendar month={calendarMonth} records={monthRecords} workDays={profile.work_schedules?.work_days ?? [1, 2, 3, 4, 5]} />
+              </Card>
+            ),
+          },
+          contactDirectory: { label: "Contact Directory", node: <ContactDirectoryCard /> },
+        }}
+      />
     </div>
   );
 }

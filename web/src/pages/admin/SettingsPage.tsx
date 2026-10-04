@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Save, Image as ImageIcon, Trash2, Radio } from "lucide-react";
+import { MapPin, Save, Image as ImageIcon, Trash2, Radio, Clock, CalendarDays, LayoutGrid } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
 import { Card, Input, Button } from "../../components/ui/ui";
 import { getPosition } from "../../lib/geo";
 import LedBanner from "../../components/layout/LedBanner";
+import { DashboardCardLayout } from "../../components/DashboardCardLayout";
+import ContactDirectoryCard from "../../components/ContactDirectoryCard";
+import AttendanceCalendar from "../../components/employee/AttendanceCalendar";
 import type { CompanySettings } from "../../types";
 
 export default function SettingsPage() {
@@ -326,6 +329,43 @@ export default function SettingsPage() {
       </Card>
 
       <Button onClick={save} loading={saving}><Save className="h-4 w-4" /> Save Settings</Button>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="flex items-center gap-2 font-semibold text-slate-700"><LayoutGrid className="h-4 w-4" /> Employee Dashboard Layout</h2>
+        <p className="text-sm text-slate-500">
+          Admin never sees the employee home screen day-to-day, so customize its card order here. "My Tasks" and the Time In/Out
+          flow always stay on top for employees — these are the cards below that. Changes apply to every employee's dashboard.
+        </p>
+        <DashboardCardLayout
+          storageKey="employee_dashboard_layout"
+          defaultOrder={["todayAttendance", "calendar", "contactDirectory"]}
+          cards={{
+            todayAttendance: {
+              label: "Today's Attendance",
+              node: (
+                <Card className="p-5">
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <Clock className="h-4 w-4" /> Today's Attendance
+                  </h3>
+                  <p className="text-sm text-slate-400">Shows the employee's Time In/Out, hours worked, and status for today.</p>
+                </Card>
+              ),
+            },
+            calendar: {
+              label: "Attendance Calendar",
+              node: (
+                <Card className="p-5">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <CalendarDays className="h-4 w-4" /> {new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date())}
+                  </h3>
+                  <AttendanceCalendar month={new Date()} records={[]} workDays={[1, 2, 3, 4, 5]} />
+                </Card>
+              ),
+            },
+            contactDirectory: { label: "Contact Directory", node: <ContactDirectoryCard /> },
+          }}
+        />
+      </Card>
     </div>
   );
 }
