@@ -1,6 +1,6 @@
 {
   "name": "pellas-it-management",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "private": true,
   "description": "Local-first IT Asset, Inventory & Network Management System",
   "main": "server/index.js",
