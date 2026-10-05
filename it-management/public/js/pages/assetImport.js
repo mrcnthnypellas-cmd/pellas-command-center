@@ -25,7 +25,7 @@ export async function page(el) {
         <div class="field"><label for="imp-file"><span class="needs-xlsx">Excel (.xlsx) or </span>CSV file · up to 2,000 rows</label><input id="imp-file" type="file" name="file" accept=".xlsx,.csv,text/csv"></div>
         <div style="margin-top:14px"><label class="radio-row"><input type="radio" name="mode" value="upsert" checked><span><b>Add new assets and update existing ones</b><br><span class="cell-sub">Rows whose Asset Tag already exists update that asset. Empty cells keep the current value.</span></span></label>
           <label class="radio-row"><input type="radio" name="mode" value="create_only"><span><b>Add new assets only</b><br><span class="cell-sub">Rows with an existing Asset Tag are skipped.</span></span></label></div>
-        <label class="check" style="margin-top:6px"><input type="checkbox" name="create_lookups" checked> Create departments and locations that don't exist yet</label>
+        <label class="check" style="margin-top:6px"><input type="checkbox" name="create_lookups" checked> Create categories, departments and locations that don't exist yet</label>
         <p class="cell-sub" style="margin:10px 0 0">Nothing is saved at this step. You'll see what will happen to every row first.</p>
       </div><div class="form-actions"><button class="btn primary" type="submit">Check file</button></div></form>` : ''}
       <div data-review></div>
@@ -97,7 +97,7 @@ export async function page(el) {
           ${pill(S.create, 'New', 'green', 'create')}${pill(S.update, 'Updates', 'blue', 'update')}${pill(S.unchanged, 'No change', 'gray', 'unchanged')}
           ${S.skip ? pill(S.skip, 'Skipped', 'gray', 'skip') : ''}${pill(S.errors, 'Errors', 'red', 'error')}</div>
         <p class="cell-sub" style="margin:12px 0 0">Columns used: ${res.columns.recognized.map(esc).join(', ')}${res.columns.ignored.length ? `. <b>Ignored:</b> ${res.columns.ignored.map(esc).join(', ')}` : ''}.</p>
-        ${res.new_lookups.departments.length || res.new_lookups.locations.length ? `<p class="cell-sub" style="margin:6px 0 0">Will be created: ${[...res.new_lookups.departments.map((d) => `department “${esc(d)}”`), ...res.new_lookups.locations.map((l) => `location “${esc(l)}”`)].join(', ')}.</p>` : ''}
+        ${res.new_lookups.departments.length || res.new_lookups.locations.length || res.new_lookups.categories?.length ? `<p class="cell-sub" style="margin:6px 0 0">Will be created: ${[...(res.new_lookups.categories || []).map((c) => `category “${esc(c.name)}” (${esc(c.prefix)})`), ...res.new_lookups.departments.map((d) => `department “${esc(d)}”`), ...res.new_lookups.locations.map((l) => `location “${esc(l)}”`)].join(', ')}.</p>` : ''}
       </div>
       <div class="filters" data-filters><div class="pill-tabs">${[['all', 'All rows'], ['problems', 'Errors & warnings'], ['create', 'New'], ['update', 'Updates']].map(([k, l], i) => `<button type="button" data-f="${k}" class="${i === 0 ? 'active' : ''}">${l}</button>`).join('')}</div></div>
       <div data-rows></div>

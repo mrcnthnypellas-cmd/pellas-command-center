@@ -10,10 +10,11 @@ const r = express.Router();
 const manage = requirePerm('settings.manage');
 
 const COMPANY_KEYS = ['company_name', 'company_address', 'company_phone', 'company_email', 'company_website',
-  'tag_padding', 'tag_separator', 'warranty_alert_days', 'contract_alert_days', 'currency_symbol', 'qr_base_url'];
+  'tag_padding', 'tag_separator', 'warranty_alert_days', 'contract_alert_days', 'currency_symbol', 'qr_base_url', 'auto_serial', 'auto_service_tag'];
 
 r.get('/company', requireAuth, (_req, res) => {
   const out = Object.fromEntries(COMPANY_KEYS.map((k) => [k, setting(k)]));
+  out.auto_serial = setting('auto_serial', '1'); out.auto_service_tag = setting('auto_service_tag', '1');
   out.company_logo_url = branding().logo_url;
   res.json(out);
 });
@@ -23,7 +24,7 @@ r.put('/company', manage, upload.single('logo'), (req, res) => {
   if (d.tag_padding && !(Number(d.tag_padding) >= 2 && Number(d.tag_padding) <= 8)) throw bad('Tag number padding must be 2–8 digits');
   if (d.qr_base_url && !/^https?:\/\/[^\s"<>#?]+$/.test(d.qr_base_url)) throw bad('QR link address must look like http://192.168.1.50:4000');
   db.tx(() => {
-    for (const [k, v] of Object.entries(d)) db.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', k, v);
+    for (const [k, v] of Object.entries(d)) db.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', k, typeof v === 'number' ? String(v) : v);
     if (req.file) {
       if (!/^image\//.test(req.file.mimetype)) throw bad('The logo must be an image (PNG, JPG or WebP)');
       saveSetting('company_logo', req.file.filename);
@@ -81,6 +82,7 @@ r.get('/lookups', requireAuth, (_req, res) => {
     devices: db.all('SELECT id, name, device_type FROM network_devices ORDER BY name'),
     assets: db.all(`SELECT a.id, a.asset_tag, a.name, a.status, c.is_network FROM assets a JOIN asset_categories c ON c.id = a.category_id ORDER BY a.asset_tag`),
     currency: setting('currency_symbol', '₱'),
+    auto_ids: { serial: require('../lib/autoIds').autoSerialOn(), service_tag: require('../lib/autoIds').autoServiceTagOn() },
   });
 });
 

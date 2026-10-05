@@ -120,7 +120,9 @@ async function writeXlsx(sheets, { title } = {}) {
       const col = sh.headers.indexOf(header);
       if (col < 0) continue;
       const letter = ws.getColumn(col + 1).letter;
-      ws.dataValidations.add(`${letter}2:${letter}${last}`, { type: 'list', allowBlank: true, formulae: [formula], showErrorMessage: false });
+      // The arrow appears when a cell is selected; the input message says so (the header filter only lists values already typed).
+      ws.dataValidations.add(`${letter}2:${letter}${last}`, { type: 'list', allowBlank: true, formulae: [formula], showErrorMessage: false,
+        showInputMessage: true, promptTitle: header, prompt: 'Pick from the list: click the arrow on the right of this cell.' });
     }
     if (sh.headers.length) ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: sh.headers.length } };
   }

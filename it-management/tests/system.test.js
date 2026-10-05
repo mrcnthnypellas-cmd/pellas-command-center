@@ -274,8 +274,15 @@ test('asset import and export (Excel and CSV)', async () => {
 
   // "Add new only" skips existing tags; bad files are rejected clearly.
   // A new location used only by a row with errors is not created.
-  const c5 = await upload('z.csv', 'Asset Name,Category,Location\nThing,Gadget,Nowhere Annex\n');
+  const c5 = await upload('z.csv', 'Asset Name,Category,Location,Status\nThing,Gadget,Nowhere Annex,Flying\n');
   assert.deepEqual(c5.data.new_lookups.locations, []);
+  assert.deepEqual(c5.data.new_lookups.categories, [], 'not for rows with errors');
+  // Unknown categories are created when "create … that don't exist yet" is ticked (default), else refused
+  const c6 = await upload('cats.csv', 'Asset Name,Category\nOffice PC 1,Computer\nOffice PC 2,computer\n');
+  assert.deepEqual(c6.data.new_lookups.categories.map((c) => c.name), ['Computer']);
+  assert.deepEqual(c6.data.rows.map((r) => r.asset_tag), ['COM-0001', 'COM-0002']);
+  const c7 = await upload('cats.csv', 'Asset Name,Category\nOffice PC 1,Computer\n', { create_lookups: '0' });
+  assert.match(c7.data.rows[0].errors[0], /Unknown category/);
   const c3 = await upload('x.csv', 'Asset Tag,Asset Name,Category\nLAP-0001,Changed name,Laptop\n', { mode: 'create_only' });
   assert.equal(c3.data.summary.skip, 1);
   assert.equal((await upload('x.csv', 'foo,bar\n1,2\n')).status, 400);
@@ -801,6 +808,22 @@ test('license key: status, renewal, lock when expired, backup still allowed', as
   assert.equal((await a.get('/assets')).status, 200);
   assert.throws(() => makeKey(TEST_PRIV, { company: 'X', expires: 'forever' }), /never/);
   db.run("DELETE FROM settings WHERE key = 'license_last_seen'");
+});
+
+test('auto-generated serial number and service tag', async () => {
+  const a = await login('admin', 'admin123');
+  const cat = ok(await a.get('/settings/lookups')).categories.find((c) => c.prefix === 'MON').id;
+  assert.deepEqual(ok(await a.get('/settings/lookups')).auto_ids, { serial: true, service_tag: true });
+  const x = ok(await a.post('/assets', { name: 'Auto IDs', category_id: cat }));
+  assert.match(x.serial_number, /^SN-\d{4}-[2-9A-HJKMNP-Z]{6}$/);
+  assert.match(x.service_tag, /^[2-9A-HJKMNP-Z]{7}$/);
+  const y = ok(await a.post('/assets', { name: 'Own serial', category_id: cat, serial_number: 'REAL-123' }));
+  assert.equal(y.serial_number, 'REAL-123', 'a typed serial is kept');
+  assert.notEqual(y.service_tag, x.service_tag);
+  ok(await a.put('/settings/company', { auto_serial: 0, auto_service_tag: 0 }));
+  const z = ok(await a.post('/assets', { name: 'No auto', category_id: cat }));
+  assert.equal(z.serial_number, null); assert.equal(z.service_tag, null);
+  ok(await a.put('/settings/company', { auto_serial: 1, auto_service_tag: 1 }));
 });
 
 // Keep this last: it erases the shared test database.

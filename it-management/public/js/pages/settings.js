@@ -277,6 +277,9 @@ const PANES = {
       { name: 'tag_padding', label: 'Number of digits', type: 'number', help: '4 → LAP-0001, 3 → LAP-001' },
       { name: 'tag_separator', label: 'Separator', help: 'Usually a dash' },
       { name: 'preview', label: 'Preview', type: 'static', html: `<b class="mono" data-preview>${esc(preview())}</b>` },
+      { type: 'section', label: 'Serial number and service tag', help: 'When adding an asset (or importing a spreadsheet) with these left blank, the system makes one up, e.g. SN-2610-7KQ2M9 and 4HX9QK2.' },
+      { name: 'auto_serial', label: 'Auto-generate the serial number when left blank', type: 'checkbox', span: 2 },
+      { name: 'auto_service_tag', label: 'Auto-generate the service tag when left blank', type: 'checkbox', span: 2 },
       { type: 'section', label: 'QR labels', help: 'Address phones open when they scan an asset sticker. Use this computer\'s network address, not localhost.' },
       { name: 'qr_base_url', label: 'QR link address', placeholder: 'http://192.168.1.50:4000', span: 2 },
       { type: 'section', label: 'Alerts' },
@@ -287,7 +290,7 @@ const PANES = {
     f.addEventListener('input', () => { c.tag_padding = f.tag_padding.value; c.tag_separator = f.tag_separator.value; f.querySelector('[data-preview]').textContent = preview(); });
     f.addEventListener('submit', async (e) => {
       e.preventDefault();
-      try { await api.put('/settings/company', readForm(f)); toast('Saved'); } catch (ex) { toast(ex.message, 'err'); }
+      try { await api.put('/settings/company', readForm(f)); await loadLookups(true); toast('Saved'); } catch (ex) { toast(ex.message, 'err'); }
     });
   },
   async users(el) {

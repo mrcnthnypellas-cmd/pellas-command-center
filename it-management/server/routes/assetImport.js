@@ -106,8 +106,18 @@ function lookups() {
   const empByCode = new Map(emps.map((e) => [e.employee_code.toLowerCase(), e]));
   const empByName = new Map();
   for (const e of emps) { const k = e.full_name.trim().toLowerCase(); empByName.set(k, empByName.has(k) ? 'ambiguous' : e); }
+  const prefixes = new Set(cats.map((c) => c.prefix.toUpperCase()));
   return {
     cats: catMap, catNames: cats.map((c) => c.name),
+    // Tag prefix for a category that doesn't exist yet: "Computer" → COM (then COMP, COM2… if taken).
+    newPrefix(name) {
+      const letters = String(name).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'CAT';
+      const tries = [letters.slice(0, 3), letters.slice(0, 4), letters.slice(0, 5)];
+      for (let i = 2; i < 100; i++) tries.push(`${letters.slice(0, 3)}${i}`);
+      const p = tries.find((t) => t.length >= 2 && !prefixes.has(t)) || `C${Date.now() % 100000}`;
+      prefixes.add(p);
+      return p;
+    },
     departments: byName(db.all('SELECT id, name FROM departments')),
     locations: byName(db.all('SELECT id, name FROM locations')),
     employee(v) {
@@ -172,7 +182,8 @@ function plan(req, table, opts) {
   const allocate = tagAllocator();
   const seenTags = new Map();
   const seenSerials = new Map();
-  const newLookups = { departments: new Map(), locations: new Map() };
+  const newLookups = { departments: new Map(), locations: new Map(), categories: new Map() };
+  const plannedCats = new Map(); // lower(name) → { id, name, prefix } for categories the import will create
   const canCreate = can(req.user, 'assets.create');
   const canEdit = can(req.user, 'assets.edit');
   const canAssign = can(req.user, 'assets.assign');
@@ -197,8 +208,14 @@ function plan(req, table, opts) {
     for (const k of STRING_KEYS) if (val(k)) data[k] = val(k);
     // Category
     if (val('category')) {
-      const c = L.cats.get(val('category').toLowerCase());
-      if (c) data.category_id = c.id; else errors.push(`Unknown category “${val('category')}”. Add it under Assets → Categories first (existing: ${L.catNames.join(', ')})`);
+      const name = val('category'); const key = name.toLowerCase();
+      const c = L.cats.get(key);
+      if (c) data.category_id = c.id;
+      else if (opts.createLookups) {
+        if (!plannedCats.has(key)) plannedCats.set(key, { id: `new:${key}`, name, prefix: L.newPrefix(name) });
+        data._new_category = plannedCats.get(key).name;
+        warnings.push(`New category “${name}” will be created (tags ${plannedCats.get(key).prefix}-0001 …)`);
+      } else errors.push(`Unknown category “${name}”. Tick “Create … that don't exist yet”, or add it under Assets → Categories (existing: ${L.catNames.join(', ')})`);
     }
     // Department / location (optionally created)
     for (const [key, map, label] of [['department', L.departments, 'department'], ['location', L.locations, 'location']]) {
@@ -262,7 +279,7 @@ function plan(req, table, opts) {
       if (employee && status && !['Available', 'Deployed'].includes(status)) errors.push(`An asset that is ${status} can't be assigned — leave Status empty or set Available`);
       if (status && status !== 'Deployed') data.status = status;
       if (tag) data.asset_tag = tag;
-      const cat = data.category_id && L.cats.get(val('category').toLowerCase());
+      const cat = (data.category_id && L.cats.get(val('category').toLowerCase())) || (data._new_category && plannedCats.get(data._new_category.toLowerCase()));
       out.asset_tag = tag || (cat && !errors.length ? allocate(cat) : null);
       out.auto_tag = !tag;
       if (employee) out.assign_to = `${employee.full_name} (${employee.employee_code})`;
@@ -293,11 +310,12 @@ function plan(req, table, opts) {
 
   // Only create departments/locations that rows being imported actually need.
   for (const r of results) {
-    if (r.errors.length) r.warnings = r.warnings.filter((m) => !/^New (department|location)/.test(m));
+    if (r.errors.length) r.warnings = r.warnings.filter((m) => !/^New (department|location|category)/.test(m));
     if (r.errors.length || !['create', 'update'].includes(r.action)) continue;
     const { data } = r._work;
     if (data._new_department) newLookups.departments.set(data._new_department.toLowerCase(), data._new_department);
     if (data._new_location) newLookups.locations.set(data._new_location.toLowerCase(), data._new_location);
+    if (data._new_category) { const c = plannedCats.get(data._new_category.toLowerCase()); newLookups.categories.set(c.name.toLowerCase(), { name: c.name, prefix: c.prefix }); }
   }
   const summary = { total: results.length, create: 0, update: 0, unchanged: 0, skip: 0, errors: 0, warnings: 0 };
   for (const r of results) {
@@ -306,7 +324,7 @@ function plan(req, table, opts) {
   }
   return {
     columns: { recognized: [...colIndex.keys()].map((k) => COLUMNS.find((c) => c.key === k).header), ignored, missing: hasTag ? missing : [] },
-    new_lookups: { departments: [...newLookups.departments.values()], locations: [...newLookups.locations.values()] },
+    new_lookups: { departments: [...newLookups.departments.values()], locations: [...newLookups.locations.values()], categories: [...newLookups.categories.values()] },
     summary, rows: results,
   };
 }
@@ -315,7 +333,18 @@ function plan(req, table, opts) {
 function commit(req, planned, fileName) {
   const done = { created: 0, updated: 0, assigned: 0, failed: 0 };
   db.tx(() => {
-    const ids = { department: new Map(), location: new Map() };
+    const ids = { department: new Map(), location: new Map(), category: new Map() };
+    for (const c of planned.new_lookups.categories || []) {
+      const hit = db.get('SELECT id FROM asset_categories WHERE lower(name) = lower(?)', c.name);
+      let id = hit && hit.id;
+      if (!hit) {
+        let prefix = c.prefix;
+        for (let i = 2; db.get('SELECT 1 AS x FROM asset_categories WHERE prefix = ?', prefix); i++) prefix = `${c.prefix.slice(0, 3)}${i}`;
+        id = insert('asset_categories', { name: c.name, prefix, type_group: 'Other', is_network: 0 });
+        log(req, 'Category created', 'category', id, c.name, { prefix, source: 'import' });
+      }
+      ids.category.set(c.name.toLowerCase(), id);
+    }
     for (const kind of ['department', 'location']) {
       for (const name of planned.new_lookups[`${kind}s`]) {
         const hit = db.get(`SELECT id FROM ${kind}s WHERE lower(name) = lower(?)`, name);
@@ -327,7 +356,7 @@ function commit(req, planned, fileName) {
     for (const r of planned.rows) {
       if (r.errors.length || !['create', 'update'].includes(r.action)) continue;
       const { data, w, existing, employee } = r._work;
-      for (const kind of ['department', 'location']) {
+      for (const kind of ['department', 'location', 'category']) {
         if (data[`_new_${kind}`]) { data[`${kind}_id`] = ids[kind].get(data[`_new_${kind}`].toLowerCase()); delete data[`_new_${kind}`]; }
       }
       try {

@@ -5,6 +5,7 @@ const { log, history, today } = require('./activity');
 const { bad, required, insert, update, diff } = require('./util');
 const { nextTag } = require('./tags');
 const { normalizeMac, MAC_RE } = require('./ip');
+const { fillAutoIds } = require('./autoIds');
 
 const STATUSES = ['Available', 'Deployed', 'Under Repair', 'Damaged', 'Lost', 'Retired', 'Disposed'];
 const FIELDS = ['asset_tag', 'name', 'category_id', 'brand', 'model', 'serial_number', 'service_tag', 'description',
@@ -31,6 +32,7 @@ function prepareCreate(data) {
   if (db.get('SELECT 1 FROM assets WHERE asset_tag = ?', data.asset_tag)) throw bad(`Asset tag ${data.asset_tag} already exists`);
   if (data.status === 'Deployed') throw bad('Create the asset as Available, then use Deploy to assign it to an employee');
   data.status = data.status || 'Available';
+  fillAutoIds(data); // blank serial number / service tag → generated (if turned on)
   return data;
 }
 
