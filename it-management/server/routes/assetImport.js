@@ -405,13 +405,23 @@ async function listsSheet() {
   const cols = [cats, [...STATUSES], deps, locs, emps];
   const n = Math.max(...cols.map((c) => c.length));
   const rows = Array.from({ length: n }, (_, i) => cols.map((c) => c[i] ?? ''));
-  const ref = (col, len) => `Lists!$${col}$2:$${col}$${Math.max(len + 1, 2)}`;
+  // Short lists go into the drop-down itself ("Laptop,Desktop,…"): that works in every spreadsheet app,
+  // including Excel on phones and WPS, which don't show lists that point at another sheet. Long lists
+  // (over Excel's 255-character limit) point at the Lists sheet instead. Empty lists get no drop-down.
+  const list = (col, values) => {
+    if (!values.length) return null;
+    const inline = values.join(',');
+    if (inline.length <= 250 && !values.some((v) => /[,"]/.test(v))) return `"${inline}"`;
+    return `Lists!$${col}$2:$${col}$${values.length + 1}`;
+  };
+  const lists = {
+    Category: list('A', cats), Status: list('B', [...STATUSES]), Department: list('C', deps),
+    Location: list('D', locs), 'Assigned To (Employee ID or Name)': list('E', emps),
+  };
+  for (const k of Object.keys(lists)) if (!lists[k]) delete lists[k];
   return {
     sheet: { name: 'Lists', headers: ['Category', 'Status', 'Department', 'Location', 'Employee ID'], rows, widths: [22, 16, 22, 30, 16] },
-    lists: {
-      Category: ref('A', cats.length), Status: ref('B', STATUSES.length), Department: ref('C', deps.length),
-      Location: ref('D', locs.length), 'Assigned To (Employee ID or Name)': ref('E', emps.length),
-    },
+    lists,
   };
 }
 
