@@ -332,3 +332,24 @@ public class TailscaleFunnelTests
         Assert.Empty(WireGuardMeshProvider.FunnelUrls("not json"));
     }
 }
+
+public class JsonFileStoreTests
+{
+    sealed class Doc { public string Name { get; set; } = ""; }
+
+    [Fact]
+    public void Recovers_from_a_damaged_file_using_the_previous_copy()
+    {
+        var dir = Directory.CreateTempSubdirectory().FullName;
+        var file = Path.Combine(dir, "x.json");
+        var store = new JsonFileStore<Doc>(file);
+        store.Update(d => d.Name = "first");
+        store.Update(d => d.Name = "second");
+        File.WriteAllText(file, "");                       // zero-length after a power cut
+        Assert.Equal("first", new JsonFileStore<Doc>(file).Get().Name);
+        File.WriteAllText(file, "{ broken");
+        File.WriteAllText(file + ".bak", "{ also broken");
+        Assert.Throws<InvalidDataException>(() => new JsonFileStore<Doc>(file));
+        Directory.Delete(dir, true);
+    }
+}

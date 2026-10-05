@@ -21,6 +21,9 @@ using MyPrivateServer.WebHosting;
 using OpenTelemetry.Metrics;
 using Serilog;
 
+// A failure while starting must never be silent: record it even before logging is set up.
+AppDomain.CurrentDomain.UnhandledException += (_, e) => StartupCrash.Record(e.ExceptionObject as Exception);
+
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
@@ -215,6 +218,26 @@ try
 finally { Log.CloseAndFlush(); }
 
 public partial class Program;
+
+/// <summary>Writes an unhandled crash to logs\crash.log in the data folder (and the normal log when it is ready).</summary>
+static class StartupCrash
+{
+    public static void Record(Exception? ex)
+    {
+        try { Log.Fatal(ex, "My Private Server stopped because of an unexpected error"); Log.CloseAndFlush(); } catch { }
+        try
+        {
+            var dir = Environment.GetEnvironmentVariable("MPS_DATA_DIR")
+                ?? (OperatingSystem.IsWindows()
+                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "MyPrivateServer")
+                    : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "my-private-server"));
+            var logs = Path.Combine(dir, "logs");
+            Directory.CreateDirectory(logs);
+            File.AppendAllText(Path.Combine(logs, "crash.log"), $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz} {typeof(Program).Assembly.GetName().Version}{Environment.NewLine}{ex}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch { }
+    }
+}
 
 static class DataProtectionExtensions
 {

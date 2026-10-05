@@ -89,7 +89,29 @@ public sealed class JsonFileStore<T> where T : class, new()
     {
         _path = path;
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        _value = File.Exists(path) ? JsonSerializer.Deserialize<T>(File.ReadAllText(path), Options) ?? new T() : new T();
+        var backup = path + ".bak";
+        if (TryRead(path) is { } current) _value = current;
+        else if (TryRead(backup) is { } previous)
+        {
+            // The file was damaged (for example by a power cut while saving): keep it for inspection and use the last good copy.
+            if (File.Exists(path)) File.Copy(path, $"{path}.damaged-{DateTime.Now:yyyyMMddHHmmss}", true);
+            File.Copy(backup, path, true);
+            _value = previous;
+        }
+        else if (File.Exists(path) && new FileInfo(path).Length > 0)
+            throw new InvalidDataException($"The settings file {path} is damaged and there is no usable backup ({backup}).");
+        else _value = new T();
+    }
+
+    static T? TryRead(string file)
+    {
+        try
+        {
+            if (!File.Exists(file)) return null;
+            var text = File.ReadAllText(file);
+            return string.IsNullOrWhiteSpace(text) ? null : JsonSerializer.Deserialize<T>(text, Options);
+        }
+        catch (JsonException) { return null; }
     }
 
     public T Get() { lock (_gate) return Clone(_value); }
@@ -101,7 +123,12 @@ public sealed class JsonFileStore<T> where T : class, new()
             var copy = Clone(_value);
             mutate(copy);
             var tmp = _path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(copy, Options));
+            using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(fs, copy, Options);
+                fs.Flush(flushToDisk: true); // survives a power cut right after saving
+            }
+            if (File.Exists(_path)) File.Copy(_path, _path + ".bak", overwrite: true);
             File.Move(tmp, _path, overwrite: true);
             _value = copy;
             return Clone(copy);
