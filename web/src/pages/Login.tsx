@@ -3,7 +3,11 @@ import { Navigate } from "react-router-dom";
 import { LogIn, Building2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase, setRememberMe } from "../lib/supabase";
-import { Button, Input, Modal } from "../components/ui/ui";
+import { Button, Modal } from "../components/ui/ui";
+import { FadeIn } from "../components/FadeIn";
+
+const BACKGROUND_VIDEO_URL =
+  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4";
 
 export default function Login() {
   const { session, profile, loading, signIn } = useAuth();
@@ -49,53 +53,78 @@ export default function Login() {
   }
 
   return (
-    <div
-      className={`flex min-h-screen flex-col justify-end p-4 bg-cover bg-center ${
-        backgroundUrl ? "" : "bg-gradient-to-br from-brand-950 via-brand-800 to-brand-600"
-      }`}
-      style={backgroundUrl ? { backgroundImage: `url(${backgroundUrl})` } : undefined}
-    >
-      {backgroundUrl && <div className="fixed inset-0 bg-slate-900/40" />}
-      <div className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex flex-col sm:flex-row">
-          <div className="flex flex-col items-center justify-center gap-2 p-8 text-center sm:w-2/5 sm:border-r sm:border-slate-100">
-            {logoUrl ? (
-              <img src={logoUrl} alt="Company logo" className="h-12 w-12 rounded-xl object-cover" />
-            ) : (
-              <div className="h-12 w-12 rounded-xl bg-brand-600 flex items-center justify-center text-white">
-                <Building2 className="h-6 w-6" />
-              </div>
-            )}
-            <h1 className="text-xl font-bold text-slate-800">{loginTitle}</h1>
-            <p className="text-sm text-slate-500">Sign in to your account</p>
-          </div>
+    <div className="relative flex min-h-screen flex-col items-center justify-end overflow-hidden bg-black p-4">
+      {/* Full-screen background video, no dimming/overlay of any kind. */}
+      <video
+        className="absolute inset-0 h-full w-full object-cover"
+        src={BACKGROUND_VIDEO_URL}
+        poster={backgroundUrl ?? undefined}
+        autoPlay
+        loop
+        muted
+        playsInline
+      />
 
-          <div className="flex-1 p-8">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus autoComplete="username" />
-              <Input label="Password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+      <FadeIn delay={200} duration={700} className="relative z-10 mx-auto w-full max-w-3xl">
+        <div className="liquid-glass overflow-hidden rounded-2xl border border-white/20">
+          <div className="flex flex-col sm:flex-row">
+            <div className="flex flex-col items-center justify-center gap-2 border-b border-white/10 p-8 text-center sm:w-2/5 sm:border-b-0 sm:border-r">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Company logo" className="h-12 w-12 rounded-xl object-cover" />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-white">
+                  <Building2 className="h-6 w-6" />
+                </div>
+              )}
+              <h1 className="text-xl font-semibold tracking-tight text-white">{loginTitle}</h1>
+              <p className="text-sm text-gray-300">Sign in to your account</p>
+            </div>
 
-              {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 text-slate-600">
-                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded border-slate-300" />
-                  Remember me
+            <div className="flex-1 p-8">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-gray-200">Username</span>
+                  <input
+                    className="w-full rounded-lg border border-white/20 bg-black/30 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/40"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoFocus
+                    autoComplete="username"
+                  />
                 </label>
-                <button type="button" onClick={() => setForgotOpen(true)} className="text-brand-600 hover:underline">
-                  Forgot password?
-                </button>
-              </div>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-gray-200">Password</span>
+                  <input
+                    className="w-full rounded-lg border border-white/20 bg-black/30 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/40"
+                    type="text"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                </label>
 
-              <Button type="submit" className="w-full" loading={submitting}>
-                <LogIn className="h-4 w-4" /> Login
-              </Button>
-            </form>
+                {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
 
-            <p className="mt-6 text-center text-xs text-slate-400">{footerText}</p>
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2 text-gray-300">
+                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded border-white/30 bg-transparent" />
+                    Remember me
+                  </label>
+                  <button type="button" onClick={() => setForgotOpen(true)} className="text-gray-300 hover:text-white hover:underline">
+                    Forgot password?
+                  </button>
+                </div>
+
+                <Button type="submit" className="w-full !bg-white !text-black hover:!bg-gray-100" loading={submitting}>
+                  <LogIn className="h-4 w-4" /> Login
+                </Button>
+              </form>
+
+              <p className="mt-6 text-center text-xs text-gray-400">{footerText}</p>
+            </div>
           </div>
         </div>
-      </div>
+      </FadeIn>
 
       <Modal open={forgotOpen} onClose={() => setForgotOpen(false)} title="Forgot Password">
         <p className="text-sm text-slate-600">
