@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { LogIn, Building2 } from "lucide-react";
+import { LogIn, Building2, Move, Copy, RotateCcw } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase, setRememberMe } from "../lib/supabase";
 import { Button, Modal } from "../components/ui/ui";
@@ -8,6 +8,22 @@ import { FadeIn } from "../components/FadeIn";
 
 const BACKGROUND_VIDEO_URL =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4";
+
+// Admin preview-only layout editor for the login card: open the login page
+// with ?edit=1 to drag/resize it and find the exact spot/size that looks
+// best. Saved to localStorage so it survives reloads WHILE you're testing,
+// but this override only ever applies in edit mode — anyone visiting the
+// plain /login URL always sees the shipped default layout below. Once a
+// position/size is chosen, report the numbers (the HUD has a Copy button)
+// so they can be committed as the new permanent default.
+const EDIT_STORAGE_KEY = "login_card_layout_v1";
+
+interface CardLayout {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 
 export default function Login() {
   const { session, profile, loading, signIn } = useAuth();
@@ -22,6 +38,11 @@ export default function Login() {
   const [loginTitle, setLoginTitle] = useState("Employee Attendance System");
   const [footerText, setFooterText] = useState("All Rights Reserved 2026 PELLAS Command Centre");
 
+  const isEditMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("edit") === "1";
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = useState<CardLayout | null>(null);
+  const dragState = useRef<{ mode: "move" | "resize"; startX: number; startY: number; base: CardLayout } | null>(null);
+
   useEffect(() => {
     supabase
       .from("companies")
@@ -35,6 +56,67 @@ export default function Login() {
         if (data?.login_footer_text) setFooterText(data.login_footer_text);
       });
   }, []);
+
+  useEffect(() => {
+    if (!isEditMode) return;
+    const saved = localStorage.getItem(EDIT_STORAGE_KEY);
+    if (saved) {
+      try {
+        setLayout(JSON.parse(saved));
+        return;
+      } catch {
+        // fall through to measuring the current natural position
+      }
+    }
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (rect) setLayout({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode]);
+
+  function persist(next: CardLayout) {
+    setLayout(next);
+    localStorage.setItem(EDIT_STORAGE_KEY, JSON.stringify(next));
+  }
+
+  function startDrag(e: React.PointerEvent, mode: "move" | "resize") {
+    if (!layout) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragState.current = { mode, startX: e.clientX, startY: e.clientY, base: layout };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onDragMove(e: React.PointerEvent) {
+    const ds = dragState.current;
+    if (!ds) return;
+    const dx = e.clientX - ds.startX;
+    const dy = e.clientY - ds.startY;
+    if (ds.mode === "move") {
+      persist({ ...ds.base, left: ds.base.left + dx, top: ds.base.top + dy });
+    } else {
+      persist({ ...ds.base, width: Math.max(280, ds.base.width + dx), height: Math.max(200, ds.base.height + dy) });
+    }
+  }
+
+  function endDrag(e: React.PointerEvent) {
+    dragState.current = null;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // no-op
+    }
+  }
+
+  function resetLayout() {
+    localStorage.removeItem(EDIT_STORAGE_KEY);
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (rect) setLayout({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
+  }
+
+  function copyLayout() {
+    if (!layout) return;
+    navigator.clipboard?.writeText(JSON.stringify(layout, null, 2)).catch(() => {});
+  }
 
   if (!loading && session && profile) return <Navigate to="/dashboard" replace />;
 
@@ -65,9 +147,25 @@ export default function Login() {
         playsInline
       />
 
-      <FadeIn delay={200} duration={700} className="relative z-10 mx-auto w-full max-w-3xl">
-        <div className="liquid-glass overflow-hidden rounded-2xl border border-white/20">
-          <div className="flex flex-col sm:flex-row">
+      <FadeIn
+        delay={200}
+        duration={700}
+        className="relative z-10 mx-auto w-full max-w-3xl"
+        style={isEditMode && layout ? { position: "fixed", left: layout.left, top: layout.top, width: layout.width, height: layout.height, maxWidth: "none", margin: 0 } : undefined}
+      >
+        <div ref={cardRef} className="liquid-glass relative h-full overflow-hidden rounded-2xl border border-white/20">
+          {isEditMode && (
+            <div
+              onPointerDown={(e) => startDrag(e, "move")}
+              onPointerMove={onDragMove}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              className="absolute inset-x-0 top-0 z-20 flex h-8 cursor-grab touch-none items-center justify-center gap-1.5 bg-brand-600/80 text-xs font-medium text-white active:cursor-grabbing"
+            >
+              <Move className="h-3.5 w-3.5" /> Drag to reposition
+            </div>
+          )}
+          <div className="flex h-full flex-col sm:flex-row">
             <div className="flex flex-col items-center justify-center gap-2 border-b border-white/10 p-8 text-center sm:w-2/5 sm:border-b-0 sm:border-r">
               {logoUrl ? (
                 <img src={logoUrl} alt="Company logo" className="h-12 w-12 rounded-xl object-cover" />
@@ -123,8 +221,36 @@ export default function Login() {
               <p className="mt-6 text-center text-xs text-gray-400">{footerText}</p>
             </div>
           </div>
+
+          {isEditMode && (
+            <div
+              onPointerDown={(e) => startDrag(e, "resize")}
+              onPointerMove={onDragMove}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              className="absolute bottom-0 right-0 z-20 h-6 w-6 cursor-nwse-resize touch-none rounded-tl-lg bg-brand-600/80"
+              aria-label="Resize card"
+            />
+          )}
         </div>
       </FadeIn>
+
+      {isEditMode && layout && (
+        <div className="fixed bottom-4 left-4 z-30 space-y-2 rounded-xl bg-black/80 p-3 text-xs text-white shadow-xl">
+          <p className="font-mono">
+            left: {Math.round(layout.left)} · top: {Math.round(layout.top)} · w: {Math.round(layout.width)} · h: {Math.round(layout.height)}
+          </p>
+          <div className="flex gap-2">
+            <button type="button" onClick={copyLayout} className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 hover:bg-white/20">
+              <Copy className="h-3 w-3" /> Copy values
+            </button>
+            <button type="button" onClick={resetLayout} className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 hover:bg-white/20">
+              <RotateCcw className="h-3 w-3" /> Reset
+            </button>
+          </div>
+          <p className="text-gray-400">Preview mode only — remove ?edit=1 from the URL to see the real page. Tell Claude the values to make them permanent.</p>
+        </div>
+      )}
 
       <Modal open={forgotOpen} onClose={() => setForgotOpen(false)} title="Forgot Password">
         <p className="text-sm text-slate-600">
