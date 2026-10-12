@@ -6,6 +6,7 @@ import { useToast } from "../../lib/toast";
 import { Card, Badge } from "../../components/ui/ui";
 import { formatDate, formatTime, todayInTZ } from "../../lib/format";
 import { getPosition, friendlyClockError } from "../../lib/geo";
+import { speak } from "../../lib/voice";
 import { euclideanDistance, FACE_MATCH_THRESHOLD } from "../../lib/faceRecognition";
 import FaceCapture from "../../components/face/FaceCapture";
 import AttendanceCalendar from "../../components/employee/AttendanceCalendar";
@@ -93,9 +94,11 @@ export default function EmployeeDashboard() {
       };
       const { data, error } = await supabase.rpc(kind === "in" ? "clock_in" : "clock_out", args);
       if (error) throw error;
-      setToday(data as Attendance);
+      const row = data as Attendance;
+      setToday(row);
       setLastAction(kind);
       push("success", kind === "in" ? "Time In successful!" : "Time Out successful!");
+      speak(voiceLineFor(kind, row.status, profile?.first_name));
       return true;
     } catch (err) {
       push("error", friendlyClockError(err));
@@ -308,6 +311,20 @@ export default function EmployeeDashboard() {
       />
     </div>
   );
+}
+
+// Spoken confirmation after a Time In/Out — always confirms the action,
+// then calls out late/undertime/overtime since those are the statuses
+// worth a heads-up (on-time present/overtime-approved stay quiet on that part).
+function voiceLineFor(kind: "in" | "out", status: Attendance["status"], firstName?: string): string {
+  const name = firstName ?? "";
+  if (kind === "in") {
+    if (status === "late") return `Time in successful, ${name}. You are late.`;
+    return `You already timed in, ${name}.`;
+  }
+  if (status === "undertime") return `Time out successful, ${name}. You left early.`;
+  if (status === "overtime") return `Time out successful, ${name}. Overtime recorded.`;
+  return `You already timed out, ${name}.`;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

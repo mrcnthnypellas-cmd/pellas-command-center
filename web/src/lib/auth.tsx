@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, usernameToEmail } from "./supabase";
+import { speak } from "./voice";
 import type { Profile } from "../types";
 
 interface AuthState {
@@ -54,7 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       setSession(newSession);
       if (newSession) {
-        await loadProfile(newSession.user.id);
+        const p = await loadProfile(newSession.user.id);
+        // Only greet on an actual fresh sign-in — not on page-reload session
+        // restores (those fire a separate 'INITIAL_SESSION' event).
+        if (_event === "SIGNED_IN" && p) {
+          speak(`Welcome, ${p.first_name}!`);
+        }
       } else {
         setProfile(null);
       }
