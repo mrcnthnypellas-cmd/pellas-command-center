@@ -150,7 +150,11 @@ export default function Login() {
       <FadeIn
         delay={200}
         duration={700}
-        className="relative z-10 mx-auto w-full max-w-3xl"
+        // Permanent desktop placement, chosen via the ?edit=1 preview tool
+        // (left:923 top:920 w:619 h:323 on that test screen). Scoped to
+        // lg+ so phones — where employees actually clock in — keep the
+        // original centered-at-bottom layout instead of a fixed pixel box.
+        className="relative z-10 mx-auto w-full max-w-3xl lg:fixed lg:left-[923px] lg:top-[920px] lg:m-0 lg:h-[323px] lg:w-[619px] lg:max-w-none"
         style={isEditMode && layout ? { position: "fixed", left: layout.left, top: layout.top, width: layout.width, height: layout.height, maxWidth: "none", margin: 0 } : undefined}
       >
         <div ref={cardRef} className="liquid-glass relative h-full overflow-hidden rounded-2xl border border-white/20">
