@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
+import { useScheduledVoiceAnnouncements } from "../../lib/scheduledAnnouncements";
 import LedBanner, { useBanner } from "./LedBanner";
 import { formatDateTime } from "../../lib/format";
 import type { Role } from "../../types";
@@ -35,6 +36,7 @@ export function ProtectedLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [myOpenTaskCount, setMyOpenTaskCount] = useState(0);
   const banner = useBanner();
+  useScheduledVoiceAnnouncements();
 
   useEffect(() => {
     if (!profile) return;
