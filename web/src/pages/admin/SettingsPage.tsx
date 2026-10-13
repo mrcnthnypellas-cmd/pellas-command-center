@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Save, Image as ImageIcon, Trash2, Radio, Clock, CalendarDays, LayoutGrid, ScanFace } from "lucide-react";
+import { MapPin, Save, Image as ImageIcon, Trash2, Radio, Clock, CalendarDays, LayoutGrid, ScanFace, Volume2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
@@ -10,6 +10,8 @@ import { DashboardCardLayout } from "../../components/DashboardCardLayout";
 import ContactDirectoryCard from "../../components/ContactDirectoryCard";
 import { MyTasksCard } from "../../components/MyTasksCard";
 import AttendanceCalendar from "../../components/employee/AttendanceCalendar";
+import { ANNOUNCEMENTS } from "../../lib/scheduledAnnouncements";
+import { speak } from "../../lib/voice";
 import type { CompanySettings } from "../../types";
 
 export default function SettingsPage() {
@@ -288,6 +290,18 @@ export default function SettingsPage() {
           </div>
         </div>
         <p className="text-xs text-slate-400">Banner changes are saved with the "Save Settings" button below.</p>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="flex items-center gap-2 font-semibold text-slate-700"><Volume2 className="h-4 w-4" /> Voice Announcement</h2>
+        <p className="text-sm text-slate-500">
+          Spoken once (not the LED banner — actual voice via text-to-speech) at {ANNOUNCEMENTS[0].time} every day, in every
+          open browser tab (admin, HR, employees). Click Test to hear it right now on this device instead of waiting for the time.
+        </p>
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{ANNOUNCEMENTS[0].message}</p>
+        <Button type="button" variant="secondary" onClick={() => speak(ANNOUNCEMENTS[0].message)}>
+          <Volume2 className="h-4 w-4" /> Test Announcement
+        </Button>
       </Card>
 
       <Card className="p-5 space-y-4">

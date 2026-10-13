@@ -5,7 +5,7 @@ import { speak } from "./voice";
 // the local clock (Asia/Manila) reaches the configured time. No backend
 // involved: purely a client-side timer, de-duped per day via localStorage
 // so a 20s poll doesn't re-speak it repeatedly within the same minute.
-const ANNOUNCEMENTS: { time: string; message: string }[] = [
+export const ANNOUNCEMENTS: { time: string; message: string }[] = [
   {
     time: "17:00",
     message:
