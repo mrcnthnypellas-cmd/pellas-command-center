@@ -170,3 +170,11 @@ export interface AuditLog {
   details: unknown;
   created_at: string;
 }
+
+export interface ChatMessage {
+  id: string;
+  company_id: string;
+  sender_id: string;
+  message: string;
+  created_at: string;
+}

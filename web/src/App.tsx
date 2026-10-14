@@ -13,6 +13,7 @@ import MyAttendance from "./pages/employee/MyAttendance";
 import Corrections from "./pages/Corrections";
 import Overtime from "./pages/Overtime";
 import Tasks from "./pages/Tasks";
+import GroupChat from "./pages/GroupChat";
 import Reports from "./pages/Reports";
 import AuditLog from "./pages/admin/AuditLog";
 import SettingsPage from "./pages/admin/SettingsPage";
@@ -35,6 +36,7 @@ export default function App() {
               <Route path="/corrections" element={<Corrections />} />
               <Route path="/overtime" element={<Overtime />} />
               <Route path="/tasks" element={<Tasks />} />
+              <Route path="/chat" element={<GroupChat />} />
               <Route path="/reports" element={<RequireRole roles={["admin", "hr"]}><Reports /></RequireRole>} />
               <Route path="/audit-log" element={<RequireRole roles={["admin"]}><AuditLog /></RequireRole>} />
               <Route path="/settings" element={<RequireRole roles={["admin"]}><SettingsPage /></RequireRole>} />
