@@ -258,6 +258,13 @@ export default function Meet() {
       setScreenSharing(false);
       return;
     }
+    // Screen capture isn't implemented by most mobile browsers (iOS Safari,
+    // most Android browsers) — there's no in-app workaround for that, so
+    // detect it upfront and say so plainly instead of failing silently.
+    if (!navigator.mediaDevices.getDisplayMedia) {
+      push("error", "Hindi suportado ng browser/device na ito ang screen share. Gamitin ang desktop/laptop (Chrome o Edge).");
+      return;
+    }
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       screenStreamRef.current = screenStream;
@@ -270,8 +277,12 @@ export default function Meet() {
         toggleScreenShare();
       };
       setScreenSharing(true);
-    } catch {
-      // user cancelled the screen-share picker — no-op
+    } catch (err) {
+      const message = err instanceof Error ? err.message.toLowerCase() : "";
+      const userCancelled = message.includes("denied") || message.includes("cancel") || message.includes("permission");
+      if (!userCancelled) {
+        push("error", "Hindi na-start ang screen share. Subukan ulit.");
+      }
     }
   }
 
@@ -300,7 +311,12 @@ export default function Meet() {
         </div>
 
         <div className="grid flex-1 auto-rows-fr grid-cols-1 gap-3 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-          <VideoTile stream={localStreamRef.current} name={`${profile.first_name} (ikaw)`} muted mirrored={!screenSharing} />
+          <VideoTile
+            stream={screenSharing ? screenStreamRef.current : localStreamRef.current}
+            name={`${profile.first_name} (ikaw)`}
+            muted
+            mirrored={!screenSharing}
+          />
           {participants.map(([id, p]) => (
             <VideoTile key={id} stream={p.stream} name={p.name} />
           ))}
