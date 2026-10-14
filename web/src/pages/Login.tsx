@@ -135,10 +135,15 @@ export default function Login() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-end overflow-hidden bg-black p-4">
-      {/* Full-screen background video, no dimming/overlay of any kind. */}
+    <div className="relative flex min-h-screen flex-col items-center justify-end bg-black p-4">
+      {/* Full-screen background video, no dimming/overlay of any kind. Fixed
+          (not absolute) so it always covers the actual viewport regardless
+          of how tall this page's content ends up being — on a short/mobile
+          viewport the card below can push the page taller than one screen,
+          and a merely-absolute video tied to that taller box would leave
+          the card scrolled out of view with nothing visibly wrong above it. */}
       <video
-        className="absolute inset-0 h-full w-full object-cover"
+        className="fixed inset-0 h-full w-full object-cover"
         src={BACKGROUND_VIDEO_URL}
         poster={backgroundUrl ?? undefined}
         autoPlay
