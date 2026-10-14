@@ -3,7 +3,7 @@ import { MapPin, Save, Image as ImageIcon, Trash2, Radio, Clock, CalendarDays, L
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
-import { Card, Input, Button } from "../../components/ui/ui";
+import { Card, Input, Select, Button } from "../../components/ui/ui";
 import { getPosition } from "../../lib/geo";
 import LedBanner from "../../components/layout/LedBanner";
 import { DashboardCardLayout } from "../../components/DashboardCardLayout";
@@ -155,6 +155,7 @@ export default function SettingsPage() {
         geofence_enabled: settings.geofence_enabled,
         late_threshold_minutes: settings.late_threshold_minutes,
         overtime_after_minutes: settings.overtime_after_minutes,
+        chat_retention_months: settings.chat_retention_months,
         updated_at: new Date().toISOString(),
       }).eq("company_id", profile.company_id),
     ]);
@@ -302,6 +303,25 @@ export default function SettingsPage() {
         <Button type="button" variant="secondary" onClick={() => speak(ANNOUNCEMENTS[0].message)}>
           <Volume2 className="h-4 w-4" /> Test Announcement
         </Button>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="font-semibold text-slate-700">Chat Message Retention</h2>
+        <p className="text-sm text-slate-500">
+          Automatically delete old Group Chat and private messages after the selected period, to keep database storage from
+          growing indefinitely. Runs automatically every night — nothing to do once set.
+        </p>
+        <Select
+          label="Auto-delete messages older than"
+          value={settings.chat_retention_months ?? ""}
+          onChange={(e) => setSettings({ ...settings, chat_retention_months: e.target.value ? (Number(e.target.value) as 3 | 6 | 12) : null })}
+        >
+          <option value="">Keep forever (default)</option>
+          <option value="3">3 months</option>
+          <option value="6">6 months</option>
+          <option value="12">1 year</option>
+        </Select>
+        <p className="text-xs text-slate-400">Retention changes are saved with the "Save Settings" button below.</p>
       </Card>
 
       <Card className="p-5 space-y-4">
