@@ -54,6 +54,35 @@ function VideoTile({ stream, name, muted, mirrored }: { stream: MediaStream | nu
   );
 }
 
+// No camera (or camera off) — show initials instead of a blank black box.
+function AvatarTile({ initials, name }: { initials: string; name: string }) {
+  return (
+    <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-slate-800">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-600 text-xl font-semibold text-white">{initials}</div>
+      <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-xs font-medium text-white">{name}</span>
+    </div>
+  );
+}
+
+// Degrades gracefully instead of failing outright — a device with no camera,
+// no mic, or permission denied for one of them should still be able to join
+// and watch/listen, not get locked out entirely.
+async function tryGetLocalMedia(): Promise<MediaStream | null> {
+  try {
+    return await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  } catch {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      try {
+        return await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch {
+        return null;
+      }
+    }
+  }
+}
+
 export default function Meet() {
   const { profile } = useAuth();
   const { push } = useToast();
@@ -62,6 +91,8 @@ export default function Meet() {
   const [connecting, setConnecting] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  const [hasMic, setHasMic] = useState(false);
+  const [hasCam, setHasCam] = useState(false);
   const [screenSharing, setScreenSharing] = useState(false);
   const [localStreamVersion, setLocalStreamVersion] = useState(0);
   const [remoteParticipants, setRemoteParticipants] = useState<Map<string, RemoteParticipant>>(new Map());
@@ -92,7 +123,17 @@ export default function Meet() {
 
   function createPeerConnection(peerId: string): RTCPeerConnection {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    localStreamRef.current?.getTracks().forEach((track) => pc.addTrack(track, localStreamRef.current!));
+    const stream = localStreamRef.current;
+    const audioTrack = stream?.getAudioTracks()[0];
+    const videoTrack = stream?.getVideoTracks()[0];
+    // A participant with no mic/camera must still request to RECEIVE
+    // audio/video (recvonly transceivers) — otherwise the SDP has no media
+    // section for that kind at all, and the other side has nothing to send
+    // media *to*, even though they themselves have a camera/mic.
+    if (audioTrack) pc.addTrack(audioTrack, stream!);
+    else pc.addTransceiver("audio", { direction: "recvonly" });
+    if (videoTrack) pc.addTrack(videoTrack, stream!);
+    else pc.addTransceiver("video", { direction: "recvonly" });
     pc.onicecandidate = (e) => {
       if (e.candidate) sendSignal(peerId, "ice", e.candidate.toJSON());
     };
@@ -159,9 +200,23 @@ export default function Meet() {
     if (!profile) return;
     setConnecting(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await tryGetLocalMedia();
       localStreamRef.current = stream;
+      const gotAudio = !!stream?.getAudioTracks().length;
+      const gotVideo = !!stream?.getVideoTracks().length;
+      setHasMic(gotAudio);
+      setHasCam(gotVideo);
+      setMicOn(gotAudio);
+      setCamOn(gotVideo);
       setLocalStreamVersion((v) => v + 1);
+
+      if (!stream) {
+        push("info", "Walang na-detect na camera/mikropono — sasali ka bilang view-only. Makikita at maririnig mo ang iba, pero hindi ka nila makikita/maririnig.");
+      } else if (!gotVideo) {
+        push("info", "Walang camera na na-detect — audio-only ka sasali.");
+      } else if (!gotAudio) {
+        push("info", "Walang mikropono na na-detect — video-only ka sasali (walang audio).");
+      }
 
       const displayName = `${profile.first_name} ${profile.last_name}`;
       const channel = supabase.channel(`meet-room-${code}`, { config: { presence: { key: myId } } });
@@ -194,7 +249,7 @@ export default function Meet() {
       channelRef.current = channel;
       setRoomCode(code);
     } catch {
-      push("error", "Hindi ma-access ang camera/microphone. Paki-check ang permissions.");
+      push("error", "Hindi makapasok sa meeting. Subukan ulit.");
     } finally {
       setConnecting(false);
     }
@@ -220,6 +275,8 @@ export default function Meet() {
     setScreenSharing(false);
     setMicOn(true);
     setCamOn(true);
+    setHasMic(false);
+    setHasCam(false);
     setRoomCode(null);
   }
 
@@ -311,12 +368,16 @@ export default function Meet() {
         </div>
 
         <div className="grid flex-1 auto-rows-fr grid-cols-1 gap-3 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-          <VideoTile
-            stream={screenSharing ? screenStreamRef.current : localStreamRef.current}
-            name={`${profile.first_name} (ikaw)`}
-            muted
-            mirrored={!screenSharing}
-          />
+          {hasCam || screenSharing ? (
+            <VideoTile
+              stream={screenSharing ? screenStreamRef.current : localStreamRef.current}
+              name={`${profile.first_name} (ikaw)`}
+              muted
+              mirrored={!screenSharing}
+            />
+          ) : (
+            <AvatarTile initials={`${profile.first_name[0]}${profile.last_name[0]}`} name={`${profile.first_name} (ikaw)`} />
+          )}
           {participants.map(([id, p]) => (
             <VideoTile key={id} stream={p.stream} name={p.name} />
           ))}
@@ -326,16 +387,20 @@ export default function Meet() {
           <button
             type="button"
             onClick={toggleMic}
-            className={`flex h-11 w-11 items-center justify-center rounded-full ${micOn ? "bg-slate-200 text-slate-700" : "bg-red-600 text-white"}`}
+            disabled={!hasMic}
+            className={`flex h-11 w-11 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 ${micOn ? "bg-slate-200 text-slate-700" : "bg-red-600 text-white"}`}
             aria-label={micOn ? "Mute" : "Unmute"}
+            title={hasMic ? undefined : "Walang na-detect na mikropono"}
           >
             {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
           </button>
           <button
             type="button"
             onClick={toggleCam}
-            className={`flex h-11 w-11 items-center justify-center rounded-full ${camOn ? "bg-slate-200 text-slate-700" : "bg-red-600 text-white"}`}
+            disabled={!hasCam}
+            className={`flex h-11 w-11 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 ${camOn ? "bg-slate-200 text-slate-700" : "bg-red-600 text-white"}`}
             aria-label={camOn ? "Turn off camera" : "Turn on camera"}
+            title={hasCam ? undefined : "Walang na-detect na camera"}
           >
             {camOn ? <VideoIcon className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
           </button>
