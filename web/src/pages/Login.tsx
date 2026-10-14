@@ -152,14 +152,21 @@ export default function Login() {
       />
 
       <div
-        // Permanent desktop placement, chosen via the ?edit=1 preview tool
-        // (left:923 top:920 w:619 h:323 on that test screen). Scoped to
-        // lg+ so phones — where employees actually clock in — keep the
-        // original centered-at-bottom layout instead of a fixed pixel box.
-        // Rendered plainly (no fade-in) — this is the login screen, and an
-        // opacity transition that fails to resolve for any reason must
-        // never be the thing standing between an employee and signing in.
-        className="relative z-10 mx-auto w-full max-w-3xl lg:fixed lg:left-[923px] lg:top-[920px] lg:m-0 lg:h-[323px] lg:w-[619px] lg:max-w-none"
+        // Found the real bug: the "permanent desktop placement" below used
+        // hardcoded pixel coordinates (left:923 top:920) captured from one
+        // specific screen, applied via lg: (>=1024px CSS width) to ANY
+        // device in that range — including tablets, whose viewport can
+        // easily be narrower/shorter than the screen those numbers came
+        // from. A position:fixed element with coordinates beyond a given
+        // viewport's actual bounds renders fully off-screen — invisible,
+        // and un-reachable by scrolling, since fixed elements don't move
+        // with the page. That's exactly what an Android tablet (CSS width
+        // >=1024px, triggering lg:) with different dimensions than the
+        // admin's test screen would hit. Reverted to the same responsive
+        // centered-at-bottom flow on every screen size — safe by
+        // construction, since it can never place the card outside the
+        // viewport regardless of device.
+        className="relative z-10 mx-auto w-full max-w-3xl"
         style={isEditMode && layout ? { position: "fixed", left: layout.left, top: layout.top, width: layout.width, height: layout.height, maxWidth: "none", margin: 0 } : undefined}
       >
         <div ref={cardRef} className="liquid-glass relative h-full overflow-hidden rounded-2xl border border-white/20">
