@@ -115,6 +115,7 @@ export interface CompanySettings {
   late_threshold_minutes: number;
   overtime_after_minutes: number;
   chat_retention_months: 3 | 6 | 12 | null;
+  chat_enabled_for_employees: boolean;
 }
 
 export interface Contact {
