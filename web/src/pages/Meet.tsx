@@ -115,6 +115,7 @@ export default function Meet() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const peerVideoSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
   const peerNamesRef = useRef<Map<string, string>>(new Map());
   const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -146,8 +147,8 @@ export default function Meet() {
     // media *to*, even though they themselves have a camera/mic.
     if (audioTrack) pc.addTrack(audioTrack, stream!);
     else pc.addTransceiver("audio", { direction: "recvonly" });
-    if (videoTrack) pc.addTrack(videoTrack, stream!);
-    else pc.addTransceiver("video", { direction: "recvonly" });
+    const videoSender = videoTrack ? pc.addTrack(videoTrack, stream!) : pc.addTransceiver("video", { direction: "recvonly" }).sender;
+    peerVideoSendersRef.current.set(peerId, videoSender);
     pc.onicecandidate = (e) => {
       if (e.candidate) sendSignal(peerId, "ice", e.candidate.toJSON());
     };
@@ -202,6 +203,7 @@ export default function Meet() {
   function removePeer(peerId: string) {
     peersRef.current.get(peerId)?.close();
     peersRef.current.delete(peerId);
+    peerVideoSendersRef.current.delete(peerId);
     pendingCandidatesRef.current.delete(peerId);
     setRemoteParticipants((prev) => {
       const next = new Map(prev);
@@ -272,6 +274,7 @@ export default function Meet() {
   function leaveRoom() {
     peersRef.current.forEach((pc) => pc.close());
     peersRef.current.clear();
+    peerVideoSendersRef.current.clear();
     pendingCandidatesRef.current.clear();
     peerNamesRef.current.clear();
     setRemoteParticipants(new Map());
@@ -315,15 +318,41 @@ export default function Meet() {
     setCamOn(track.enabled);
   }
 
+  // Swaps everyone's outgoing video by removing the old track and adding
+  // the new one (forcing a real renegotiation), instead of replaceTrack
+  // (which swaps content on the *same* already-negotiated track with no
+  // new 'track' event). replaceTrack turned out not to be reliably
+  // re-rendered by some mobile viewers when a PC switched from camera to
+  // screen content — a full renegotiation forces those viewers to process
+  // a fresh offer/answer for that media, which is a much more robust
+  // signal to re-establish correct decoding than an in-place content swap.
+  async function setOutgoingVideo(newTrack: MediaStreamTrack | null, newStream: MediaStream | null) {
+    for (const [peerId, pc] of Array.from(peersRef.current.entries())) {
+      const oldSender = peerVideoSendersRef.current.get(peerId);
+      if (oldSender) {
+        try {
+          pc.removeTrack(oldSender);
+        } catch {
+          // ignore — connection may already be closed/closing
+        }
+      }
+      const newSender = newTrack && newStream ? pc.addTrack(newTrack, newStream) : pc.addTransceiver("video", { direction: "recvonly" }).sender;
+      peerVideoSendersRef.current.set(peerId, newSender);
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        sendSignal(peerId, "offer", offer);
+      } catch {
+        // ignore — a concurrent renegotiation from the other side is the
+        // only realistic cause here, and that one will still go through
+      }
+    }
+  }
+
   async function toggleScreenShare() {
     if (screenSharing) {
-      const camTrack = localStreamRef.current?.getVideoTracks()[0];
-      if (camTrack) {
-        peersRef.current.forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-          sender?.replaceTrack(camTrack);
-        });
-      }
+      const camTrack = hasCam ? localStreamRef.current?.getVideoTracks()[0] ?? null : null;
+      await setOutgoingVideo(camTrack, camTrack ? localStreamRef.current : null);
       screenStreamRef.current?.getTracks().forEach((t) => t.stop());
       screenStreamRef.current = null;
       setScreenSharing(false);
@@ -340,9 +369,7 @@ export default function Meet() {
       // Constrained resolution/frame rate — a raw full-resolution desktop
       // capture is a lot of bits to push through a constrained path (mobile
       // data on the receiving end, or the free public TURN relay when a
-      // direct peer connection can't form), which is the likely reason a
-      // screen share can look like it "doesn't show up" on one participant's
-      // device while working fine for another on a faster/direct path.
+      // direct peer connection can't form).
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 12, max: 15 }, width: { max: 1920 }, height: { max: 1080 } },
       });
@@ -353,22 +380,16 @@ export default function Meet() {
       } catch {
         // not supported on this browser — safe to ignore
       }
-      peersRef.current.forEach((pc) => {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-        if (!sender) return;
-        sender
-          .replaceTrack(screenTrack)
-          .then(() => {
-            try {
-              const params = sender.getParameters();
-              if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-              params.encodings[0].maxBitrate = 1_500_000;
-              sender.setParameters(params).catch(() => {});
-            } catch {
-              // setParameters can throw on some browsers before the first negotiation completes — non-fatal
-            }
-          })
-          .catch(() => {});
+      await setOutgoingVideo(screenTrack, screenStream);
+      peerVideoSendersRef.current.forEach((sender) => {
+        try {
+          const params = sender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+          params.encodings[0].maxBitrate = 1_500_000;
+          sender.setParameters(params).catch(() => {});
+        } catch {
+          // setParameters can throw on some browsers before negotiation completes — non-fatal
+        }
       });
       screenTrack.onended = () => {
         toggleScreenShare();
