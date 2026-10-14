@@ -30,6 +30,18 @@ const ROLE_COLOR: Record<string, string> = {
   employee: "bg-brand-600",
 };
 
+function displayNameFor(p: DirectoryPerson) {
+  if (p.role === "admin") return "Admin";
+  if (p.role === "hr") return "HR";
+  return `${p.first_name} ${p.last_name}`;
+}
+
+function initialsFor(p: DirectoryPerson) {
+  if (p.role === "admin") return "AD";
+  if (p.role === "hr") return "HR";
+  return `${p.first_name[0] ?? ""}${p.last_name[0] ?? ""}`;
+}
+
 export default function Chat() {
   const { profile } = useAuth();
   const [people, setPeople] = useState<DirectoryPerson[]>([]);
@@ -163,7 +175,7 @@ export default function Chat() {
   if (loading || !profile) return <Spinner />;
 
   const otherPerson = selection.type === "dm" ? peopleById[selection.userId] : null;
-  const activeName = selection.type === "group" ? "Group Chat" : otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : "Unknown";
+  const activeName = selection.type === "group" ? "Group Chat" : otherPerson ? displayNameFor(otherPerson) : "Unknown";
   const activeSubtitle = selection.type === "group" ? "Everyone in the company" : otherPerson?.role ?? "";
 
   return (
@@ -201,13 +213,10 @@ export default function Chat() {
                 className={`flex w-full items-center gap-3 border-b border-slate-50 px-4 py-3 text-left hover:bg-slate-50 ${isActive ? "bg-brand-50" : ""}`}
               >
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${ROLE_COLOR[p.role] ?? "bg-slate-500"}`}>
-                  {p.first_name[0]}
-                  {p.last_name[0]}
+                  {initialsFor(p)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-800">
-                    {p.first_name} {p.last_name}
-                  </p>
+                  <p className="truncate text-sm font-semibold text-slate-800">{displayNameFor(p)}</p>
                   <p className="truncate text-xs capitalize text-slate-400">{last ? last.message : p.role}</p>
                 </div>
               </button>
@@ -227,7 +236,7 @@ export default function Chat() {
               selection.type === "group" ? "bg-brand-600" : ROLE_COLOR[otherPerson?.role ?? ""] ?? "bg-slate-500"
             }`}
           >
-            {selection.type === "group" ? <Users2 className="h-4 w-4" /> : `${otherPerson?.first_name?.[0] ?? ""}${otherPerson?.last_name?.[0] ?? ""}`}
+            {selection.type === "group" ? <Users2 className="h-4 w-4" /> : otherPerson ? initialsFor(otherPerson) : ""}
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-800">{activeName}</p>
@@ -242,7 +251,7 @@ export default function Chat() {
             activeMessages.map((m) => {
               const mine = m.sender_id === profile.id;
               const sender = peopleById[m.sender_id];
-              const name = sender ? `${sender.first_name} ${sender.last_name}` : "Unknown";
+              const name = sender ? displayNameFor(sender) : "Unknown";
               return (
                 <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${mine ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-800"}`}>
