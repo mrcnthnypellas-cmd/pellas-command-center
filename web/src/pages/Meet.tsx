@@ -36,15 +36,29 @@ interface RemoteParticipant {
   stream: MediaStream;
 }
 
-function randomRoomCode(companyId: string) {
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `pellas-${companyId.slice(0, 8)}-${rand}`;
+// One fixed, permanent room per company — "Start Meeting" always rejoins
+// the same room (like the Group Chat), instead of generating a new code
+// every time. "Join a Meeting" below still accepts any custom code, for an
+// ad-hoc private breakout room if ever needed.
+function defaultRoomCode(companyId: string) {
+  return `pellas-${companyId}`;
 }
 
 function VideoTile({ stream, name, muted, mirrored }: { stream: MediaStream | null; name: string; muted?: boolean; mirrored?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
-    if (videoRef.current) videoRef.current.srcObject = stream;
+    const video = videoRef.current;
+    if (!video || !stream) return;
+    video.srcObject = stream;
+    video.play().catch(() => {});
+    // replaceTrack() swaps the content of an already-negotiated track
+    // in place (e.g. camera -> screen share) without a new 'track' event,
+    // which some mobile browsers don't reliably re-render on their own —
+    // nudging play() again on mute/unmute is a known, harmless workaround.
+    const videoTrack = stream.getVideoTracks()[0];
+    const nudge = () => video.play().catch(() => {});
+    videoTrack?.addEventListener("unmute", nudge);
+    return () => videoTrack?.removeEventListener("unmute", nudge);
   }, [stream]);
   return (
     <div className="relative aspect-video overflow-hidden rounded-xl bg-slate-900">
@@ -323,12 +337,38 @@ export default function Meet() {
       return;
     }
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      // Constrained resolution/frame rate — a raw full-resolution desktop
+      // capture is a lot of bits to push through a constrained path (mobile
+      // data on the receiving end, or the free public TURN relay when a
+      // direct peer connection can't form), which is the likely reason a
+      // screen share can look like it "doesn't show up" on one participant's
+      // device while working fine for another on a faster/direct path.
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 12, max: 15 }, width: { max: 1920 }, height: { max: 1080 } },
+      });
       screenStreamRef.current = screenStream;
       const screenTrack = screenStream.getVideoTracks()[0];
+      try {
+        screenTrack.contentHint = "detail";
+      } catch {
+        // not supported on this browser — safe to ignore
+      }
       peersRef.current.forEach((pc) => {
         const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-        sender?.replaceTrack(screenTrack);
+        if (!sender) return;
+        sender
+          .replaceTrack(screenTrack)
+          .then(() => {
+            try {
+              const params = sender.getParameters();
+              if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+              params.encodings[0].maxBitrate = 1_500_000;
+              sender.setParameters(params).catch(() => {});
+            } catch {
+              // setParameters can throw on some browsers before the first negotiation completes — non-fatal
+            }
+          })
+          .catch(() => {});
       });
       screenTrack.onended = () => {
         toggleScreenShare();
@@ -435,14 +475,16 @@ export default function Meet() {
       </div>
 
       <Card className="space-y-3 p-5">
-        <h2 className="font-semibold text-slate-700">Start a New Meeting</h2>
-        <Button type="button" className="w-full" onClick={() => joinRoom(randomRoomCode(profile.company_id))} loading={connecting}>
+        <h2 className="font-semibold text-slate-700">Company Meeting Room</h2>
+        <p className="text-sm text-slate-500">Parehong room palagi — kahit sino sa company puwedeng sumali anumang oras, parang Group Chat.</p>
+        <Button type="button" className="w-full" onClick={() => joinRoom(defaultRoomCode(profile.company_id))} loading={connecting}>
           <VideoIcon className="h-4 w-4" /> Start Meeting
         </Button>
       </Card>
 
       <Card className="space-y-3 p-5">
-        <h2 className="font-semibold text-slate-700">Join a Meeting</h2>
+        <h2 className="font-semibold text-slate-700">Join a Private Code</h2>
+        <p className="text-sm text-slate-500">Para sa hiwalay/private na meeting na may sariling code.</p>
         <Input label="Meeting Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder="hal. pellas-abc12345-xy9z2k" />
         <Button type="button" className="w-full" variant="secondary" onClick={() => joinRoom(joinCode.trim())} loading={connecting} disabled={!joinCode.trim()}>
           <LogIn className="h-4 w-4" /> Join Meeting
