@@ -114,6 +114,7 @@ export interface CompanySettings {
   geofence_enabled: boolean;
   late_threshold_minutes: number;
   overtime_after_minutes: number;
+  chat_retention_months: 3 | 6 | 12 | null;
 }
 
 export interface Contact {
