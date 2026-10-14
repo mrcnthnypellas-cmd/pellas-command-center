@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Video as VideoIcon, VideoOff, MonitorUp, PhoneOff, Copy, LogIn, Users } from "lucide-react";
+import { Mic, MicOff, Video as VideoIcon, VideoOff, MonitorUp, PhoneOff, Copy, LogIn, Users, Maximize2, Minimize2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
@@ -119,6 +119,24 @@ export default function Meet() {
   const peerNamesRef = useRef<Map<string, string>>(new Map());
   const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const callContainerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  async function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      await callContainerRef.current?.requestFullscreen().catch(() => {});
+    } else {
+      await document.exitFullscreen().catch(() => {});
+    }
+  }
 
   function sendSignal(to: string, kind: SignalPayload["kind"], data: SignalPayload["data"]) {
     channelRef.current?.send({ type: "broadcast", event: "signal", payload: { from: myId, to, kind, data } });
@@ -415,20 +433,38 @@ export default function Meet() {
   if (roomCode) {
     const participants = Array.from(remoteParticipants.entries());
     return (
-      <div className="flex h-[calc(100vh-7.5rem)] flex-col">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div
+        ref={callContainerRef}
+        className="-mx-4 -my-4 flex h-[calc(100vh-5rem)] flex-col bg-slate-950 lg:-mx-8 lg:-my-8 lg:h-[calc(100vh-4rem)]"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 p-4">
           <div>
-            <h1 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+            <h1 className="flex items-center gap-2 text-lg font-bold text-white">
               <Users className="h-5 w-5" /> {roomCode}
             </h1>
             <p className="text-xs text-slate-400">{participants.length + 1} sa meeting • i-share ang code para sumali ang iba</p>
           </div>
-          <Button type="button" variant="secondary" onClick={copyCode}>
-            <Copy className="h-4 w-4" /> Copy Code
-          </Button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={copyCode}
+              className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white hover:bg-white/20"
+            >
+              <Copy className="h-3.5 w-3.5" /> Copy Code
+            </button>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="rounded-lg bg-white/10 p-2 text-white hover:bg-white/20"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
-        <div className="grid flex-1 auto-rows-fr grid-cols-1 gap-3 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid flex-1 auto-rows-fr grid-cols-1 gap-3 overflow-y-auto px-4 sm:grid-cols-2 lg:grid-cols-3">
           {hasCam || screenSharing ? (
             <VideoTile
               stream={screenSharing ? screenStreamRef.current : localStreamRef.current}
@@ -444,43 +480,45 @@ export default function Meet() {
           ))}
         </div>
 
-        <div className="mt-3 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={toggleMic}
-            disabled={!hasMic}
-            className={`flex h-11 w-11 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 ${micOn ? "bg-slate-200 text-slate-700" : "bg-red-600 text-white"}`}
-            aria-label={micOn ? "Mute" : "Unmute"}
-            title={hasMic ? undefined : "Walang na-detect na mikropono"}
-          >
-            {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-          </button>
-          <button
-            type="button"
-            onClick={toggleCam}
-            disabled={!hasCam}
-            className={`flex h-11 w-11 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 ${camOn ? "bg-slate-200 text-slate-700" : "bg-red-600 text-white"}`}
-            aria-label={camOn ? "Turn off camera" : "Turn on camera"}
-            title={hasCam ? undefined : "Walang na-detect na camera"}
-          >
-            {camOn ? <VideoIcon className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-          </button>
-          <button
-            type="button"
-            onClick={toggleScreenShare}
-            className={`flex h-11 w-11 items-center justify-center rounded-full ${screenSharing ? "bg-brand-600 text-white" : "bg-slate-200 text-slate-700"}`}
-            aria-label="Share screen"
-          >
-            <MonitorUp className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={leaveRoom}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-red-600 text-white"
-            aria-label="Leave meeting"
-          >
-            <PhoneOff className="h-5 w-5" />
-          </button>
+        <div className="flex items-center justify-center p-4">
+          <div className="flex items-center gap-3 rounded-full bg-black/50 px-4 py-3 backdrop-blur">
+            <button
+              type="button"
+              onClick={toggleMic}
+              disabled={!hasMic}
+              className={`flex h-12 w-12 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 ${micOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-600 text-white"}`}
+              aria-label={micOn ? "Mute" : "Unmute"}
+              title={hasMic ? undefined : "Walang na-detect na mikropono"}
+            >
+              {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+            </button>
+            <button
+              type="button"
+              onClick={toggleCam}
+              disabled={!hasCam}
+              className={`flex h-12 w-12 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 ${camOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-600 text-white"}`}
+              aria-label={camOn ? "Turn off camera" : "Turn on camera"}
+              title={hasCam ? undefined : "Walang na-detect na camera"}
+            >
+              {camOn ? <VideoIcon className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+            </button>
+            <button
+              type="button"
+              onClick={toggleScreenShare}
+              className={`flex h-12 w-12 items-center justify-center rounded-full ${screenSharing ? "bg-brand-600 text-white" : "bg-white/10 text-white hover:bg-white/20"}`}
+              aria-label="Share screen"
+            >
+              <MonitorUp className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={leaveRoom}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700"
+              aria-label="Leave meeting"
+            >
+              <PhoneOff className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
     );
