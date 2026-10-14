@@ -52,6 +52,7 @@ export default function Chat() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [chatEnabledForEmployees, setChatEnabledForEmployees] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,7 +60,7 @@ export default function Chat() {
     let cancelled = false;
 
     async function load() {
-      const [{ data: msgs }, { data: dmRows }, { data: directory }] = await Promise.all([
+      const [{ data: msgs }, { data: dmRows }, { data: directory }, { data: companySettings }] = await Promise.all([
         supabase.from("chat_messages").select("*").eq("company_id", profile!.company_id).order("created_at", { ascending: true }).limit(300),
         supabase
           .from("direct_messages")
@@ -69,11 +70,13 @@ export default function Chat() {
           .order("created_at", { ascending: true })
           .limit(500),
         supabase.rpc("company_directory"),
+        supabase.from("company_settings").select("chat_enabled_for_employees").eq("company_id", profile!.company_id).single(),
       ]);
       if (cancelled) return;
       setGroupMessages((msgs as ChatMessage[]) ?? []);
       setDms((dmRows as DirectMessage[]) ?? []);
       setPeople(((directory as DirectoryPerson[]) ?? []).filter((p) => p.id !== profile!.id).sort((a, b) => a.first_name.localeCompare(b.first_name)));
+      setChatEnabledForEmployees(companySettings?.chat_enabled_for_employees ?? true);
       setLoading(false);
     }
     load();
@@ -173,6 +176,16 @@ export default function Chat() {
   }
 
   if (loading || !profile) return <Spinner />;
+
+  if (profile.role === "employee" && !chatEnabledForEmployees) {
+    return (
+      <div className="mx-auto flex h-[calc(100vh-7.5rem)] max-w-6xl flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
+        <MessagesSquare className="h-10 w-10 text-slate-300" />
+        <h2 className="mt-3 text-lg font-semibold text-slate-800">Chat is currently unavailable</h2>
+        <p className="mt-1 text-sm text-slate-500">Please check with your Admin or HR if you need to send a message.</p>
+      </div>
+    );
+  }
 
   const otherPerson = selection.type === "dm" ? peopleById[selection.userId] : null;
   const activeName = selection.type === "group" ? "Group Chat" : otherPerson ? displayNameFor(otherPerson) : "Unknown";

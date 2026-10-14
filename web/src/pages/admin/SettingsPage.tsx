@@ -156,6 +156,7 @@ export default function SettingsPage() {
         late_threshold_minutes: settings.late_threshold_minutes,
         overtime_after_minutes: settings.overtime_after_minutes,
         chat_retention_months: settings.chat_retention_months,
+        chat_enabled_for_employees: settings.chat_enabled_for_employees,
         updated_at: new Date().toISOString(),
       }).eq("company_id", profile.company_id),
     ]);
@@ -303,6 +304,24 @@ export default function SettingsPage() {
         <Button type="button" variant="secondary" onClick={() => speak(ANNOUNCEMENTS[0].message)}>
           <Volume2 className="h-4 w-4" /> Test Announcement
         </Button>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="font-semibold text-slate-700">Chat Access</h2>
+        <p className="text-sm text-slate-500">
+          Turn this off to hide the Chat feature from employees entirely — they won't see the Chat menu item or be able to open it.
+          Admin and HR can always use Chat regardless of this setting.
+        </p>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={settings.chat_enabled_for_employees}
+            onChange={(e) => setSettings({ ...settings, chat_enabled_for_employees: e.target.checked })}
+            className="rounded border-slate-300"
+          />
+          Allow employees to use Chat
+        </label>
+        <p className="text-xs text-slate-400">Saved with the "Save Settings" button below.</p>
       </Card>
 
       <Card className="p-5 space-y-4">

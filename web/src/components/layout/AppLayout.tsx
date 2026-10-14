@@ -37,8 +37,31 @@ export function ProtectedLayout() {
   const { session, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [myOpenTaskCount, setMyOpenTaskCount] = useState(0);
+  const [chatEnabledForEmployees, setChatEnabledForEmployees] = useState(true);
   const banner = useBanner();
   useScheduledVoiceAnnouncements();
+
+  useEffect(() => {
+    if (!profile) return;
+    async function loadChatAccess() {
+      const { data } = await supabase
+        .from("company_settings")
+        .select("chat_enabled_for_employees")
+        .eq("company_id", profile!.company_id)
+        .single();
+      setChatEnabledForEmployees(data?.chat_enabled_for_employees ?? true);
+    }
+    loadChatAccess();
+    const channel = supabase
+      .channel(`chat-access-${profile.company_id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "company_settings", filter: `company_id=eq.${profile.company_id}` }, (payload) => {
+        setChatEnabledForEmployees((payload.new as { chat_enabled_for_employees?: boolean }).chat_enabled_for_employees ?? true);
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.company_id]);
 
   useEffect(() => {
     if (!profile) return;
@@ -63,7 +86,9 @@ export function ProtectedLayout() {
   if (loading) return <div className="flex h-screen items-center justify-center text-slate-500">Loading…</div>;
   if (!session || !profile) return <Navigate to="/login" replace />;
 
-  const items = NAV.filter((i) => i.roles.includes(profile.role));
+  const items = NAV.filter((i) => i.roles.includes(profile.role)).filter(
+    (i) => !(i.to === "/chat" && profile.role === "employee" && !chatEnabledForEmployees)
+  );
   const mainItems = items.filter((i) => i.group === "main");
   const systemItems = items.filter((i) => i.group === "system");
   const badges: Record<string, number> = myOpenTaskCount > 0 ? { "/tasks": myOpenTaskCount } : {};
