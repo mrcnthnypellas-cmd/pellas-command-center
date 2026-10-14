@@ -477,6 +477,20 @@ export default function Meet() {
       <Card className="space-y-3 p-5">
         <h2 className="font-semibold text-slate-700">Company Meeting Room</h2>
         <p className="text-sm text-slate-500">Parehong room palagi — kahit sino sa company puwedeng sumali anumang oras, parang Group Chat.</p>
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2">
+          <code className="truncate text-xs text-slate-600">{defaultRoomCode(profile.company_id)}</code>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard?.writeText(defaultRoomCode(profile.company_id)).catch(() => {});
+              push("success", "Na-copy ang room code.");
+            }}
+            className="shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-slate-200"
+            aria-label="Copy room code"
+          >
+            <Copy className="h-4 w-4" />
+          </button>
+        </div>
         <Button type="button" className="w-full" onClick={() => joinRoom(defaultRoomCode(profile.company_id))} loading={connecting}>
           <VideoIcon className="h-4 w-4" /> Start Meeting
         </Button>
