@@ -2,7 +2,7 @@ import { NavLink, Outlet, Navigate, useLocation, useNavigate } from "react-route
 import {
   LayoutDashboard, Users, UserCog, ClipboardList, CalendarClock, FileBarChart,
   Building2, ScrollText, Settings, LogOut, Menu, X, FileWarning, Clock,
-  Search, Bell, ChevronDown, ListTodo, MessagesSquare,
+  Search, Bell, ChevronDown, ListTodo, MessagesSquare, Video,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/auth";
@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { to: "/overtime", label: "Overtime", title: "Overtime Requests", icon: Clock, roles: ["admin", "hr", "employee"], group: "main" },
   { to: "/tasks", label: "Tasks", title: "Tasks", icon: ListTodo, roles: ["admin", "hr", "employee"], group: "main" },
   { to: "/chat", label: "Chat", title: "Chat", icon: MessagesSquare, roles: ["admin", "hr", "employee"], group: "main" },
+  { to: "/meet", label: "Meet", title: "Meet", icon: Video, roles: ["admin", "hr", "employee"], group: "main" },
   { to: "/reports", label: "Reports", title: "Reports & Analytics", icon: FileBarChart, roles: ["admin", "hr"], group: "main" },
   { to: "/users", label: "Users", title: "User Accounts", icon: UserCog, roles: ["admin"], group: "system" },
   { to: "/departments", label: "Departments", title: "Departments", icon: Building2, roles: ["admin"], group: "system" },
