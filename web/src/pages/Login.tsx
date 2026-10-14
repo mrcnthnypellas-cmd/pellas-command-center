@@ -4,7 +4,6 @@ import { LogIn, Building2, Move, Copy, RotateCcw } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase, setRememberMe } from "../lib/supabase";
 import { Button, Modal } from "../components/ui/ui";
-import { FadeIn } from "../components/FadeIn";
 
 const BACKGROUND_VIDEO_URL =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4";
@@ -152,13 +151,14 @@ export default function Login() {
         playsInline
       />
 
-      <FadeIn
-        delay={200}
-        duration={700}
+      <div
         // Permanent desktop placement, chosen via the ?edit=1 preview tool
         // (left:923 top:920 w:619 h:323 on that test screen). Scoped to
         // lg+ so phones — where employees actually clock in — keep the
         // original centered-at-bottom layout instead of a fixed pixel box.
+        // Rendered plainly (no fade-in) — this is the login screen, and an
+        // opacity transition that fails to resolve for any reason must
+        // never be the thing standing between an employee and signing in.
         className="relative z-10 mx-auto w-full max-w-3xl lg:fixed lg:left-[923px] lg:top-[920px] lg:m-0 lg:h-[323px] lg:w-[619px] lg:max-w-none"
         style={isEditMode && layout ? { position: "fixed", left: layout.left, top: layout.top, width: layout.width, height: layout.height, maxWidth: "none", margin: 0 } : undefined}
       >
@@ -242,7 +242,7 @@ export default function Login() {
             />
           )}
         </div>
-      </FadeIn>
+      </div>
 
       {isEditMode && layout && (
         <div className="fixed bottom-4 left-4 z-30 space-y-2 rounded-xl bg-black/80 p-3 text-xs text-white shadow-xl">
