@@ -34,6 +34,8 @@ export default function Overtime() {
   const [rows, setRows] = useState<OvertimeRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("pending");
+  const currentMonth = todayInTZ().slice(0, 7);
+  const [periodFilter, setPeriodFilter] = useState(currentMonth);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -50,6 +52,12 @@ export default function Overtime() {
       .order("created_at", { ascending: false });
     if (!isStaff) query = query.eq("employee_id", profile.id);
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
+    if (periodFilter !== "all") {
+      const [y, m] = periodFilter.split("-").map(Number);
+      const monthStart = `${periodFilter}-01`;
+      const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      query = query.gte("work_date", monthStart).lt("work_date", nextMonth);
+    }
     const { data } = await query;
     setRows((data as unknown as OvertimeRequest[]) ?? []);
     setLoading(false);
@@ -58,7 +66,18 @@ export default function Overtime() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, statusFilter]);
+  }, [profile?.id, statusFilter, periodFilter]);
+
+  const periodOptions: { value: string; label: string }[] = [{ value: "all", label: "All Time (full backup, nothing ever deleted)" }];
+  {
+    const [cy, cm] = currentMonth.split("-").map(Number);
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(cy, cm - 1 - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(d);
+      periodOptions.push({ value, label: i === 0 ? `${label} (this month)` : label });
+    }
+  }
 
   async function submit() {
     if (!profile || !form.reason.trim()) {
@@ -123,12 +142,23 @@ export default function Overtime() {
         {!isStaff && <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Request Overtime</Button>}
       </div>
 
-      <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-44">
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-        <option value="all">All</option>
-      </Select>
+      <div className="flex flex-wrap items-end gap-3">
+        <Select label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-44">
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="all">All</option>
+        </Select>
+        <Select label="Period" value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value)} className="w-72">
+          {periodOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </Select>
+      </div>
+      <p className="text-xs text-slate-400">
+        Walang talagang nabubura dito — permanenteng naka-save lahat ng overtime records sa system kahit sinong admin/HR mag-approve o mag-reject.
+        "Period" ay view filter lang para hindi magulo ang listahan — piliin ang "All Time" kung gusto mong makita lahat ng history (buong backup).
+      </p>
 
       <Card className="overflow-x-auto">
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState title="No overtime requests" /> : (
