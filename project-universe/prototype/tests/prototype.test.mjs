@@ -12,6 +12,24 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const url = pathToFileURL(resolve(root, 'dist/index.html')).href;
 const executablePath = process.env.CHROMIUM_PATH || ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find(existsSync);
 
+// Records speech instead of playing it, for both the browser and Android paths.
+const speechStub = () => {
+  window.__spoken = [];
+  if (typeof window.SpeechSynthesisUtterance !== 'function') window.SpeechSynthesisUtterance = function (t) { this.text = t; };
+  Object.defineProperty(window, 'speechSynthesis', {
+    configurable: true, value: { speak: (u) => window.__spoken.push(u.text), cancel() {}, getVoices: () => [] },
+  });
+};
+const androidStub = () => {
+  window.__spoken = [];
+  window.AndroidBridge = { speak: (t) => window.__spoken.push(t), exitApp: () => { window.__exited = true; } };
+};
+async function enterApp(p) {
+  await p.waitForFunction(() => ['welcome', 'menu'].includes(window.PU?.state().mode), null, { timeout: 60000 });
+  if ((await p.evaluate(() => window.PU.state().mode)) === 'welcome') await p.click('#welcome-enter');
+  await p.waitForFunction(() => window.PU.state().mode === 'menu', null, { timeout: 10000 });
+}
+
 const results = [];
 async function test(name, fn) {
   try { await fn(); results.push({ name, ok: true }); console.log(`  PASS  ${name}`); }
@@ -47,6 +65,7 @@ await test('Heliocentric distances stay within perihelion/aphelion bounds over 2
 const browser = await chromium.launch({ executablePath, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const errors = [];
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+await page.addInitScript(speechStub);
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 const state = () => page.evaluate(() => window.PU.state());
@@ -55,10 +74,21 @@ const wait = (ms) => page.waitForTimeout(ms);
 const settle = () => page.waitForFunction(() => !window.PU.state().camera.transitioning, null, { timeout: 15000 });
 
 console.log('Prototype (desktop 1280×760)');
-await test('Application opens and reaches the main menu', async () => {
+await test('Opens on the welcome screen with George Universal Sandbox branding', async () => {
   await page.goto(url);
-  await page.waitForFunction(() => window.PU?.state().mode === 'menu', null, { timeout: 60000 });
+  await page.waitForFunction(() => window.PU?.state().mode === 'welcome', null, { timeout: 60000 });
+  assert((await page.title()) === 'George Universal Sandbox', `title ${await page.title()}`);
+  assert((await page.textContent('.welcome-title')).trim() === 'Welcome, George', 'welcome title missing');
+  assert(await page.isVisible('#welcome-enter'), 'browser needs a "Tap to enter" button for sound');
+});
+await test('Tapping enter says "Welcome, George" and opens the main menu', async () => {
+  await page.click('#welcome-enter');
+  await page.waitForFunction(() => window.__spoken.length > 0, null, { timeout: 5000 });
+  assert((await page.evaluate(() => window.__spoken[0])) === 'Welcome, George', 'wrong phrase');
+  await page.waitForFunction(() => window.PU.state().mode === 'menu', null, { timeout: 10000 });
   assert(await page.isVisible('#menu'), 'menu not visible');
+  const mark = (await page.innerText('.wordmark')).replace(/\s+/g, ' ').trim().toLowerCase();
+  assert(mark === 'george universal sandbox', `wordmark reads "${mark}"`);
 });
 await test('Main menu shows all entries; Sandbox is marked Prototype', async () => {
   for (const id of ['#m-start', '#m-solar', '#m-sandbox', '#m-settings']) assert(await page.isVisible(id), `${id} missing`);
@@ -183,13 +213,39 @@ await test('Sandbox menu entry opens Earth with the Sandbox tab', async () => {
 });
 await page.close();
 
+console.log('Opening sound');
+await test('Android app: welcome plays without a tap, via native speech, then shows the menu', async () => {
+  const p = await browser.newPage({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true });
+  p.on('pageerror', (e) => errors.push(e.message));
+  await p.addInitScript(androidStub);
+  await p.goto(url);
+  await p.waitForFunction(() => window.__spoken?.length > 0, null, { timeout: 60000 });
+  assert((await p.evaluate(() => window.__spoken[0])) === 'Welcome, George', 'wrong phrase');
+  assert(!(await p.isVisible('#welcome-enter')), 'Android should not need a tap');
+  await p.waitForFunction(() => window.PU.state().mode === 'menu', null, { timeout: 15000 });
+  assert(await p.isVisible('#m-exit'), 'Exit should show in the Android app');
+  await p.close();
+});
+await test('With Welcome sound off, the app opens straight to the menu silently', async () => {
+  const p = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+  await p.addInitScript(speechStub);
+  await p.addInitScript(() => localStorage.setItem('george-universal-sandbox.settings.v1', JSON.stringify({ sound: false })));
+  await p.goto(url);
+  await p.waitForFunction(() => window.PU?.state().mode === 'menu', null, { timeout: 60000 });
+  await p.waitForTimeout(1000);
+  assert(await p.evaluate(() => window.__spoken.length === 0), 'should be silent');
+  assert(!(await p.evaluate(() => window.PU.app.settings.sound)), 'setting not applied');
+  await p.close();
+});
+
 for (const [name, viewport] of [['phone portrait', { width: 360, height: 740 }], ['phone landscape', { width: 844, height: 390 }], ['tablet', { width: 1024, height: 1366 }]]) {
   console.log(`Layout (${name} ${viewport.width}×${viewport.height})`);
   const p = await browser.newPage({ viewport, isMobile: true, hasTouch: true });
   p.on('pageerror', (e) => errors.push(e.message));
   await test(`Controls are on-screen and unobstructed (${name})`, async () => {
+    await p.addInitScript(speechStub);
     await p.goto(url);
-    await p.waitForFunction(() => window.PU?.state().mode === 'menu', null, { timeout: 60000 });
+    await enterApp(p);
     await p.tap('#m-start'); await p.waitForTimeout(400);
     await p.tap('.chip[data-id="earth"]'); await p.waitForTimeout(400);
     const ids = ['h-menu', 'h-labels', 'h-orbits', 'h-settings', 'c-focus', 'c-overview', 'c-reset', 'k-reset', 'k-slower', 'k-play', 'k-faster', 'p-close', 't-sandbox'];

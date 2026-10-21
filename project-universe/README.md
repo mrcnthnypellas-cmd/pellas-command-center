@@ -1,10 +1,10 @@
-# Project Universe
+# George Universal Sandbox
 
-An original Android space simulation, built in two gated stages.
+An original Android space simulation, built in two gated stages. The app is branded **George Universal Sandbox**; the folder and package ID keep the working name *Project Universe*.
 
 | Stage | Status |
 | --- | --- |
-| **Stage 1: editable visual prototype** | **Ready for review (v0.1).** Collecting revisions. |
+| **Stage 1: editable visual prototype** | **Ready for review (v0.2).** Collecting revisions. |
 | Stage 2: full Android application (Unity) | **Not started.** Begins only after the exact phrase `APPROVED — START FULL ANDROID DEVELOPMENT`. |
 
 ---
@@ -48,7 +48,7 @@ Stage 2 needs a computer with **Unity (LTS) + Android Build Support (SDK, NDK, O
 
 **Hosted preview (private link, opens in any browser):** https://claude.ai/artifact/1NSKp8Xea4w8FXnTgVhwMA
 
-**Android APK:** `Builds/Android/ProjectUniverse-prototype-debug.apk`
+**Android APK:** `Builds/Android/GeorgeUniversalSandbox-prototype-debug.apk`
 
 - Copy it to the phone and open it. You'll need to allow "Install unknown apps" for the app you open it with.
 - It's a **debug build signed with a locally generated debug key**, not a release key. If a build signed by a different machine is already installed, uninstall that one first.
@@ -71,7 +71,7 @@ npm test               # rebuilds, then runs the automated checks (needs Chromiu
 ```bash
 cd project-universe/prototype && npm run build
 cd ../android-shell && python3 tools/build_apk.py
-# → project-universe/Builds/Android/ProjectUniverse-prototype-debug.apk
+# → project-universe/Builds/Android/GeorgeUniversalSandbox-prototype-debug.apk
 ```
 
 Requirements: JDK 17+, Python 3, and internet access to Maven Central the first time. The script:
@@ -86,15 +86,23 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 
 | APK property | Value |
 | --- | --- |
-| Application name | Project Universe |
+| Application name | George Universal Sandbox |
 | Package ID | `com.projectuniverse.app` |
-| Version | 0.1.0-prototype (code 1) |
+| Version | 0.2.0-prototype (code 2) |
 | Min / target SDK | 24 / 34 |
 | ABI | None needed: no native code, so it runs on ARM64, ARMv7 and x86 devices |
 | Permissions | None |
 | Signature | v2, debug key |
 
-## 5. What works in v0.1
+## 5. What works in v0.2
+
+**Opening (welcome screen)**
+- "Welcome, George" title over the live solar system, with a soft synthesized chime followed by a spoken "Welcome, George"
+- The sound is generated on the device, with no audio files: the chime uses Web Audio, and the voice uses the phone's text-to-speech engine in the Android app or the browser's speech engine on the web
+- **Android app:** plays automatically at launch, then opens the menu after about 3 seconds (tap to skip)
+- **Browser:** browsers block sound until the user taps, so the screen shows a **Tap to enter** button that starts the sound
+- Can be turned off in Settings → Welcome sound; the app then opens straight to the menu
+- The voice depends on the phone's installed text-to-speech voice (on most Android phones, Google's). If the phone has no text-to-speech engine, only the chime plays.
 
 **Main menu**
 - Logo, live animated solar system behind the menu
@@ -133,13 +141,13 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 - Changed bodies are marked in the body strip
 
 **Settings**
-- Labels, orbits, planet rotation, reduce motion, render resolution
+- Welcome sound, labels, orbits, planet rotation, reduce motion, render resolution
 - Stored on the device
 
 **Android**
 - Back closes settings, then the info panel, then returns to the menu, then exits the app
 - Rendering pauses while the app is in the background
-- No network access needed
+- No network access needed (the welcome voice uses the phone's offline text-to-speech)
 
 ### Not in the prototype yet (planned for Stage 2)
 - Gravity / N-body physics. Mass and velocity are shown read-only and tagged *Physics · Stage 2*.
@@ -160,12 +168,13 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 
 ## 7. Testing (recorded results)
 
-`npm test` runs 25 automated checks in headless Chromium with software WebGL. The last runs passed **25 / 25** (run twice in a row):
+`npm test` runs 28 automated checks in headless Chromium with software WebGL. The latest run passed **28 / 28**:
 
 | Area | Checks |
 | --- | --- |
 | Simulation data | Earth's J2000 position matches the published value within 0.01 AU; all eight orbital periods within 0.5 % of NASA values; distances stay within perihelion–aphelion bounds over ±100 years |
-| App flow | Opens to the menu; all menu entries present, Sandbox marked Prototype, Exit hidden in browser; settings open and close with Back; Start Simulation shows the HUD |
+| Opening | Opens on the welcome screen with the new name; tapping enter says "Welcome, George" (speech captured by a test stub) and opens the menu; with a simulated Android bridge it speaks through native text-to-speech without a tap and then shows the menu; with Welcome sound off it opens straight to the menu, silently |
+| App flow | all menu entries present, Sandbox marked Prototype, Exit hidden in browser; settings open and close with Back; Start Simulation shows the HUD |
 | Scene | Sun, eight planets and the Moon present (10 bodies, 10 chips) |
 | Interaction | Tap selects Jupiter and shows its diameter; Moon panel shows Earth distance; drag rotates and wheel zooms; focus follows Mars; reset camera |
 | Time | Pause freezes time; resume continues; Fast advances more than 50× faster than Slow; multiplier readout updates; reset restores start time |
@@ -180,7 +189,7 @@ APK checks performed:
 - Uncompressed entries are 4-byte aligned.
 - The bundled `index.html` is byte-identical to the tested build.
 
-**Not performed:** installing and running the APK on a physical device or emulator (none available here); frame-rate measurements on real phones; testing on iOS Safari.
+**Not performed:** installing and running the APK on a physical device or emulator (none available here), so the native text-to-speech voice has not been heard on a real phone; listening to the chime (tests confirm it runs without errors, not how it sounds); frame-rate measurements on real phones; testing on iOS Safari.
 
 ## 8. Revision workflow
 
@@ -190,6 +199,7 @@ APK checks performed:
 4. Repeat until you're happy. Stage 2 starts only on the exact phrase above.
 
 Common places to edit:
+- **Welcome words, chime, voice speed:** `prototype/src/audio/welcome.js`
 - **Colours and fonts:** the tokens at the top of `prototype/src/styles.css`
 - **Layout and text:** `prototype/src/app.html`
 - **Behaviour:** `prototype/src/app.js`
@@ -205,6 +215,7 @@ project-universe/
 ├── prototype/                    Stage 1 app (WebGL)
 │   ├── src/
 │   │   ├── data/bodies.js        celestial data + sources
+│   │   ├── audio/welcome.js      opening chime + "Welcome, George"
 │   │   ├── sim/                  clock, Kepler solver, display scale
 │   │   ├── render/               scene, camera rig, starfield, procedural textures
 │   │   ├── ui/format.js          units and number formatting
@@ -217,5 +228,5 @@ project-universe/
 │   ├── src/com/projectuniverse/app/MainActivity.java
 │   ├── res/ic_launcher.png       (drawn by tools/make_icon.py)
 │   └── tools/build_apk.py, SignTool.java
-└── Builds/Android/ProjectUniverse-prototype-debug.apk
+└── Builds/Android/GeorgeUniversalSandbox-prototype-debug.apk
 ```

@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
@@ -12,14 +13,20 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.util.Locale;
+
 /**
- * Stage 1 Android shell: hosts the self-contained prototype (assets/index.html)
- * in a WebView. Fully offline; requests no permissions.
+ * Stage 1 Android shell for George Universal Sandbox: hosts the self-contained
+ * prototype (assets/index.html) in a WebView. Fully offline; requests no permissions.
  * The Back button is routed to the page first (close panel → leave sim → exit).
+ * The opening "Welcome, George" is spoken with the phone's text-to-speech engine.
  */
 public class MainActivity extends Activity {
     private static final int SPACE_BLACK = 0xFF03050C;
     private WebView web;
+    private TextToSpeech tts;
+    private boolean ttsReady;
+    private String pendingSpeech;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,6 +34,17 @@ public class MainActivity extends Activity {
         Window window = getWindow();
         window.setStatusBarColor(SPACE_BLACK);
         window.setNavigationBarColor(SPACE_BLACK);
+
+        tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if (status != TextToSpeech.SUCCESS) return;
+                tts.setLanguage(Locale.US);
+                tts.setSpeechRate(0.92f);
+                ttsReady = true;
+                if (pendingSpeech != null) speak(pendingSpeech);
+            }
+        });
 
         web = new WebView(this);
         web.setBackgroundColor(SPACE_BLACK);
@@ -36,6 +54,8 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setSupportZoom(false);
+        // Lets the opening chime play without a tap first.
+        settings.setMediaPlaybackRequiresUserGesture(false);
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -74,8 +94,15 @@ public class MainActivity extends Activity {
         super.onPause();
     }
 
+    private void speak(String text) {
+        if (!ttsReady) { pendingSpeech = text; return; }
+        pendingSpeech = null;
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "welcome");
+    }
+
     @Override
     protected void onDestroy() {
+        if (tts != null) tts.shutdown();
         web.destroy();
         super.onDestroy();
     }
@@ -98,6 +125,14 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() { finish(); }
+            });
+        }
+
+        @JavascriptInterface
+        public void speak(final String text) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() { MainActivity.this.speak(text); }
             });
         }
     }

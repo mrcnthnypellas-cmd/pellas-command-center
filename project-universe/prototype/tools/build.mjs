@@ -36,7 +36,7 @@ function emit(js) {
   const css = `${fontCss()}\n${readFileSync(r('src/styles.css'), 'utf8')}`;
   const markup = readFileSync(r('src/app.html'), 'utf8');
   const safeJs = js.replace(/<\/script/gi, '<\\/script');
-  const head = `<title>Project Universe</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n<style>\n${css}\n</style>`;
+  const head = `<title>George Universal Sandbox</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n<style>\n${css}\n</style>`;
   const body = `${markup}\n<script>\n${safeJs}\n</script>`;
   mkdirSync(r('dist'), { recursive: true });
   writeFileSync(r('dist/index.html'), `<!doctype html>

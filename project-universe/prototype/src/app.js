@@ -4,6 +4,7 @@ import { SimClock, SPEEDS, PRESETS, unixMsToDays, daysToDate } from './sim/clock
 import { SolarScene } from './render/scene.js';
 import { CameraRig } from './render/camera.js';
 import { loadSettings, saveSettings, DEFAULTS, QUALITY } from './settings.js';
+import { playWelcome } from './audio/welcome.js';
 import { fmt, massText, durationDays, auText, auToMillionKm, dateText, multText } from './ui/format.js';
 
 const $ = (id) => document.getElementById(id);
@@ -31,7 +32,7 @@ export class App {
     try {
       this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     } catch (err) {
-      $('boot').querySelector('.boot-text').textContent = 'This device or browser cannot start WebGL, which Project Universe needs to draw the 3D view.';
+      $('boot').querySelector('.boot-text').textContent = 'This device or browser cannot start WebGL, which George Universal Sandbox needs to draw the 3D view.';
       throw err;
     }
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -54,6 +55,7 @@ export class App {
 
     this.solar.update(this.clock.days, 0);
     this.showMenu(true);
+    if (this.settings.sound) this.#showWelcome();
     this.last = performance.now();
     this.renderer.setAnimationLoop(() => this.#frame());
     $('boot').classList.add('done');
@@ -189,7 +191,43 @@ export class App {
     this.#updateReadouts();
   }
 
+  // Opening screen. The Android app plays the welcome sound straight away; browsers
+  // only allow sound after a tap, so there the screen waits for "Tap to enter".
+  #showWelcome() {
+    this.mode = 'welcome';
+    $('menu').hidden = true;
+    const el = $('welcome');
+    el.hidden = false;
+    const leave = () => {
+      if (this.mode !== 'welcome') return;
+      clearTimeout(this.welcomeTimer);
+      el.classList.add('leaving');
+      setTimeout(() => { el.hidden = true; el.classList.remove('leaving'); }, 600);
+      this.mode = 'menu';
+      $('menu').hidden = false;
+      $('m-start').focus({ preventScroll: true });
+    };
+    this.leaveWelcome = leave;
+    if (this.android) {
+      $('welcome-hint').hidden = false;
+      playWelcome();
+      this.welcomeTimer = setTimeout(leave, 3000);
+      el.onclick = leave;
+    } else {
+      const enter = $('welcome-enter');
+      enter.hidden = false;
+      enter.focus({ preventScroll: true });
+      el.onclick = () => {
+        if (this.mode !== 'welcome' || this.welcomeTimer) return;
+        enter.hidden = true;
+        playWelcome();
+        this.welcomeTimer = setTimeout(leave, 1800);
+      };
+    }
+  }
+
   handleBack() {
+    if (this.mode === 'welcome') { this.leaveWelcome(); return true; }
     if (!$('settings').hidden) { this.closeSettings(); return true; }
     if (this.mode === 'sim') {
       if (this.selectedId) { this.select(null); return true; }
@@ -332,6 +370,7 @@ export class App {
     $('o-orbits').onchange = (e) => this.#setSetting('orbits', e.target.checked);
     $('o-spin').onchange = (e) => this.#setSetting('spin', e.target.checked);
     $('o-motion').onchange = (e) => this.#setSetting('reduceMotion', e.target.checked);
+    $('o-sound').onchange = (e) => this.#setSetting('sound', e.target.checked);
     for (const btn of $('o-quality').children) btn.onclick = () => this.#setSetting('quality', btn.dataset.q);
     $('o-reset').onclick = () => { this.settings = { ...DEFAULTS }; saveSettings(this.settings); this.#applySettings(); this.#resize(); this.#toast('Settings restored'); };
 
@@ -364,6 +403,7 @@ export class App {
     $('o-orbits').checked = s.orbits;
     $('o-spin').checked = s.spin;
     $('o-motion').checked = s.reduceMotion;
+    $('o-sound').checked = s.sound;
     for (const btn of $('o-quality').children) btn.setAttribute('aria-pressed', String(btn.dataset.q === s.quality));
   }
 

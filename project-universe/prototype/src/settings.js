@@ -1,6 +1,6 @@
-const KEY = 'project-universe.settings.v1';
+const KEY = 'george-universal-sandbox.settings.v1';
 
-export const DEFAULTS = { labels: true, orbits: true, spin: true, reduceMotion: false, quality: 'medium' };
+export const DEFAULTS = { labels: true, orbits: true, spin: true, reduceMotion: false, sound: true, quality: 'medium' };
 export const QUALITY = {
   low: { pixelRatio: 1, stars: 3000, textureSize: 256, sphereSegments: 32 },
   medium: { pixelRatio: 1.5, stars: 6000, textureSize: 512, sphereSegments: 48 },

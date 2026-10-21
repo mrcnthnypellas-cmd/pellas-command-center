@@ -101,6 +101,27 @@ button { font: inherit; color: inherit; }
 .btn.primary:disabled { background: rgba(98, 214, 255, .18); border-color: transparent; color: var(--muted); cursor: default; }
 .btn.ghost { background: transparent; border-color: var(--line); color: var(--muted); }
 
+/* ---------- Welcome ---------- */
+.welcome {
+  position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; text-align: center;
+  padding: calc(var(--sat) + 24px) var(--gr) calc(var(--sab) + 24px) var(--gl);
+  background: radial-gradient(ellipse at center, rgba(3, 5, 12, .55) 0%, rgba(3, 5, 12, .88) 70%);
+  animation: fade-in .6s ease both; cursor: pointer;
+}
+.welcome.leaving { opacity: 0; transition: opacity .6s ease; pointer-events: none; }
+.welcome-inner { display: grid; justify-items: center; gap: 14px; }
+.welcome-glyph { width: 64px; height: 64px; color: var(--accent); animation: glyph-in 1.2s ease both; }
+.welcome-kicker { margin: 0; font: 700 11px/1 var(--font-display); letter-spacing: .42em; text-transform: uppercase; color: var(--accent); }
+.welcome-title {
+  margin: 0; font: 700 clamp(28px, 8vw, 54px)/1.1 var(--font-display); letter-spacing: .05em; text-transform: uppercase;
+  text-wrap: balance; animation: title-in 1.4s .15s ease both;
+}
+.welcome-enter { display: inline-flex; align-items: center; gap: 10px; margin-top: 18px; min-height: 52px; padding: 0 22px; font-size: 15px; }
+.welcome-enter svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.welcome-hint { margin: 10px 0 0; color: var(--faint); font-size: 12px; }
+@keyframes glyph-in { from { opacity: 0; transform: scale(.7) rotate(-30deg); } }
+@keyframes title-in { from { opacity: 0; letter-spacing: .3em; } }
+
 /* ---------- Main menu ---------- */
 .menu {
   position: fixed; inset: 0; z-index: 20; overflow-y: auto;
@@ -113,7 +134,7 @@ button { font: inherit; color: inherit; }
 .brand-glyph { width: 56px; height: 56px; flex: none; color: var(--accent); }
 .wordmark { margin: 0; font-family: var(--font-display); font-weight: 700; text-transform: uppercase; line-height: 1; display: grid; gap: 8px; }
 .wm-small { font-size: 12px; letter-spacing: .5em; color: var(--accent); }
-.wm-big { font-size: clamp(26px, 7.4vw, 44px); letter-spacing: .06em; }
+.wm-big { font-size: clamp(24px, 6.6vw, 38px); letter-spacing: .06em; line-height: 1.08; }
 .tagline { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .menu-list { display: grid; gap: 4px; margin-top: auto; }
 .menu-item {

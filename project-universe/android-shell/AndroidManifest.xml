@@ -2,14 +2,21 @@
 <!-- Source manifest. tools/build_apk.py compiles it to Android binary XML. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.projectuniverse.app"
-    android:versionCode="1"
-    android:versionName="0.1.0-prototype">
+    android:versionCode="2"
+    android:versionName="0.2.0-prototype">
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
     <uses-feature android:glEsVersion="0x00020000" android:required="true" />
 
+    <!-- Android 11+ only lets apps see the text-to-speech engine when declared here. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
-        android:label="Project Universe"
+        android:label="George Universal Sandbox"
         android:icon="@drawable/ic_launcher"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:allowBackup="false"

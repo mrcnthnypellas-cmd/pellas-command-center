@@ -243,7 +243,7 @@ def write_aligned_zip(path, entries):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--html', default=str(PROJECT / 'prototype' / 'dist' / 'index.html'))
-    ap.add_argument('--out', default=str(PROJECT / 'Builds' / 'Android' / 'ProjectUniverse-prototype-debug.apk'))
+    ap.add_argument('--out', default=str(PROJECT / 'Builds' / 'Android' / 'GeorgeUniversalSandbox-prototype-debug.apk'))
     args = ap.parse_args()
     html = Path(args.html)
     if not html.exists():
