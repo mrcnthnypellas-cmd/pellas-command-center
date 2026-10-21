@@ -4,7 +4,7 @@ An original Android space simulation, built in two gated stages. The app is bran
 
 | Stage | Status |
 | --- | --- |
-| **Stage 1: editable visual prototype** | **Ready for review (v0.4).** Collecting revisions. |
+| **Stage 1: editable visual prototype** | **Ready for review (v0.5).** Collecting revisions. |
 | Stage 2: full Android application (Unity) | **Not started.** Begins only after the exact phrase `APPROVED — START FULL ANDROID DEVELOPMENT`. |
 
 ---
@@ -88,19 +88,20 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 | --- | --- |
 | Application name | George Universal Sunbox |
 | Package ID | `com.projectuniverse.app` |
-| Version | 0.4.0-prototype (code 4) |
+| Version | 0.5.0-prototype (code 5) |
 | Min / target SDK | 24 / 34 |
 | ABI | None needed: no native code, so it runs on ARM64, ARMv7 and x86 devices |
 | Permissions | None |
 | Signature | v2, debug key |
 
-## 5. What works in v0.4
+## 5. What works in v0.5
 
 **Opening (welcome screen)**
 - The app name **GEORGE UNIVERSAL SUNBOX** shown large in the centre, with "Welcome, George" under it, over the live solar system. The loading screen before it also shows the name.
 - Sound: a soft chime, then a **recorded voice saying "Welcome, George"**
   - The voice is a real audio clip built into the app (about 9 KB each), so it sounds the same on every phone and in every browser, and works offline.
-  - Two voices: **Female** (default) and **Male**. Choose in Settings → Welcome voice; tapping one plays it.
+  - Three voices: **Female** (default), **Male** and **Bading**. Choose in Settings → Welcome voice; tapping one plays it.
+  - The Bading voice blends a male and a female voice style with lively intonation and a slightly raised pitch (about 175 Hz, between the male voice's ~120 Hz and the female voice's ~195 Hz).
   - The clips were synthesized with the open Kokoro-82M speech model (Apache-2.0), not recorded from a person. `prototype/tools/make_voice.py` re-creates them.
   - Backup: if a phone can't play the clip, the app uses the phone's own text-to-speech (Android) or the browser's speech engine instead.
 - **Android app:** plays automatically at launch, then opens the menu after about 3 seconds (tap to skip)
@@ -144,7 +145,7 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 - Changed bodies are marked in the body strip
 
 **Settings**
-- Welcome sound, welcome voice (female/male), labels, orbits, planet rotation, reduce motion, render resolution
+- Welcome sound, welcome voice (female/male/bading), labels, orbits, planet rotation, reduce motion, render resolution
 - Stored on the device
 
 **Android**
@@ -171,12 +172,12 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 
 ## 7. Testing (recorded results)
 
-`npm test` runs 30 automated checks in headless Chromium with software WebGL. The latest run passed **30 / 30**:
+`npm test` runs 31 automated checks in headless Chromium with software WebGL. The latest run passed **31 / 31**:
 
 | Area | Checks |
 | --- | --- |
 | Simulation data | Earth's J2000 position matches the published value within 0.01 AU; all eight orbital periods within 0.5 % of NASA values; distances stay within perihelion–aphelion bounds over ±100 years |
-| Opening | Opens on the welcome screen showing "George Universal Sunbox" and "Welcome, George"; tapping enter plays the recorded voice clip (and not the speech engine too) and opens the menu; in Android mode (audio allowed without a tap) the clip plays at launch with no tap, then the menu shows; if audio is blocked, it falls back to the phone's speech engine; choosing the male voice in Settings saves and plays it; with Welcome sound off it opens straight to the menu, silently |
+| Opening | Opens on the welcome screen showing "George Universal Sunbox" and "Welcome, George"; tapping enter plays the recorded voice clip (and not the speech engine too) and opens the menu; in Android mode (audio allowed without a tap) the clip plays at launch with no tap, then the menu shows; if audio is blocked, it falls back to the phone's speech engine; choosing the male or Bading voice in Settings saves and plays it; with Welcome sound off it opens straight to the menu, silently |
 | App flow | all menu entries present, Sandbox marked Prototype, Exit hidden in browser; settings open and close with Back; Start Simulation shows the HUD |
 | Scene | Sun, eight planets and the Moon present (10 bodies, 10 chips) |
 | Interaction | Tap selects Jupiter and shows its diameter; Moon panel shows Earth distance; drag rotates and wheel zooms; focus follows Mars; reset camera |
@@ -216,7 +217,7 @@ Common places to edit:
 project-universe/
 ├── README.md                     this file
 ├── prototype/                    Stage 1 app (WebGL)
-│   ├── assets/voice/             "Welcome, George" clips (female, male)
+│   ├── assets/voice/             "Welcome, George" clips (female, male, bading)
 │   ├── src/
 │   │   ├── data/bodies.js        celestial data + sources
 │   │   ├── audio/welcome.js      opening chime + "Welcome, George"

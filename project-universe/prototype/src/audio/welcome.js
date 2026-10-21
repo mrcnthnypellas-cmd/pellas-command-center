@@ -6,9 +6,10 @@
 
 import femaleClip from '../../assets/voice/welcome-female.mp3';
 import maleClip from '../../assets/voice/welcome-male.mp3';
+import badingClip from '../../assets/voice/welcome-bading.mp3';
 
 export const WELCOME_TEXT = 'Welcome, George';
-const CLIPS = { female: femaleClip, male: maleClip };
+const CLIPS = { female: femaleClip, male: maleClip, bading: badingClip };
 const VOICE_DELAY = 0.6; // seconds after the chime starts
 
 // What the last welcome actually used: 'clip', 'speech' or 'none'. Read by tests.

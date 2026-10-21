@@ -221,6 +221,17 @@ await test('Settings: choosing the male voice saves it and plays it', async () =
   await page.click('#o-voice [data-v="female"]');
   await page.evaluate(() => window.PU.handleBack());
 });
+await test('Settings: the Bading voice is available, saved and played', async () => {
+  await page.click('#m-settings');
+  await page.evaluate(() => { window.PU.app.settings.voice = 'female'; });
+  await page.click('#o-voice [data-v="bading"]');
+  await page.waitForFunction(() => window.PU.state().welcomeVoice === 'clip', null, { timeout: 5000 });
+  assert((await state()).settings.voice === 'bading', 'bading not saved');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('george-universal-sandbox.settings.v1')).voice);
+  assert(saved === 'bading', `stored voice ${saved}`);
+  await page.click('#o-voice [data-v="female"]');
+  await page.evaluate(() => window.PU.handleBack());
+});
 await test('Sandbox menu entry opens Earth with the Sandbox tab', async () => {
   await page.click('#m-sandbox'); await wait(300);
   assert((await state()).selectedId === 'earth' && await page.isVisible('#tab-sandbox'), 'sandbox not open');

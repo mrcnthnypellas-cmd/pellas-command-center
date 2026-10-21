@@ -12,7 +12,7 @@ export function loadSettings() {
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { saved = {}; }
   const s = { ...DEFAULTS, ...saved };
   if (!QUALITY[s.quality]) s.quality = DEFAULTS.quality;
-  if (!['female', 'male'].includes(s.voice)) s.voice = DEFAULTS.voice;
+  if (!['female', 'male', 'bading'].includes(s.voice)) s.voice = DEFAULTS.voice;
   if (!saved.quality && typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) s.reduceMotion = true;
   return s;
 }
