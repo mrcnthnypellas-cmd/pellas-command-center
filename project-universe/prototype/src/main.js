@@ -8,4 +8,4 @@ window.PU = {
   state: () => app.debugState(),
   screenOf: (id) => app.screenOf(id),
 };
-app.boot().catch((err) => console.error('George Universal Sandbox failed to start', err));
+app.boot().catch((err) => console.error('George Universal Sunbox failed to start', err));

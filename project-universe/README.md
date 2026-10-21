@@ -1,10 +1,10 @@
-# George Universal Sandbox
+# George Universal Sunbox
 
-An original Android space simulation, built in two gated stages. The app is branded **George Universal Sandbox**; the folder and package ID keep the working name *Project Universe*.
+An original Android space simulation, built in two gated stages. The app is branded **George Universal Sunbox**; the folder and package ID keep the working name *Project Universe*.
 
 | Stage | Status |
 | --- | --- |
-| **Stage 1: editable visual prototype** | **Ready for review (v0.2).** Collecting revisions. |
+| **Stage 1: editable visual prototype** | **Ready for review (v0.3).** Collecting revisions. |
 | Stage 2: full Android application (Unity) | **Not started.** Begins only after the exact phrase `APPROVED — START FULL ANDROID DEVELOPMENT`. |
 
 ---
@@ -48,7 +48,7 @@ Stage 2 needs a computer with **Unity (LTS) + Android Build Support (SDK, NDK, O
 
 **Hosted preview (private link, opens in any browser):** https://claude.ai/artifact/1NSKp8Xea4w8FXnTgVhwMA
 
-**Android APK:** `Builds/Android/GeorgeUniversalSandbox-prototype-debug.apk`
+**Android APK:** `Builds/Android/GeorgeUniversalSunbox-prototype-debug.apk`
 
 - Copy it to the phone and open it. You'll need to allow "Install unknown apps" for the app you open it with.
 - It's a **debug build signed with a locally generated debug key**, not a release key. If a build signed by a different machine is already installed, uninstall that one first.
@@ -71,7 +71,7 @@ npm test               # rebuilds, then runs the automated checks (needs Chromiu
 ```bash
 cd project-universe/prototype && npm run build
 cd ../android-shell && python3 tools/build_apk.py
-# → project-universe/Builds/Android/GeorgeUniversalSandbox-prototype-debug.apk
+# → project-universe/Builds/Android/GeorgeUniversalSunbox-prototype-debug.apk
 ```
 
 Requirements: JDK 17+, Python 3, and internet access to Maven Central the first time. The script:
@@ -86,18 +86,19 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 
 | APK property | Value |
 | --- | --- |
-| Application name | George Universal Sandbox |
+| Application name | George Universal Sunbox |
 | Package ID | `com.projectuniverse.app` |
-| Version | 0.2.0-prototype (code 2) |
+| Version | 0.3.0-prototype (code 3) |
 | Min / target SDK | 24 / 34 |
 | ABI | None needed: no native code, so it runs on ARM64, ARMv7 and x86 devices |
 | Permissions | None |
 | Signature | v2, debug key |
 
-## 5. What works in v0.2
+## 5. What works in v0.3
 
 **Opening (welcome screen)**
-- "Welcome, George" title over the live solar system, with a soft synthesized chime followed by a spoken "Welcome, George"
+- The app name **GEORGE UNIVERSAL SUNBOX** shown large in the centre, with "Welcome, George" under it, over the live solar system. The loading screen before it also shows the name.
+- Sound: with a soft synthesized chime followed by a spoken "Welcome, George"
 - The sound is generated on the device, with no audio files: the chime uses Web Audio, and the voice uses the phone's text-to-speech engine in the Android app or the browser's speech engine on the web
 - **Android app:** plays automatically at launch, then opens the menu after about 3 seconds (tap to skip)
 - **Browser:** browsers block sound until the user taps, so the screen shows a **Tap to enter** button that starts the sound
@@ -173,7 +174,7 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 | Area | Checks |
 | --- | --- |
 | Simulation data | Earth's J2000 position matches the published value within 0.01 AU; all eight orbital periods within 0.5 % of NASA values; distances stay within perihelion–aphelion bounds over ±100 years |
-| Opening | Opens on the welcome screen with the new name; tapping enter says "Welcome, George" (speech captured by a test stub) and opens the menu; with a simulated Android bridge it speaks through native text-to-speech without a tap and then shows the menu; with Welcome sound off it opens straight to the menu, silently |
+| Opening | Opens on the welcome screen showing "George Universal Sunbox" and "Welcome, George"; tapping enter says "Welcome, George" (speech captured by a test stub) and opens the menu; with a simulated Android bridge it speaks through native text-to-speech without a tap and then shows the menu; with Welcome sound off it opens straight to the menu, silently |
 | App flow | all menu entries present, Sandbox marked Prototype, Exit hidden in browser; settings open and close with Back; Start Simulation shows the HUD |
 | Scene | Sun, eight planets and the Moon present (10 bodies, 10 chips) |
 | Interaction | Tap selects Jupiter and shows its diameter; Moon panel shows Earth distance; drag rotates and wheel zooms; focus follows Mars; reset camera |
@@ -228,5 +229,5 @@ project-universe/
 │   ├── src/com/projectuniverse/app/MainActivity.java
 │   ├── res/ic_launcher.png       (drawn by tools/make_icon.py)
 │   └── tools/build_apk.py, SignTool.java
-└── Builds/Android/GeorgeUniversalSandbox-prototype-debug.apk
+└── Builds/Android/GeorgeUniversalSunbox-prototype-debug.apk
 ```

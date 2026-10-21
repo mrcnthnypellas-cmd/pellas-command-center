@@ -74,11 +74,14 @@ const wait = (ms) => page.waitForTimeout(ms);
 const settle = () => page.waitForFunction(() => !window.PU.state().camera.transitioning, null, { timeout: 15000 });
 
 console.log('Prototype (desktop 1280×760)');
-await test('Opens on the welcome screen with George Universal Sandbox branding', async () => {
+await test('Opens on the welcome screen showing the name George Universal Sunbox', async () => {
   await page.goto(url);
   await page.waitForFunction(() => window.PU?.state().mode === 'welcome', null, { timeout: 60000 });
-  assert((await page.title()) === 'George Universal Sandbox', `title ${await page.title()}`);
-  assert((await page.textContent('.welcome-title')).trim() === 'Welcome, George', 'welcome title missing');
+  assert((await page.title()) === 'George Universal Sunbox', `title ${await page.title()}`);
+  const name = (await page.innerText('.welcome-name')).replace(/\s+/g, ' ').trim().toLowerCase();
+  assert(name === 'george universal sunbox', `welcome name reads "${name}"`);
+  assert(await page.isVisible('.welcome-name'), 'name not visible');
+  assert((await page.textContent('.welcome-greet')).trim() === 'Welcome, George', 'greeting missing');
   assert(await page.isVisible('#welcome-enter'), 'browser needs a "Tap to enter" button for sound');
 });
 await test('Tapping enter says "Welcome, George" and opens the main menu', async () => {
@@ -88,7 +91,7 @@ await test('Tapping enter says "Welcome, George" and opens the main menu', async
   await page.waitForFunction(() => window.PU.state().mode === 'menu', null, { timeout: 10000 });
   assert(await page.isVisible('#menu'), 'menu not visible');
   const mark = (await page.innerText('.wordmark')).replace(/\s+/g, ' ').trim().toLowerCase();
-  assert(mark === 'george universal sandbox', `wordmark reads "${mark}"`);
+  assert(mark === 'george universal sunbox', `wordmark reads "${mark}"`);
 });
 await test('Main menu shows all entries; Sandbox is marked Prototype', async () => {
   for (const id of ['#m-start', '#m-solar', '#m-sandbox', '#m-settings']) assert(await page.isVisible(id), `${id} missing`);

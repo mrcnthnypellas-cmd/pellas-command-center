@@ -16,7 +16,7 @@ import android.webkit.WebViewClient;
 import java.util.Locale;
 
 /**
- * Stage 1 Android shell for George Universal Sandbox: hosts the self-contained
+ * Stage 1 Android shell for George Universal Sunbox: hosts the self-contained
  * prototype (assets/index.html) in a WebView. Fully offline; requests no permissions.
  * The Back button is routed to the page first (close panel → leave sim → exit).
  * The opening "Welcome, George" is spoken with the phone's text-to-speech engine.

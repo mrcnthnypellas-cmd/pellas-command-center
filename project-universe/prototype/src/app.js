@@ -32,7 +32,7 @@ export class App {
     try {
       this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     } catch (err) {
-      $('boot').querySelector('.boot-text').textContent = 'This device or browser cannot start WebGL, which George Universal Sandbox needs to draw the 3D view.';
+      $('boot').querySelector('.boot-text').textContent = 'This device or browser cannot start WebGL, which George Universal Sunbox needs to draw the 3D view.';
       throw err;
     }
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
