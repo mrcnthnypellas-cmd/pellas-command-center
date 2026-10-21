@@ -4,7 +4,7 @@ import { SimClock, SPEEDS, PRESETS, unixMsToDays, daysToDate } from './sim/clock
 import { SolarScene } from './render/scene.js';
 import { CameraRig } from './render/camera.js';
 import { loadSettings, saveSettings, DEFAULTS, QUALITY } from './settings.js';
-import { playWelcome } from './audio/welcome.js';
+import { playWelcome, welcomeStatus } from './audio/welcome.js';
 import { fmt, massText, durationDays, auText, auToMillionKm, dateText, multText } from './ui/format.js';
 
 const $ = (id) => document.getElementById(id);
@@ -210,8 +210,8 @@ export class App {
     this.leaveWelcome = leave;
     if (this.android) {
       $('welcome-hint').hidden = false;
-      playWelcome();
-      this.welcomeTimer = setTimeout(leave, 3000);
+      playWelcome(this.settings.voice);
+      this.welcomeTimer = setTimeout(leave, 3200);
       el.onclick = leave;
     } else {
       const enter = $('welcome-enter');
@@ -220,8 +220,8 @@ export class App {
       el.onclick = () => {
         if (this.mode !== 'welcome' || this.welcomeTimer) return;
         enter.hidden = true;
-        playWelcome();
-        this.welcomeTimer = setTimeout(leave, 1800);
+        playWelcome(this.settings.voice);
+        this.welcomeTimer = setTimeout(leave, 2200);
       };
     }
   }
@@ -372,6 +372,8 @@ export class App {
     $('o-motion').onchange = (e) => this.#setSetting('reduceMotion', e.target.checked);
     $('o-sound').onchange = (e) => this.#setSetting('sound', e.target.checked);
     for (const btn of $('o-quality').children) btn.onclick = () => this.#setSetting('quality', btn.dataset.q);
+    // Choosing a voice plays it, so George can hear the difference.
+    for (const btn of $('o-voice').children) btn.onclick = () => { this.#setSetting('voice', btn.dataset.v); playWelcome(btn.dataset.v); };
     $('o-reset').onclick = () => { this.settings = { ...DEFAULTS }; saveSettings(this.settings); this.#applySettings(); this.#resize(); this.#toast('Settings restored'); };
 
     window.addEventListener('keydown', (e) => {
@@ -405,6 +407,7 @@ export class App {
     $('o-motion').checked = s.reduceMotion;
     $('o-sound').checked = s.sound;
     for (const btn of $('o-quality').children) btn.setAttribute('aria-pressed', String(btn.dataset.q === s.quality));
+    for (const btn of $('o-voice').children) btn.setAttribute('aria-pressed', String(btn.dataset.v === s.voice));
   }
 
   // ---------------------------------------------------------------- panel
@@ -532,7 +535,7 @@ export class App {
     const bodies = {};
     for (const [id, b] of this.solar.bodies) bodies[id] = { pos: b.anchor.position.toArray(), sizeMul: b.sizeMul, orbitRate: b.orbitRate, orbitDays: b.orbitDays };
     return {
-      mode: this.mode, selectedId: this.selectedId, days: this.clock.days, paused: this.clock.paused,
+      mode: this.mode, welcomeVoice: welcomeStatus.voice, selectedId: this.selectedId, days: this.clock.days, paused: this.clock.paused,
       speedRate: this.clock.speed.rate, camera: { distance: this.rig.distance, target: this.rig.target.toArray(), following: !!this.rig.follow, transitioning: !!this.rig.transition },
       bodies, settings: { ...this.settings },
     };

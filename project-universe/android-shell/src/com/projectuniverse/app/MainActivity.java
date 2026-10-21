@@ -19,7 +19,8 @@ import java.util.Locale;
  * Stage 1 Android shell for George Universal Sunbox: hosts the self-contained
  * prototype (assets/index.html) in a WebView. Fully offline; requests no permissions.
  * The Back button is routed to the page first (close panel → leave sim → exit).
- * The opening "Welcome, George" is spoken with the phone's text-to-speech engine.
+ * The opening "Welcome, George" is a bundled voice clip; the phone's text-to-speech
+ * engine is only a fallback, used if the page cannot play audio.
  */
 public class MainActivity extends Activity {
     private static final int SPACE_BLACK = 0xFF03050C;
@@ -54,7 +55,7 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setSupportZoom(false);
-        // Lets the opening chime play without a tap first.
+        // Lets the opening chime and voice play without a tap first.
         settings.setMediaPlaybackRequiresUserGesture(false);
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
         web.setWebViewClient(new WebViewClient() {

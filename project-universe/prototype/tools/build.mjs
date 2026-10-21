@@ -30,6 +30,7 @@ const buildOptions = {
   entryPoints: [r('src/main.js')],
   bundle: true, minify: true, format: 'iife', target: ['es2020', 'chrome90', 'safari15'],
   write: false, legalComments: 'none', logLevel: 'warning',
+  loader: { '.mp3': 'base64' },
 };
 
 function emit(js) {

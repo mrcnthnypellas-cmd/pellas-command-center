@@ -84,10 +84,11 @@ await test('Opens on the welcome screen showing the name George Universal Sunbox
   assert((await page.textContent('.welcome-greet')).trim() === 'Welcome, George', 'greeting missing');
   assert(await page.isVisible('#welcome-enter'), 'browser needs a "Tap to enter" button for sound');
 });
-await test('Tapping enter says "Welcome, George" and opens the main menu', async () => {
+await test('Tapping enter plays the recorded "Welcome, George" voice and opens the main menu', async () => {
   await page.click('#welcome-enter');
-  await page.waitForFunction(() => window.__spoken.length > 0, null, { timeout: 5000 });
-  assert((await page.evaluate(() => window.__spoken[0])) === 'Welcome, George', 'wrong phrase');
+  await page.waitForFunction(() => window.PU.state().welcomeVoice !== 'none', null, { timeout: 5000 });
+  assert((await state()).welcomeVoice === 'clip', `voice used: ${(await state()).welcomeVoice}`);
+  assert(await page.evaluate(() => window.__spoken.length === 0), 'speech engine should not also speak');
   await page.waitForFunction(() => window.PU.state().mode === 'menu', null, { timeout: 10000 });
   assert(await page.isVisible('#menu'), 'menu not visible');
   const mark = (await page.innerText('.wordmark')).replace(/\s+/g, ' ').trim().toLowerCase();
@@ -210,6 +211,16 @@ await test('Back navigation: panel → HUD → menu → app exit', async () => {
   assert(await back() === true && (await state()).mode === 'menu', 'not back at menu');
   assert(await back() === false, 'menu should let the app exit');
 });
+await test('Settings: choosing the male voice saves it and plays it', async () => {
+  await page.click('#m-settings');
+  await page.click('#o-voice [data-v="male"]');
+  await page.waitForFunction(() => window.PU.state().welcomeVoice === 'clip', null, { timeout: 5000 });
+  const s = await state();
+  assert(s.settings.voice === 'male', `voice setting ${s.settings.voice}`);
+  assert(await page.getAttribute('#o-voice [data-v="male"]', 'aria-pressed') === 'true', 'button not pressed');
+  await page.click('#o-voice [data-v="female"]');
+  await page.evaluate(() => window.PU.handleBack());
+});
 await test('Sandbox menu entry opens Earth with the Sandbox tab', async () => {
   await page.click('#m-sandbox'); await wait(300);
   assert((await state()).selectedId === 'earth' && await page.isVisible('#tab-sandbox'), 'sandbox not open');
@@ -217,7 +228,21 @@ await test('Sandbox menu entry opens Earth with the Sandbox tab', async () => {
 await page.close();
 
 console.log('Opening sound');
-await test('Android app: welcome plays without a tap, via native speech, then shows the menu', async () => {
+await test('Android app: plays the recorded voice at launch without a tap, then shows the menu', async () => {
+  // The Android shell allows audio without a tap (setMediaPlaybackRequiresUserGesture(false)).
+  const autoplay = await chromium.launch({ executablePath, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  const p = await autoplay.newPage({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true });
+  p.on('pageerror', (e) => errors.push(e.message));
+  await p.addInitScript(androidStub);
+  await p.goto(url);
+  await p.waitForFunction(() => window.PU?.state().welcomeVoice && window.PU.state().welcomeVoice !== 'none', null, { timeout: 60000 });
+  assert((await p.evaluate(() => window.PU.state().welcomeVoice)) === 'clip', 'recorded voice not used');
+  assert(await p.evaluate(() => window.__spoken.length === 0), 'native speech should not also speak');
+  assert(!(await p.isVisible('#welcome-enter')), 'Android should not need a tap');
+  await p.waitForFunction(() => window.PU.state().mode === 'menu', null, { timeout: 15000 });
+  await autoplay.close();
+});
+await test('Android app: if audio is blocked, falls back to the phone\'s speech engine', async () => {
   const p = await browser.newPage({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true });
   p.on('pageerror', (e) => errors.push(e.message));
   await p.addInitScript(androidStub);

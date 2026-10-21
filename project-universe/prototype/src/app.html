@@ -64,7 +64,7 @@
       </button>
     </nav>
     <footer class="menu-foot">
-      <span>Stage 1 prototype · v0.3</span>
+      <span>Stage 1 prototype · v0.4</span>
       <span class="mono" id="menu-date"></span>
     </footer>
   </div>
@@ -209,6 +209,14 @@
       <label class="switch-row"><span>Orbital paths</span><input type="checkbox" id="o-orbits" checked></label>
       <label class="switch-row"><span>Planet rotation</span><input type="checkbox" id="o-spin" checked></label>
       <label class="switch-row"><span>Welcome sound <small>Chime and “Welcome, George” when the app opens</small></span><input type="checkbox" id="o-sound" checked></label>
+      <div class="set-row">
+        <span>Welcome voice</span>
+        <div class="seg" id="o-voice" role="group" aria-label="Welcome voice">
+          <button type="button" data-v="female">Female</button>
+          <button type="button" data-v="male">Male</button>
+        </div>
+        <small class="set-note">Tap a voice to hear it say “Welcome, George”.</small>
+      </div>
       <label class="switch-row"><span>Reduce motion <small>Instant camera moves, no menu drift</small></span><input type="checkbox" id="o-motion"></label>
       <div class="set-row">
         <span>Render resolution</span>
@@ -223,7 +231,7 @@
         <h3>About the display scale</h3>
         <p>Real distances would make the planets invisible specks, so the view compresses distance (by the square root of AU) and size. The Moon is drawn farther from Earth than reality. All numbers in the info panel are the real, approximate values.</p>
         <h3>Data sources</h3>
-        <p>NASA Goddard Planetary Fact Sheet; E. M. Standish, JPL “Keplerian Elements for Approximate Positions of the Major Planets”. Planet surfaces are procedurally generated artwork, not real maps.</p>
+        <p>NASA Goddard Planetary Fact Sheet; E. M. Standish, JPL “Keplerian Elements for Approximate Positions of the Major Planets”. Planet surfaces are procedurally generated artwork, not real maps. The “Welcome, George” voices were made with the open Kokoro-82M speech model (Apache-2.0).</p>
       </div>
       <button class="btn ghost" id="o-reset" type="button">Restore default settings</button>
     </div>
