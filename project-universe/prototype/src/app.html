@@ -1,0 +1,213 @@
+<canvas id="scene" aria-label="3D solar system view"></canvas>
+<div id="labels" aria-hidden="false"></div>
+<div id="select-ring" hidden></div>
+
+<div id="boot" class="boot">
+  <div class="boot-mark"><span></span></div>
+  <p class="boot-text">Generating planetary surfaces…</p>
+</div>
+
+<!-- Main menu -->
+<section id="menu" class="menu" hidden>
+  <div class="menu-inner">
+    <header class="brand">
+      <svg class="brand-glyph" viewBox="0 0 64 64" aria-hidden="true">
+        <ellipse cx="32" cy="32" rx="29" ry="11" transform="rotate(-24 32 32)" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".55"/>
+        <ellipse cx="32" cy="32" rx="18" ry="6.5" transform="rotate(-24 32 32)" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".35"/>
+        <circle cx="32" cy="32" r="6.5" fill="currentColor"/>
+        <circle cx="57.5" cy="20.5" r="2.6" fill="var(--accent-2)"/>
+      </svg>
+      <div>
+        <h1 class="wordmark"><span class="wm-small">Project</span><span class="wm-big">Universe</span></h1>
+        <p class="tagline">An interactive model of our solar system</p>
+      </div>
+    </header>
+    <nav class="menu-list" aria-label="Main menu">
+      <button class="menu-item" id="m-start" type="button">
+        <span class="mi-title">Start Simulation</span>
+        <span class="mi-desc">Today's planetary positions, running live</span>
+      </button>
+      <button class="menu-item" id="m-solar" type="button">
+        <span class="mi-title">Solar System</span>
+        <span class="mi-desc">Overview from above · browse all ten bodies</span>
+      </button>
+      <button class="menu-item" id="m-sandbox" type="button">
+        <span class="mi-title">Sandbox <em class="tag tag-proto">Prototype</em></span>
+        <span class="mi-desc">Resize planets and change orbital speed</span>
+      </button>
+      <button class="menu-item" id="m-settings" type="button">
+        <span class="mi-title">Settings</span>
+        <span class="mi-desc">Labels, orbits, resolution, motion</span>
+      </button>
+      <button class="menu-item menu-exit" id="m-exit" type="button" hidden>
+        <span class="mi-title">Exit</span>
+        <span class="mi-desc">Close Project Universe</span>
+      </button>
+    </nav>
+    <footer class="menu-foot">
+      <span>Stage 1 prototype · v0.1</span>
+      <span class="mono" id="menu-date"></span>
+    </footer>
+  </div>
+</section>
+
+<!-- Simulation HUD -->
+<section id="hud" class="hud" hidden>
+  <div class="hud-top">
+    <div class="clock-block">
+      <button class="icon-btn" id="h-menu" type="button" aria-label="Back to main menu" title="Main menu">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="clock">
+        <div class="clock-date mono" id="h-date">—</div>
+        <div class="clock-sub"><span id="h-state" class="state-dot"></span><span id="h-time" class="mono">—</span><span id="h-warn" class="clock-warn" hidden title="Approximate orbital elements are valid for 1800–2050">Outside 1800–2050 data range</span></div>
+      </div>
+    </div>
+    <div class="view-tools">
+      <button class="icon-btn toggle" id="h-labels" type="button" aria-pressed="true" title="Labels" aria-label="Show labels">
+        <svg viewBox="0 0 24 24"><path d="M4 7h11l5 5-5 5H4z"/></svg>
+      </button>
+      <button class="icon-btn toggle" id="h-orbits" type="button" aria-pressed="true" title="Orbits" aria-label="Show orbits">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="5"/><circle cx="12" cy="12" r="1.8" class="fill"/></svg>
+      </button>
+      <button class="icon-btn" id="h-settings" type="button" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="cam-tools" role="group" aria-label="Camera">
+    <button class="icon-btn" id="c-focus" type="button" title="Focus on selected body" aria-label="Focus camera on selected body">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+    </button>
+    <button class="icon-btn" id="c-overview" type="button" title="Solar system overview" aria-label="Solar system overview">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.3" class="fill"/></svg>
+    </button>
+    <button class="icon-btn" id="c-reset" type="button" title="Reset camera" aria-label="Reset camera">
+      <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg>
+    </button>
+  </div>
+
+  <div class="hud-bottom">
+    <div id="hud-bottom-anchor" class="anchor"></div>
+    <aside id="panel" class="panel" hidden aria-live="polite">
+      <div class="panel-head">
+        <span class="swatch" id="p-swatch"></span>
+        <div class="panel-title">
+          <h2 id="p-name">—</h2>
+          <p id="p-type">—</p>
+        </div>
+        <button class="icon-btn small" id="p-close" type="button" aria-label="Close panel">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" id="t-info" aria-selected="true" type="button">Info</button>
+        <button role="tab" id="t-sandbox" aria-selected="false" type="button">Sandbox <em class="tag tag-proto">Prototype</em></button>
+      </div>
+      <div class="panel-body" id="tab-info" role="tabpanel">
+        <dl class="facts" id="p-facts"></dl>
+        <p class="footnote">Approximate values. Physical data: NASA Planetary Fact Sheet. Positions: JPL approximate Keplerian elements (valid 1800–2050). Sizes and distances on screen use a compressed display scale.</p>
+      </div>
+      <div class="panel-body" id="tab-sandbox" role="tabpanel" hidden>
+        <div class="control">
+          <div class="control-head">
+            <label for="s-size">Visual size</label>
+            <span class="tag tag-visual">Visual only</span>
+            <output id="s-size-out" class="mono">1.00×</output>
+          </div>
+          <input type="range" id="s-size" min="0.25" max="4" step="0.05" value="1">
+          <p class="hint">Changes how large the body is drawn. Its real diameter and mass are unchanged.</p>
+        </div>
+        <div class="control">
+          <div class="control-head">
+            <label for="s-rate">Orbital speed</label>
+            <span class="tag tag-kinematic">Kinematic</span>
+            <output id="s-rate-out" class="mono">1.0×</output>
+          </div>
+          <input type="range" id="s-rate" min="0" max="10" step="0.1" value="1">
+          <p class="hint">Moves the body along its fixed orbit faster or slower than nature. This overrides the motion directly; gravity is not recalculated.</p>
+        </div>
+        <div class="control locked">
+          <div class="control-head">
+            <span class="label">Mass</span>
+            <span class="tag tag-locked">Physics · Stage 2</span>
+            <output id="s-mass" class="mono">—</output>
+          </div>
+          <p class="hint">Gravity is not simulated in this prototype. Editing mass and velocity arrives with the N-body engine in Stage 2.</p>
+        </div>
+        <div class="sandbox-actions">
+          <button class="btn primary" id="s-apply" type="button" disabled>Apply</button>
+          <button class="btn" id="s-restore" type="button">Restore body</button>
+          <button class="btn ghost" id="s-restore-all" type="button">Restore all</button>
+        </div>
+        <p class="status mono" id="s-status" role="status"></p>
+      </div>
+    </aside>
+
+    <div class="body-strip" id="body-strip" role="listbox" aria-label="Celestial bodies"></div>
+
+    <div class="toolbar" role="toolbar" aria-label="Simulation time">
+      <div class="tb-group">
+        <button class="icon-btn" id="k-reset" type="button" title="Reset simulation" aria-label="Reset simulation">
+          <svg viewBox="0 0 24 24"><path d="M5 5v14"/><path d="M19 6l-9 6 9 6z" class="fill"/></svg>
+        </button>
+        <button class="icon-btn" id="k-slower" type="button" title="Slower" aria-label="Slower">
+          <svg viewBox="0 0 24 24"><path d="M11 6l-7 6 7 6zM20 6l-7 6 7 6z" class="fill"/></svg>
+        </button>
+        <button class="icon-btn play" id="k-play" type="button" title="Pause" aria-label="Pause">
+          <svg viewBox="0 0 24 24" class="i-pause"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" class="fill"/></svg>
+          <svg viewBox="0 0 24 24" class="i-play"><path d="M7 4.5l13 7.5-13 7.5z" class="fill"/></svg>
+        </button>
+        <button class="icon-btn" id="k-faster" type="button" title="Faster" aria-label="Faster">
+          <svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z" class="fill"/></svg>
+        </button>
+      </div>
+      <div class="rate">
+        <span class="rate-mult mono" id="k-mult">×86,400</span>
+        <span class="rate-label" id="k-label">1 day per second</span>
+      </div>
+      <div class="presets" role="group" aria-label="Speed presets">
+        <button type="button" data-preset="slow" title="Slow motion: 1 hour per second">Slow</button>
+        <button type="button" data-preset="normal" title="Normal: 1 day per second">Normal</button>
+        <button type="button" data-preset="fast" title="Fast: 1 month per second">Fast</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Settings -->
+<div id="settings" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="set-title">Settings</h2>
+      <button class="icon-btn small" id="set-close" type="button" aria-label="Close settings">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <label class="switch-row"><span>Body labels</span><input type="checkbox" id="o-labels" checked></label>
+      <label class="switch-row"><span>Orbital paths</span><input type="checkbox" id="o-orbits" checked></label>
+      <label class="switch-row"><span>Planet rotation</span><input type="checkbox" id="o-spin" checked></label>
+      <label class="switch-row"><span>Reduce motion <small>Instant camera moves, no menu drift</small></span><input type="checkbox" id="o-motion"></label>
+      <div class="set-row">
+        <span>Render resolution</span>
+        <div class="seg" id="o-quality" role="group" aria-label="Render resolution">
+          <button type="button" data-q="low">Low</button>
+          <button type="button" data-q="medium">Medium</button>
+          <button type="button" data-q="high">High</button>
+        </div>
+        <small class="set-note">Resolution changes now. Star count and surface detail follow it on next launch.</small>
+      </div>
+      <div class="about">
+        <h3>About the display scale</h3>
+        <p>Real distances would make the planets invisible specks, so the view compresses distance (by the square root of AU) and size. The Moon is drawn farther from Earth than reality. All numbers in the info panel are the real, approximate values.</p>
+        <h3>Data sources</h3>
+        <p>NASA Goddard Planetary Fact Sheet; E. M. Standish, JPL “Keplerian Elements for Approximate Positions of the Major Planets”. Planet surfaces are procedurally generated artwork, not real maps.</p>
+      </div>
+      <button class="btn ghost" id="o-reset" type="button">Restore default settings</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" hidden></div>

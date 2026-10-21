@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Source manifest. tools/build_apk.py compiles it to Android binary XML. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.projectuniverse.app"
+    android:versionCode="1"
+    android:versionName="0.1.0-prototype">
+
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+
+    <application
+        android:label="Project Universe"
+        android:icon="@drawable/ic_launcher"
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:allowBackup="false"
+        android:hardwareAccelerated="true">
+
+        <activity
+            android:name="com.projectuniverse.app.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|density">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

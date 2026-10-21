@@ -1,0 +1,22 @@
+{
+  "name": "project-universe-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Project Universe — Stage 1 interactive 3D prototype (WebGL preview of the planned Unity app)",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "dev": "node tools/build.mjs --watch",
+    "test": "node tools/build.mjs && node tests/prototype.test.mjs"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "5.1.0",
+    "@fontsource/ibm-plex-sans": "5.1.0",
+    "@fontsource/syncopate": "5.1.0",
+    "esbuild": "0.24.0",
+    "playwright-core": "1.56.1"
+  }
+}
