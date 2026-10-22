@@ -5,7 +5,7 @@
 <div id="boot" class="boot">
   <div class="boot-mark"><span></span></div>
   <p class="boot-name">George Universal Sunbox</p>
-  <p class="boot-text">Generating planetary surfaces…</p>
+  <p class="boot-text">Loading planets…</p>
 </div>
 
 <!-- Welcome screen: plays the opening chime and "Welcome, George" -->
@@ -56,7 +56,7 @@
       </button>
       <button class="menu-item" id="m-settings" type="button">
         <span class="mi-title">Settings</span>
-        <span class="mi-desc">Labels, orbits, resolution, motion</span>
+        <span class="mi-desc">Lighting, voice, labels, orbits, resolution</span>
       </button>
       <button class="menu-item menu-exit" id="m-exit" type="button" hidden>
         <span class="mi-title">Exit</span>
@@ -64,7 +64,7 @@
       </button>
     </nav>
     <footer class="menu-foot">
-      <span>Stage 1 prototype · v0.5</span>
+      <span>Stage 1 prototype · v0.6</span>
       <span class="mono" id="menu-date"></span>
     </footer>
   </div>
@@ -207,6 +207,14 @@
     <div class="modal-body">
       <label class="switch-row"><span>Body labels</span><input type="checkbox" id="o-labels" checked></label>
       <label class="switch-row"><span>Orbital paths</span><input type="checkbox" id="o-orbits" checked></label>
+      <div class="set-row">
+        <span>Planet lighting</span>
+        <div class="seg" id="o-light" role="group" aria-label="Planet lighting">
+          <button type="button" data-l="bright">Bright</button>
+          <button type="button" data-l="realistic">Realistic</button>
+        </div>
+        <small class="set-note">Bright lights every planet so it's easy to see. Realistic uses sunlight only, so night sides are dark, as in space.</small>
+      </div>
       <label class="switch-row"><span>Planet rotation</span><input type="checkbox" id="o-spin" checked></label>
       <label class="switch-row"><span>Welcome sound <small>Chime and “Welcome, George” when the app opens</small></span><input type="checkbox" id="o-sound" checked></label>
       <div class="set-row">
@@ -226,13 +234,13 @@
           <button type="button" data-q="medium">Medium</button>
           <button type="button" data-q="high">High</button>
         </div>
-        <small class="set-note">Resolution changes now. Star count and surface detail follow it on next launch.</small>
+        <small class="set-note">Resolution changes now. Star count and planet smoothness follow it on next launch.</small>
       </div>
       <div class="about">
         <h3>About the display scale</h3>
         <p>Real distances would make the planets invisible specks, so the view compresses distance (by the square root of AU) and size. The Moon is drawn farther from Earth than reality. All numbers in the info panel are the real, approximate values.</p>
         <h3>Data sources</h3>
-        <p>NASA Goddard Planetary Fact Sheet; E. M. Standish, JPL “Keplerian Elements for Approximate Positions of the Major Planets”. Planet surfaces are procedurally generated artwork, not real maps. The “Welcome, George” voices were made with the open Kokoro-82M speech model (Apache-2.0).</p>
+        <p>NASA Goddard Planetary Fact Sheet; E. M. Standish, JPL “Keplerian Elements for Approximate Positions of the Major Planets”. Planet maps: Solar System Scope (solarsystemscope.com), CC BY 4.0, based on NASA imagery. The “Welcome, George” voices were made with the open Kokoro-82M speech model (Apache-2.0).</p>
       </div>
       <button class="btn ghost" id="o-reset" type="button">Restore default settings</button>
     </div>

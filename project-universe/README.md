@@ -4,7 +4,7 @@ An original Android space simulation, built in two gated stages. The app is bran
 
 | Stage | Status |
 | --- | --- |
-| **Stage 1: editable visual prototype** | **Ready for review (v0.5).** Collecting revisions. |
+| **Stage 1: editable visual prototype** | **Ready for review (v0.6).** Collecting revisions. |
 | Stage 2: full Android application (Unity) | **Not started.** Begins only after the exact phrase `APPROVED — START FULL ANDROID DEVELOPMENT`. |
 
 ---
@@ -39,7 +39,7 @@ This is the closest workflow that still leads to the Unity app:
 | `src/sim/clock.js`: simulation clock and speed ladder | `SimulationClock` (fixed-step, double precision) |
 | `src/sim/kepler.js`: orbit solver | C# double-precision orbit solver, later the N-body integrator |
 | `src/sim/scale.js`: display-scale mapping | `DisplayScale` service (physics ↔ render space) |
-| `src/render/*`: scene, procedural textures, camera rig | URP scene, shaders/materials, Cinemachine-style camera rig |
+| `src/render/*`: scene, planet maps, lighting, camera rig | URP scene, shaders/materials, Cinemachine-style camera rig |
 | `src/app.js`, `src/app.html`, `src/styles.css`: UI | uGUI / UI Toolkit screens using the same layout and colour tokens |
 
 Stage 2 needs a computer with **Unity (LTS) + Android Build Support (SDK, NDK, OpenJDK modules)**, or a cloud environment whose network policy allows the Unity and Google download hosts.
@@ -88,13 +88,13 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 | --- | --- |
 | Application name | George Universal Sunbox |
 | Package ID | `com.projectuniverse.app` |
-| Version | 0.5.0-prototype (code 5) |
+| Version | 0.6.0-prototype (code 6) |
 | Min / target SDK | 24 / 34 |
 | ABI | None needed: no native code, so it runs on ARM64, ARMv7 and x86 devices |
 | Permissions | None |
 | Signature | v2, debug key |
 
-## 5. What works in v0.5
+## 5. What works in v0.6
 
 **Opening (welcome screen)**
 - The app name **GEORGE UNIVERSAL SUNBOX** shown large in the centre, with "Welcome, George" under it, over the live solar system. The loading screen before it also shows the name.
@@ -115,7 +115,11 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 
 **3D solar system**
 - Sun, all eight planets and the Moon, with orbital paths, labels, axial tilt and rotation
-- Saturn's rings (with the Cassini division), atmosphere glow on Venus, Earth, Mars, Uranus and Neptune, and Earth's cloud layer
+- **Real surface maps** on every body: Earth's continents and oceans, the Moon's maria and craters, Mars, Jupiter's bands and Great Red Spot, Venus's clouds, Mercury, Saturn, Uranus, Neptune and the Sun. Maps: [Solar System Scope](https://www.solarsystemscope.com/textures/), CC BY 4.0, based on NASA imagery. They're built into the app (about 1.2 MB, sized by `prototype/tools/prepare_textures.py`), so they work offline.
+- Saturn's real ring map, and atmosphere glow on Venus, Earth, Mars, Uranus and Neptune
+- **Lighting:**
+  - **Bright** (default): a soft fill light from your viewing direction, so you can always see the planet you're looking at
+  - **Realistic**: sunlight only, so night sides are dark, as in space
 - Starfield and nebula backdrop
 - Planet positions follow the simulation clock using JPL approximate Keplerian elements. The simulation starts at today's real date and time, so the layout matches the real sky's arrangement.
 
@@ -145,7 +149,7 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 - Changed bodies are marked in the body strip
 
 **Settings**
-- Welcome sound, welcome voice (female/male/bading), labels, orbits, planet rotation, reduce motion, render resolution
+- Planet lighting (Bright / Realistic), welcome sound, welcome voice (female/male/bading), labels, orbits, planet rotation, reduce motion, render resolution
 - Stored on the device
 
 **Android**
@@ -157,7 +161,7 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 - Gravity / N-body physics. Mass and velocity are shown read-only and tagged *Physics · Stage 2*.
 - Creating new bodies, collisions, fragmentation
 - Moons other than Earth's Moon
-- Real photographic surface maps. Planet surfaces are original, procedurally generated artwork, not real geography.
+- Earth's cloud layer and night-side city lights (no openly licensed maps for them were reachable from the build environment)
 - Unity / URP implementation, adaptive launcher icon, signed release build
 
 ## 6. Data and display scale
@@ -172,7 +176,7 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 
 ## 7. Testing (recorded results)
 
-`npm test` runs 31 automated checks in headless Chromium with software WebGL. The latest run passed **31 / 31**:
+`npm test` runs 33 automated checks in headless Chromium with software WebGL. The latest run passed **33 / 33**:
 
 | Area | Checks |
 | --- | --- |
@@ -180,6 +184,7 @@ Each tool jar is pinned by SHA-1. On a machine with Android Studio or Unity, the
 | Opening | Opens on the welcome screen showing "George Universal Sunbox" and "Welcome, George"; tapping enter plays the recorded voice clip (and not the speech engine too) and opens the menu; in Android mode (audio allowed without a tap) the clip plays at launch with no tap, then the menu shows; if audio is blocked, it falls back to the phone's speech engine; choosing the male or Bading voice in Settings saves and plays it; with Welcome sound off it opens straight to the menu, silently |
 | App flow | all menu entries present, Sandbox marked Prototype, Exit hidden in browser; settings open and close with Back; Start Simulation shows the HUD |
 | Scene | Sun, eight planets and the Moon present (10 bodies, 10 chips) |
+| Visuals | Every body has a real map at least 1024 px wide, plus Saturn's ring map; lighting is Bright by default and Realistic removes the fill light |
 | Interaction | Tap selects Jupiter and shows its diameter; Moon panel shows Earth distance; drag rotates and wheel zooms; focus follows Mars; reset camera |
 | Time | Pause freezes time; resume continues; Fast advances more than 50× faster than Slow; multiplier readout updates; reset restores start time |
 | Sandbox | Visual size applies to the mesh and restores; orbital speed 0× halts Earth while others move; restore resyncs |
@@ -207,7 +212,7 @@ Common places to edit:
 - **Colours and fonts:** the tokens at the top of `prototype/src/styles.css`
 - **Layout and text:** `prototype/src/app.html`
 - **Behaviour:** `prototype/src/app.js`
-- **Planet looks:** `prototype/src/render/textures.js`
+- **Planet looks:** maps in `prototype/assets/textures/` (`prototype/tools/prepare_textures.py`), lighting in `prototype/src/render/scene.js`
 - **Sizes and distances:** `prototype/src/sim/scale.js`
 - **Speeds:** `prototype/src/sim/clock.js`
 
@@ -217,12 +222,13 @@ Common places to edit:
 project-universe/
 ├── README.md                     this file
 ├── prototype/                    Stage 1 app (WebGL)
+│   ├── assets/textures/          real planet maps (Solar System Scope, CC BY 4.0)
 │   ├── assets/voice/             "Welcome, George" clips (female, male, bading)
 │   ├── src/
 │   │   ├── data/bodies.js        celestial data + sources
 │   │   ├── audio/welcome.js      opening chime + "Welcome, George"
 │   │   ├── sim/                  clock, Kepler solver, display scale
-│   │   ├── render/               scene, camera rig, starfield, procedural textures
+│   │   ├── render/               scene, camera rig, starfield, planet maps, backdrop textures
 │   │   ├── ui/format.js          units and number formatting
 │   │   ├── app.js / app.html / styles.css
 │   │   └── main.js

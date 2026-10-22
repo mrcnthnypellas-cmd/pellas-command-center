@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BODIES } from '../data/bodies.js';
 import { heliocentricPosition, orbitPath, geocentricMoonPosition, lunarPath } from '../sim/kepler.js';
 import { auToScene, displayRadius, MOON_DISPLAY_DISTANCE } from '../sim/scale.js';
-import { planetTexture, cloudTexture, ringTexture, glowTexture } from './textures.js';
+import { glowTexture } from './textures.js';
 import { createStarfield } from './starfield.js';
 
 const DEG = Math.PI / 180;
@@ -44,18 +44,24 @@ function ringGeometry(inner, outer) {
 }
 
 export class SolarScene {
-  constructor(quality) {
+  constructor(quality, maps) {
     this.scene = new THREE.Scene();
     this.quality = quality;
+    this.maps = maps;
     this.bodies = new Map();
     this.orbitsBuiltDays = null;
     this.showOrbits = true;
     this.spinEnabled = true;
     this.selectedId = null;
 
-    this.scene.add(new THREE.AmbientLight(0x8fa6d8, 0.16));
-    this.sunLight = new THREE.PointLight(0xfff4e6, 2.6, 0, 0);
+    this.ambient = new THREE.AmbientLight(0xc4d2f0, 0.3);
+    this.scene.add(this.ambient);
+    this.sunLight = new THREE.PointLight(0xfff4e6, 2.4, 0, 0);
     this.scene.add(this.sunLight);
+    // Soft light from the viewer's direction so the side you look at is never
+    // black. Turned off in "Realistic" lighting, where night sides stay dark.
+    this.headlight = new THREE.DirectionalLight(0xffffff, 0.75);
+    this.scene.add(this.headlight, this.headlight.target);
 
     this.starfield = createStarfield(quality.stars);
     this.scene.add(this.starfield);
@@ -77,11 +83,10 @@ export class SolarScene {
 
     const segs = def.id === 'sun' ? 64 : q.sphereSegments;
     const geo = new THREE.SphereGeometry(radius, segs, Math.round(segs / 2));
-    const texSize = ['earth', 'jupiter', 'saturn', 'sun'].includes(def.id) ? q.textureSize : q.textureSize / 2;
-    const map = planetTexture(def.visual.texture, texSize);
+    const map = this.maps[def.visual.texture];
     const mat = def.id === 'sun'
-      ? new THREE.MeshBasicMaterial({ map, color: new THREE.Color(1.0, 0.92, 0.8) })
-      : new THREE.MeshStandardMaterial({ map, roughness: 1, metalness: 0 });
+      ? new THREE.MeshBasicMaterial({ map, color: new THREE.Color(1.15, 1.08, 1.0) })
+      : new THREE.MeshStandardMaterial({ map, roughness: 0.95, metalness: 0 });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = def.id;
     tilt.add(mesh);
@@ -96,14 +101,6 @@ export class SolarScene {
       anchor.add(glow);
       body.glow = glow;
     }
-    if (def.visual.clouds) {
-      const clouds = new THREE.Mesh(
-        new THREE.SphereGeometry(radius * 1.015, segs, Math.round(segs / 2)),
-        new THREE.MeshStandardMaterial({ map: cloudTexture(q.textureSize / 2), transparent: true, depthWrite: false, roughness: 1 }),
-      );
-      tilt.add(clouds);
-      body.clouds = clouds;
-    }
     if (def.visual.atmosphere) {
       const strength = def.id === 'earth' ? 1.4 : def.id === 'venus' ? 1.1 : 0.8;
       const atmo = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.07, 48, 24), atmosphereMaterial(def.visual.atmosphere, strength));
@@ -113,7 +110,7 @@ export class SolarScene {
       const kmToUnits = radius / (def.physical.diameterKm / 2);
       const rings = new THREE.Mesh(
         ringGeometry(def.physical.ringInnerKm * kmToUnits, def.physical.ringOuterKm * kmToUnits),
-        new THREE.MeshStandardMaterial({ map: ringTexture(), transparent: true, side: THREE.DoubleSide, depthWrite: false, roughness: 1 }),
+        new THREE.MeshStandardMaterial({ map: this.maps.saturnRing, transparent: true, side: THREE.DoubleSide, depthWrite: false, roughness: 1 }),
       );
       tilt.add(rings);
       body.rings = rings;
@@ -158,6 +155,20 @@ export class SolarScene {
     }
   }
 
+  // 'bright': ambient + viewer light so every planet is easy to see (default).
+  // 'realistic': sunlight only, so night sides are dark as in space.
+  setLighting(mode) {
+    const realistic = mode === 'realistic';
+    this.ambient.intensity = realistic ? 0.035 : 0.3;
+    this.headlight.intensity = realistic ? 0 : 0.75;
+  }
+
+  // Keeps the viewer light pointing from the camera toward what it looks at.
+  updateHeadlight(camera, target) {
+    this.headlight.position.copy(camera.position);
+    this.headlight.target.position.copy(target);
+  }
+
   setSelected(id) { this.selectedId = id; this.#styleOrbits(); }
 
   setShowOrbits(on) {
@@ -194,7 +205,6 @@ export class SolarScene {
       if (this.spinEnabled && def.physical.rotationHours) {
         const turns = (clockDays * 24) / Math.abs(def.physical.rotationHours);
         b.mesh.rotation.y = (turns % 1) * Math.PI * 2;
-        if (b.clouds) b.clouds.rotation.y = ((turns * 0.97) % 1) * Math.PI * 2;
       }
     }
     // Moon: real geocentric direction, exaggerated display distance.

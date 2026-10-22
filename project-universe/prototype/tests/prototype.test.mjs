@@ -116,6 +116,23 @@ await test('Sun, eight planets and the Moon are present', async () => {
   assert(ids === 'earth,jupiter,mars,mercury,moon,neptune,saturn,sun,uranus,venus', ids);
   assert(await page.locator('.chip').count() === 10, 'body strip should list 10 bodies');
 });
+await test('Every body uses a real surface map (at least 1024 px wide)', async () => {
+  const widths = await page.evaluate(() => Object.fromEntries([...window.PU.app.solar.bodies].map(([id, b]) => [id, b.mesh.material.map?.image?.width || 0])));
+  const small = Object.entries(widths).filter(([, w]) => w < 1024);
+  assert(small.length === 0, `missing or low-res maps: ${JSON.stringify(small)}`);
+  assert(await page.evaluate(() => !!window.PU.app.solar.bodies.get('saturn').rings.material.map?.image), 'Saturn ring map missing');
+});
+await test('Lighting: Bright by default; Realistic darkens night sides', async () => {
+  const light = () => page.evaluate(() => ({ a: window.PU.app.solar.ambient.intensity, h: window.PU.app.solar.headlight.intensity }));
+  const bright = await light();
+  assert((await state()).settings.lighting === 'bright' && bright.a >= 0.25 && bright.h > 0.5, JSON.stringify(bright));
+  await page.click('#h-settings');
+  await page.click('#o-light [data-l="realistic"]');
+  const real = await light();
+  assert(real.a < 0.05 && real.h === 0, JSON.stringify(real));
+  await page.click('#o-light [data-l="bright"]');
+  await page.evaluate(() => window.PU.handleBack());
+});
 await test('Pause freezes simulation time', async () => {
   await page.click('#k-play');
   const a = (await state()).days; await wait(600); const b = (await state());

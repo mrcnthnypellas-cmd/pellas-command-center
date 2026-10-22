@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BODIES, BODY_BY_ID, orbitalPeriodDays } from './data/bodies.js';
 import { SimClock, SPEEDS, PRESETS, unixMsToDays, daysToDate } from './sim/clock.js';
 import { SolarScene } from './render/scene.js';
+import { loadPlanetMaps } from './render/planetMaps.js';
 import { CameraRig } from './render/camera.js';
 import { loadSettings, saveSettings, DEFAULTS, QUALITY } from './settings.js';
 import { playWelcome, welcomeStatus } from './audio/welcome.js';
@@ -40,7 +41,8 @@ export class App {
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.05, 20000);
 
     const quality = QUALITY[this.settings.quality];
-    this.solar = new SolarScene(quality);
+    const maps = await loadPlanetMaps(Math.min(8, this.renderer.capabilities.getMaxAnisotropy()));
+    this.solar = new SolarScene(quality, maps);
     this.clock = new SimClock(unixMsToDays(Date.now()));
     this.rig = new CameraRig(this.camera, canvas, {
       onTap: (x, y) => this.#tap(x, y),
@@ -70,6 +72,7 @@ export class App {
     const dDays = this.clock.tick(dt);
     this.solar.update(this.clock.days, dDays);
     this.rig.update(dt);
+    this.solar.updateHeadlight(this.camera, this.rig.target);
     this.#applyViewOffset(dt);
     this.solar.starfield.position.copy(this.camera.position);
     this.renderer.render(this.solar.scene, this.camera);
@@ -372,6 +375,7 @@ export class App {
     $('o-motion').onchange = (e) => this.#setSetting('reduceMotion', e.target.checked);
     $('o-sound').onchange = (e) => this.#setSetting('sound', e.target.checked);
     for (const btn of $('o-quality').children) btn.onclick = () => this.#setSetting('quality', btn.dataset.q);
+    for (const btn of $('o-light').children) btn.onclick = () => this.#setSetting('lighting', btn.dataset.l);
     // Choosing a voice plays it, so George can hear the difference.
     for (const btn of $('o-voice').children) btn.onclick = () => { this.#setSetting('voice', btn.dataset.v); playWelcome(btn.dataset.v); };
     $('o-reset').onclick = () => { this.settings = { ...DEFAULTS }; saveSettings(this.settings); this.#applySettings(); this.#resize(); this.#toast('Settings restored'); };
@@ -397,6 +401,7 @@ export class App {
     const s = this.settings;
     this.solar.setShowOrbits(s.orbits);
     this.solar.spinEnabled = s.spin;
+    this.solar.setLighting(s.lighting);
     this.rig.instant = s.reduceMotion;
     if (this.mode === 'menu') this.rig.autoRotate = s.reduceMotion ? 0 : 0.035;
     $('h-labels').setAttribute('aria-pressed', String(s.labels));
@@ -408,6 +413,7 @@ export class App {
     $('o-sound').checked = s.sound;
     for (const btn of $('o-quality').children) btn.setAttribute('aria-pressed', String(btn.dataset.q === s.quality));
     for (const btn of $('o-voice').children) btn.setAttribute('aria-pressed', String(btn.dataset.v === s.voice));
+    for (const btn of $('o-light').children) btn.setAttribute('aria-pressed', String(btn.dataset.l === s.lighting));
   }
 
   // ---------------------------------------------------------------- panel

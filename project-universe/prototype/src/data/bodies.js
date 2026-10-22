@@ -48,7 +48,7 @@ export const BODIES = [
       elements: [1.00000261, 0.01671123, -0.00001531, 100.46457166, 102.93768193, 0.0],
       rates: [0.00000562, -0.00004392, -0.01294668, 35999.37244981, 0.32327364, 0.0],
     },
-    visual: { color: '#4f8fe0', texture: 'earth', atmosphere: '#6fb4ff', clouds: true },
+    visual: { color: '#4f8fe0', texture: 'earth', atmosphere: '#6fb4ff' },
   },
   {
     id: 'moon', name: 'Moon', type: 'moon', typeLabel: 'Natural satellite of Earth', parent: 'earth',
