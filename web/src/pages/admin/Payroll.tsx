@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Wallet, Ban, CheckCircle, HandCoins, Banknote, ArrowLeft, Trash2 } from "lucide-react";
+import { Plus, Wallet, Ban, CheckCircle, HandCoins, Banknote, ArrowLeft, Trash2, Clock } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
 import { Button, Card, Modal, Input, Spinner, EmptyState } from "../../components/ui/ui";
 import { formatDate, todayInTZ } from "../../lib/format";
-import type { PayrollWorker, PayrollAdvance, PayrollPayout } from "../../types";
+import type { PayrollWorker, PayrollAdvance, PayrollOvertime, PayrollPayout } from "../../types";
+
+const STANDARD_HOURS_PER_DAY = 8;
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -145,6 +147,7 @@ function WorkerDetail({
   const { profile } = useAuth();
   const { push } = useToast();
   const [advances, setAdvances] = useState<PayrollAdvance[]>([]);
+  const [overtime, setOvertime] = useState<PayrollOvertime[]>([]);
   const [payouts, setPayouts] = useState<PayrollPayout[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(true);
 
@@ -158,6 +161,12 @@ function WorkerDetail({
   const [advanceNote, setAdvanceNote] = useState("");
   const [savingAdvance, setSavingAdvance] = useState(false);
 
+  const [overtimeOpen, setOvertimeOpen] = useState(false);
+  const [overtimeHours, setOvertimeHours] = useState("");
+  const [overtimeDate, setOvertimeDate] = useState(todayInTZ());
+  const [overtimeNote, setOvertimeNote] = useState("");
+  const [savingOvertime, setSavingOvertime] = useState(false);
+
   const [daysWorked, setDaysWorked] = useState("");
   const [payDate, setPayDate] = useState(todayInTZ());
   const [payoutNote, setPayoutNote] = useState("");
@@ -165,11 +174,13 @@ function WorkerDetail({
 
   async function loadDetail() {
     setLoadingDetail(true);
-    const [{ data: adv }, { data: pay }] = await Promise.all([
+    const [{ data: adv }, { data: ot }, { data: pay }] = await Promise.all([
       supabase.from("payroll_advances").select("*").eq("worker_id", worker.id).order("advance_date", { ascending: false }),
+      supabase.from("payroll_overtime").select("*").eq("worker_id", worker.id).order("overtime_date", { ascending: false }),
       supabase.from("payroll_payouts").select("*").eq("worker_id", worker.id).order("pay_date", { ascending: false }),
     ]);
     setAdvances((adv as PayrollAdvance[]) ?? []);
+    setOvertime((ot as PayrollOvertime[]) ?? []);
     setPayouts((pay as PayrollPayout[]) ?? []);
     setLoadingDetail(false);
   }
@@ -185,9 +196,17 @@ function WorkerDetail({
     [advances]
   );
 
+  const outstandingOvertimeHours = useMemo(
+    () => overtime.filter((o) => !o.settled).reduce((sum, o) => sum + Number(o.hours), 0),
+    [overtime]
+  );
+
+  const hourlyRate = Number(worker.salary_per_day) / STANDARD_HOURS_PER_DAY;
+  const outstandingOvertimePay = outstandingOvertimeHours * hourlyRate;
+
   const days = Number(daysWorked) || 0;
   const grossPay = days * Number(worker.salary_per_day);
-  const netPay = grossPay - outstandingAdvance;
+  const netPay = grossPay + outstandingOvertimePay - outstandingAdvance;
 
   async function saveRate() {
     if (!profile || !editRate) return;
@@ -232,6 +251,38 @@ function WorkerDetail({
     loadDetail();
   }
 
+  async function addOvertime() {
+    if (!profile || !overtimeHours) return;
+    setSavingOvertime(true);
+    const { error } = await supabase.from("payroll_overtime").insert({
+      company_id: profile.company_id,
+      worker_id: worker.id,
+      hours: Number(overtimeHours),
+      overtime_date: overtimeDate,
+      note: overtimeNote || null,
+    });
+    setSavingOvertime(false);
+    if (error) return push("error", error.message);
+    await supabase.from("audit_logs").insert({
+      company_id: profile.company_id, actor_id: profile.id, actor_name: `${profile.first_name} ${profile.last_name}`,
+      action: "Payroll Overtime Recorded", module: "Payroll", target: worker.name, details: { hours: Number(overtimeHours), overtime_date: overtimeDate },
+    });
+    push("success", "Overtime recorded.");
+    setOvertimeOpen(false);
+    setOvertimeHours("");
+    setOvertimeNote("");
+    setOvertimeDate(todayInTZ());
+    loadDetail();
+  }
+
+  async function deleteOvertime(o: PayrollOvertime) {
+    if (o.settled) return;
+    const { error } = await supabase.from("payroll_overtime").delete().eq("id", o.id);
+    if (error) return push("error", error.message);
+    push("success", "Overtime entry removed.");
+    loadDetail();
+  }
+
   async function recordPayout() {
     if (!profile || !daysWorked || days <= 0) {
       push("error", "Enter the number of days worked.");
@@ -247,6 +298,8 @@ function WorkerDetail({
         salary_per_day: worker.salary_per_day,
         gross_pay: grossPay,
         advance_deducted: outstandingAdvance,
+        overtime_hours: outstandingOvertimeHours,
+        overtime_pay: outstandingOvertimePay,
         net_pay: netPay,
         pay_date: payDate,
         note: payoutNote || null,
@@ -258,14 +311,18 @@ function WorkerDetail({
       setRecordingPayout(false);
       return push("error", error?.message ?? "Failed to record payout.");
     }
-    const unsettledIds = advances.filter((a) => !a.settled).map((a) => a.id);
-    if (unsettledIds.length > 0) {
-      await supabase.from("payroll_advances").update({ settled: true, payout_id: payout.id }).in("id", unsettledIds);
+    const unsettledAdvanceIds = advances.filter((a) => !a.settled).map((a) => a.id);
+    if (unsettledAdvanceIds.length > 0) {
+      await supabase.from("payroll_advances").update({ settled: true, payout_id: payout.id }).in("id", unsettledAdvanceIds);
+    }
+    const unsettledOvertimeIds = overtime.filter((o) => !o.settled).map((o) => o.id);
+    if (unsettledOvertimeIds.length > 0) {
+      await supabase.from("payroll_overtime").update({ settled: true, payout_id: payout.id }).in("id", unsettledOvertimeIds);
     }
     await supabase.from("audit_logs").insert({
       company_id: profile.company_id, actor_id: profile.id, actor_name: `${profile.first_name} ${profile.last_name}`,
       action: "Payroll Payout Recorded", module: "Payroll", target: worker.name,
-      details: { days_worked: days, gross_pay: grossPay, advance_deducted: outstandingAdvance, net_pay: netPay, pay_date: payDate },
+      details: { days_worked: days, gross_pay: grossPay, overtime_hours: outstandingOvertimeHours, overtime_pay: outstandingOvertimePay, advance_deducted: outstandingAdvance, net_pay: netPay, pay_date: payDate },
     });
     setRecordingPayout(false);
     push("success", `Payout recorded: ${peso(netPay)} net pay.`);
@@ -311,6 +368,7 @@ function WorkerDetail({
             </div>
             <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
               <div className="flex justify-between"><span>{days || 0} day{days === 1 ? "" : "s"} × {peso(worker.salary_per_day)}</span><span>{peso(grossPay)}</span></div>
+              <div className="flex justify-between text-emerald-600"><span>Plus: Overtime ({outstandingOvertimeHours}h × {peso(hourlyRate)}/hr)</span><span>+ {peso(outstandingOvertimePay)}</span></div>
               <div className="flex justify-between text-red-600"><span>Less: Outstanding Advance</span><span>− {peso(outstandingAdvance)}</span></div>
               <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800"><span>Net Pay</span><span>{peso(netPay)}</span></div>
             </div>
@@ -358,6 +416,46 @@ function WorkerDetail({
           </Card>
 
           <Card className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 font-semibold text-slate-700"><Clock className="h-4 w-4" /> Overtime</h3>
+              <Button variant="secondary" onClick={() => setOvertimeOpen(true)}><Plus className="h-4 w-4" /> Add Overtime</Button>
+            </div>
+            <p className="text-sm text-slate-500">Outstanding (unpaid) overtime: <span className="font-semibold text-emerald-600">{outstandingOvertimeHours}h ({peso(outstandingOvertimePay)})</span></p>
+            {overtime.length === 0 ? (
+              <p className="py-4 text-center text-sm text-slate-400">No overtime recorded.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-slate-400">
+                    <tr><th className="py-2">Date</th><th className="py-2">Hours</th><th className="py-2">Note</th><th className="py-2">Status</th><th></th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {overtime.map((o) => (
+                      <tr key={o.id}>
+                        <td className="py-2">{formatDate(o.overtime_date)}</td>
+                        <td className="py-2">{o.hours}h</td>
+                        <td className="py-2 max-w-[160px] truncate text-slate-500" title={o.note ?? ""}>{o.note || "—"}</td>
+                        <td className="py-2">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${o.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                            {o.settled ? "Settled" : "Pending"}
+                          </span>
+                        </td>
+                        <td className="py-2 text-right">
+                          {!o.settled && (
+                            <button onClick={() => deleteOvertime(o)} className="text-slate-400 hover:text-red-600" title="Remove">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-4 space-y-3">
             <h3 className="flex items-center gap-2 font-semibold text-slate-700"><Wallet className="h-4 w-4" /> Payout History</h3>
             {payouts.length === 0 ? (
               <p className="py-4 text-center text-sm text-slate-400">No payouts recorded yet.</p>
@@ -365,7 +463,7 @@ function WorkerDetail({
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-left text-xs uppercase tracking-wide text-slate-400">
-                    <tr><th className="py-2">Date</th><th className="py-2">Days</th><th className="py-2">Gross</th><th className="py-2">Advance</th><th className="py-2">Net Pay</th><th className="py-2">Note</th></tr>
+                    <tr><th className="py-2">Date</th><th className="py-2">Days</th><th className="py-2">Gross</th><th className="py-2">OT</th><th className="py-2">Advance</th><th className="py-2">Net Pay</th><th className="py-2">Note</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {payouts.map((p) => (
@@ -373,6 +471,7 @@ function WorkerDetail({
                         <td className="py-2">{formatDate(p.pay_date)}</td>
                         <td className="py-2">{p.days_worked}</td>
                         <td className="py-2">{peso(Number(p.gross_pay))}</td>
+                        <td className="py-2 text-emerald-600">+ {peso(Number(p.overtime_pay))} ({p.overtime_hours}h)</td>
                         <td className="py-2 text-red-600">− {peso(Number(p.advance_deducted))}</td>
                         <td className="py-2 font-semibold text-slate-800">{peso(Number(p.net_pay))}</td>
                         <td className="py-2 max-w-[160px] truncate text-slate-500" title={p.note ?? ""}>{p.note || "—"}</td>
@@ -403,6 +502,19 @@ function WorkerDetail({
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setAdvanceOpen(false)}>Cancel</Button>
           <Button onClick={addAdvance} loading={savingAdvance} disabled={!advanceAmount}>Add Advance</Button>
+        </div>
+      </Modal>
+
+      <Modal open={overtimeOpen} onClose={() => setOvertimeOpen(false)} title="Add Overtime">
+        <div className="space-y-3">
+          <Input label="Date" type="date" value={overtimeDate} onChange={(e) => setOvertimeDate(e.target.value)} max={todayInTZ()} />
+          <Input label="Hours" type="number" min="0" step="0.5" value={overtimeHours} onChange={(e) => setOvertimeHours(e.target.value)} placeholder="e.g. 3" />
+          <Input label="Note (optional)" value={overtimeNote} onChange={(e) => setOvertimeNote(e.target.value)} placeholder="e.g. Rush delivery" />
+          <p className="text-xs text-slate-400">Kinakalkula sa hourly rate na {peso(hourlyRate)}/hr (salary per day ÷ {STANDARD_HOURS_PER_DAY} hours).</p>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setOvertimeOpen(false)}>Cancel</Button>
+          <Button onClick={addOvertime} loading={savingOvertime} disabled={!overtimeHours}>Add Overtime</Button>
         </div>
       </Modal>
     </div>
