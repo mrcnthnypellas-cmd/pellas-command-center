@@ -24,7 +24,24 @@ export default function Payroll() {
   const [newRate, setNewRate] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const [summary, setSummary] = useState({ outstandingAdvance: 0, outstandingOvertimePay: 0, paidThisMonth: 0 });
+  const [summary, setSummary] = useState({ outstandingAdvance: 0, outstandingOvertimePay: 0 });
+
+  const currentMonth = todayInTZ().slice(0, 7);
+  const [periodFilter, setPeriodFilter] = useState(currentMonth);
+  const [periodSummary, setPeriodSummary] = useState({
+    daysWorked: 0, grossPay: 0, overtimeHours: 0, overtimePay: 0, advanceDeducted: 0, netPay: 0, payoutCount: 0,
+  });
+
+  const periodOptions: { value: string; label: string }[] = [{ value: "all", label: "All Time" }];
+  {
+    const [cy, cm] = currentMonth.split("-").map(Number);
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(cy, cm - 1 - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(d);
+      periodOptions.push({ value, label: i === 0 ? `${label} (this month)` : label });
+    }
+  }
 
   async function loadWorkers() {
     if (!profile) return;
@@ -36,15 +53,13 @@ export default function Payroll() {
 
   async function loadSummary() {
     if (!profile) return;
-    const monthStart = `${todayInTZ().slice(0, 7)}-01`;
-    const [{ data: advRows }, { data: otRows }, { data: payoutRows }] = await Promise.all([
+    const [{ data: advRows }, { data: otRows }] = await Promise.all([
       supabase.from("payroll_advances").select("amount").eq("company_id", profile.company_id).eq("settled", false),
       supabase
         .from("payroll_overtime")
         .select("hours, payroll_workers(salary_per_day)")
         .eq("company_id", profile.company_id)
         .eq("settled", false),
-      supabase.from("payroll_payouts").select("net_pay").eq("company_id", profile.company_id).gte("pay_date", monthStart),
     ]);
     const outstandingAdvance = (advRows ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
     const outstandingOvertimePay = (otRows ?? []).reduce((sum, r: unknown) => {
@@ -52,8 +67,32 @@ export default function Payroll() {
       const hourlyRate = Number(row.payroll_workers?.salary_per_day ?? 0) / STANDARD_HOURS_PER_DAY;
       return sum + Number(row.hours) * hourlyRate;
     }, 0);
-    const paidThisMonth = (payoutRows ?? []).reduce((sum, r) => sum + Number(r.net_pay), 0);
-    setSummary({ outstandingAdvance, outstandingOvertimePay, paidThisMonth });
+    setSummary({ outstandingAdvance, outstandingOvertimePay });
+  }
+
+  async function loadPeriodSummary(period: string) {
+    if (!profile) return;
+    let query = supabase
+      .from("payroll_payouts")
+      .select("days_worked, gross_pay, overtime_hours, overtime_pay, advance_deducted, net_pay")
+      .eq("company_id", profile.company_id);
+    if (period !== "all") {
+      const [y, m] = period.split("-").map(Number);
+      const monthStart = `${period}-01`;
+      const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      query = query.gte("pay_date", monthStart).lt("pay_date", nextMonth);
+    }
+    const { data } = await query;
+    const rows = data ?? [];
+    setPeriodSummary({
+      daysWorked: rows.reduce((sum, r) => sum + Number(r.days_worked), 0),
+      grossPay: rows.reduce((sum, r) => sum + Number(r.gross_pay), 0),
+      overtimeHours: rows.reduce((sum, r) => sum + Number(r.overtime_hours), 0),
+      overtimePay: rows.reduce((sum, r) => sum + Number(r.overtime_pay), 0),
+      advanceDeducted: rows.reduce((sum, r) => sum + Number(r.advance_deducted), 0),
+      netPay: rows.reduce((sum, r) => sum + Number(r.net_pay), 0),
+      payoutCount: rows.length,
+    });
   }
 
   useEffect(() => {
@@ -61,6 +100,11 @@ export default function Payroll() {
     loadSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.company_id]);
+
+  useEffect(() => {
+    loadPeriodSummary(periodFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.company_id, periodFilter]);
 
   const activeWorkers = workers.filter((w) => w.is_active);
   const totalDailyPayroll = activeWorkers.reduce((sum, w) => sum + Number(w.salary_per_day), 0);
@@ -109,13 +153,38 @@ export default function Payroll() {
         <Button onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Worker</Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <IconStatCard label="Active Workers" value={activeWorkers.length} icon={Users2} tone="blue" />
         <IconStatCard label="Total Daily Payroll" value={peso(totalDailyPayroll)} icon={Wallet} tone="violet" />
         <IconStatCard label="Outstanding Advances" value={peso(summary.outstandingAdvance)} icon={HandCoins} tone="red" />
         <IconStatCard label="Outstanding Overtime Pay" value={peso(summary.outstandingOvertimePay)} icon={Clock} tone="amber" />
-        <IconStatCard label="Paid This Month" value={peso(summary.paidThisMonth)} icon={Receipt} tone="green" />
       </div>
+
+      <Card className="p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="flex items-center gap-2 font-semibold text-slate-700"><Receipt className="h-4 w-4" /> Payroll Summary — All Workers</h3>
+          <select
+            value={periodFilter}
+            onChange={(e) => setPeriodFilter(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            {periodOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+        {periodSummary.payoutCount === 0 ? (
+          <p className="py-4 text-center text-sm text-slate-400">No payouts recorded for this period.</p>
+        ) : (
+          <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+            <div className="flex justify-between"><span>Total Days Worked (across {periodSummary.payoutCount} payout{periodSummary.payoutCount === 1 ? "" : "s"}, incl. half-days)</span><span>{periodSummary.daysWorked} day{periodSummary.daysWorked === 1 ? "" : "s"}</span></div>
+            <div className="flex justify-between"><span>Gross Pay (days × rate)</span><span>{peso(periodSummary.grossPay)}</span></div>
+            <div className="flex justify-between text-emerald-600"><span>+ Overtime Pay ({periodSummary.overtimeHours}h)</span><span>+ {peso(periodSummary.overtimePay)}</span></div>
+            <div className="flex justify-between text-red-600"><span>− Advance Deducted</span><span>− {peso(periodSummary.advanceDeducted)}</span></div>
+            <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800"><span>Total Net Pay</span><span>{peso(periodSummary.netPay)}</span></div>
+          </div>
+        )}
+      </Card>
 
       <div className="flex gap-4">
         <div className={`${mobileView === "detail" ? "hidden" : "block"} w-full md:block md:w-72 md:shrink-0`}>
@@ -149,7 +218,7 @@ export default function Payroll() {
               onBack={() => setMobileView("list")}
               onToggleActive={() => toggleActive(selectedWorker)}
               onWorkerUpdated={loadWorkers}
-              onLedgerChanged={loadSummary}
+              onLedgerChanged={() => { loadSummary(); loadPeriodSummary(periodFilter); }}
             />
           ) : (
             <Card className="p-10 text-center text-sm text-slate-400">Select a worker to view advances and compute payout.</Card>
