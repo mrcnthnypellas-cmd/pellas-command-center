@@ -139,6 +139,18 @@ export interface PayrollAdvance {
   created_at: string;
 }
 
+export interface PayrollOvertime {
+  id: string;
+  company_id: string;
+  worker_id: string;
+  overtime_date: string;
+  hours: number;
+  note: string | null;
+  settled: boolean;
+  payout_id: string | null;
+  created_at: string;
+}
+
 export interface PayrollPayout {
   id: string;
   company_id: string;
@@ -147,6 +159,8 @@ export interface PayrollPayout {
   salary_per_day: number;
   gross_pay: number;
   advance_deducted: number;
+  overtime_hours: number;
+  overtime_pay: number;
   net_pay: number;
   pay_date: string;
   note: string | null;
