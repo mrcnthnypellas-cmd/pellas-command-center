@@ -1,0 +1,410 @@
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Wallet, Ban, CheckCircle, HandCoins, Banknote, ArrowLeft, Trash2 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../lib/auth";
+import { useToast } from "../../lib/toast";
+import { Button, Card, Modal, Input, Spinner, EmptyState } from "../../components/ui/ui";
+import { formatDate, todayInTZ } from "../../lib/format";
+import type { PayrollWorker, PayrollAdvance, PayrollPayout } from "../../types";
+
+const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export default function Payroll() {
+  const { profile } = useAuth();
+  const { push } = useToast();
+  const [workers, setWorkers] = useState<PayrollWorker[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newRate, setNewRate] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function loadWorkers() {
+    if (!profile) return;
+    setLoading(true);
+    const { data } = await supabase.from("payroll_workers").select("*").eq("company_id", profile.company_id).order("name");
+    setWorkers((data as PayrollWorker[]) ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadWorkers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.company_id]);
+
+  async function addWorker() {
+    if (!profile || !newName.trim() || !newRate) return;
+    setSaving(true);
+    const { error } = await supabase.from("payroll_workers").insert({
+      company_id: profile.company_id,
+      name: newName.trim(),
+      salary_per_day: Number(newRate),
+    });
+    setSaving(false);
+    if (error) return push("error", error.message);
+    await supabase.from("audit_logs").insert({
+      company_id: profile.company_id, actor_id: profile.id, actor_name: `${profile.first_name} ${profile.last_name}`,
+      action: "Payroll Worker Added", module: "Payroll", target: newName.trim(), details: { salary_per_day: Number(newRate) },
+    });
+    push("success", "Worker added.");
+    setAddOpen(false);
+    setNewName("");
+    setNewRate("");
+    loadWorkers();
+  }
+
+  async function toggleActive(w: PayrollWorker) {
+    const { error } = await supabase.from("payroll_workers").update({ is_active: !w.is_active }).eq("id", w.id);
+    if (error) return push("error", error.message);
+    loadWorkers();
+  }
+
+  function selectWorker(id: string) {
+    setSelectedId(id);
+    setMobileView("detail");
+  }
+
+  const selectedWorker = workers.find((w) => w.id === selectedId) ?? null;
+
+  if (loading || !profile) return <Spinner />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-slate-800">Payroll</h1>
+        <Button onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Worker</Button>
+      </div>
+
+      <div className="flex gap-4">
+        <div className={`${mobileView === "detail" ? "hidden" : "block"} w-full md:block md:w-72 md:shrink-0`}>
+          <Card className="overflow-hidden">
+            {workers.length === 0 ? (
+              <EmptyState title="No workers yet" description="Click “Add Worker” to start tracking daily wage, advances, and payouts." />
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {workers.map((w) => (
+                  <button
+                    key={w.id}
+                    onClick={() => selectWorker(w.id)}
+                    className={`flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-slate-50 ${selectedId === w.id ? "bg-brand-50" : ""}`}
+                  >
+                    <div className="min-w-0">
+                      <p className={`truncate text-sm font-semibold ${w.is_active ? "text-slate-800" : "text-slate-400 line-through"}`}>{w.name}</p>
+                      <p className="truncate text-xs text-slate-400">{peso(w.salary_per_day)} / day</p>
+                    </div>
+                    {!w.is_active && <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600">Inactive</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        <div className={`${mobileView === "list" ? "hidden" : "block"} min-w-0 flex-1 md:block`}>
+          {selectedWorker ? (
+            <WorkerDetail
+              worker={selectedWorker}
+              onBack={() => setMobileView("list")}
+              onToggleActive={() => toggleActive(selectedWorker)}
+              onWorkerUpdated={loadWorkers}
+            />
+          ) : (
+            <Card className="p-10 text-center text-sm text-slate-400">Select a worker to view advances and compute payout.</Card>
+          )}
+        </div>
+      </div>
+
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Worker">
+        <div className="space-y-3">
+          <Input label="Worker Name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Juan Dela Cruz" />
+          <Input label="Salary per Day (₱)" type="number" min="0" step="0.01" value={newRate} onChange={(e) => setNewRate(e.target.value)} placeholder="e.g. 500" />
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button>
+          <Button onClick={addWorker} loading={saving} disabled={!newName.trim() || !newRate}>Add Worker</Button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function WorkerDetail({
+  worker,
+  onBack,
+  onToggleActive,
+  onWorkerUpdated,
+}: {
+  worker: PayrollWorker;
+  onBack: () => void;
+  onToggleActive: () => void;
+  onWorkerUpdated: () => void;
+}) {
+  const { profile } = useAuth();
+  const { push } = useToast();
+  const [advances, setAdvances] = useState<PayrollAdvance[]>([]);
+  const [payouts, setPayouts] = useState<PayrollPayout[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(true);
+
+  const [editRateOpen, setEditRateOpen] = useState(false);
+  const [editRate, setEditRate] = useState(String(worker.salary_per_day));
+  const [savingRate, setSavingRate] = useState(false);
+
+  const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advanceDate, setAdvanceDate] = useState(todayInTZ());
+  const [advanceNote, setAdvanceNote] = useState("");
+  const [savingAdvance, setSavingAdvance] = useState(false);
+
+  const [daysWorked, setDaysWorked] = useState("");
+  const [payDate, setPayDate] = useState(todayInTZ());
+  const [payoutNote, setPayoutNote] = useState("");
+  const [recordingPayout, setRecordingPayout] = useState(false);
+
+  async function loadDetail() {
+    setLoadingDetail(true);
+    const [{ data: adv }, { data: pay }] = await Promise.all([
+      supabase.from("payroll_advances").select("*").eq("worker_id", worker.id).order("advance_date", { ascending: false }),
+      supabase.from("payroll_payouts").select("*").eq("worker_id", worker.id).order("pay_date", { ascending: false }),
+    ]);
+    setAdvances((adv as PayrollAdvance[]) ?? []);
+    setPayouts((pay as PayrollPayout[]) ?? []);
+    setLoadingDetail(false);
+  }
+
+  useEffect(() => {
+    loadDetail();
+    setEditRate(String(worker.salary_per_day));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [worker.id]);
+
+  const outstandingAdvance = useMemo(
+    () => advances.filter((a) => !a.settled).reduce((sum, a) => sum + Number(a.amount), 0),
+    [advances]
+  );
+
+  const days = Number(daysWorked) || 0;
+  const grossPay = days * Number(worker.salary_per_day);
+  const netPay = grossPay - outstandingAdvance;
+
+  async function saveRate() {
+    if (!profile || !editRate) return;
+    setSavingRate(true);
+    const { error } = await supabase.from("payroll_workers").update({ salary_per_day: Number(editRate) }).eq("id", worker.id);
+    setSavingRate(false);
+    if (error) return push("error", error.message);
+    push("success", "Salary per day updated.");
+    setEditRateOpen(false);
+    onWorkerUpdated();
+  }
+
+  async function addAdvance() {
+    if (!profile || !advanceAmount) return;
+    setSavingAdvance(true);
+    const { error } = await supabase.from("payroll_advances").insert({
+      company_id: profile.company_id,
+      worker_id: worker.id,
+      amount: Number(advanceAmount),
+      advance_date: advanceDate,
+      note: advanceNote || null,
+    });
+    setSavingAdvance(false);
+    if (error) return push("error", error.message);
+    await supabase.from("audit_logs").insert({
+      company_id: profile.company_id, actor_id: profile.id, actor_name: `${profile.first_name} ${profile.last_name}`,
+      action: "Payroll Advance Recorded", module: "Payroll", target: worker.name, details: { amount: Number(advanceAmount), advance_date: advanceDate },
+    });
+    push("success", "Cash advance recorded.");
+    setAdvanceOpen(false);
+    setAdvanceAmount("");
+    setAdvanceNote("");
+    setAdvanceDate(todayInTZ());
+    loadDetail();
+  }
+
+  async function deleteAdvance(a: PayrollAdvance) {
+    if (a.settled) return;
+    const { error } = await supabase.from("payroll_advances").delete().eq("id", a.id);
+    if (error) return push("error", error.message);
+    push("success", "Advance removed.");
+    loadDetail();
+  }
+
+  async function recordPayout() {
+    if (!profile || !daysWorked || days <= 0) {
+      push("error", "Enter the number of days worked.");
+      return;
+    }
+    setRecordingPayout(true);
+    const { data: payout, error } = await supabase
+      .from("payroll_payouts")
+      .insert({
+        company_id: profile.company_id,
+        worker_id: worker.id,
+        days_worked: days,
+        salary_per_day: worker.salary_per_day,
+        gross_pay: grossPay,
+        advance_deducted: outstandingAdvance,
+        net_pay: netPay,
+        pay_date: payDate,
+        note: payoutNote || null,
+        created_by: profile.id,
+      })
+      .select()
+      .single();
+    if (error || !payout) {
+      setRecordingPayout(false);
+      return push("error", error?.message ?? "Failed to record payout.");
+    }
+    const unsettledIds = advances.filter((a) => !a.settled).map((a) => a.id);
+    if (unsettledIds.length > 0) {
+      await supabase.from("payroll_advances").update({ settled: true, payout_id: payout.id }).in("id", unsettledIds);
+    }
+    await supabase.from("audit_logs").insert({
+      company_id: profile.company_id, actor_id: profile.id, actor_name: `${profile.first_name} ${profile.last_name}`,
+      action: "Payroll Payout Recorded", module: "Payroll", target: worker.name,
+      details: { days_worked: days, gross_pay: grossPay, advance_deducted: outstandingAdvance, net_pay: netPay, pay_date: payDate },
+    });
+    setRecordingPayout(false);
+    push("success", `Payout recorded: ${peso(netPay)} net pay.`);
+    setDaysWorked("");
+    setPayoutNote("");
+    setPayDate(todayInTZ());
+    loadDetail();
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button onClick={onBack} className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 md:hidden">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h2 className={`text-lg font-bold ${worker.is_active ? "text-slate-800" : "text-slate-400"}`}>{worker.name}</h2>
+        {!worker.is_active && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600">Inactive</span>}
+      </div>
+
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-xs text-slate-400">Salary per Day</p>
+          <p className="text-lg font-semibold text-slate-800">{peso(worker.salary_per_day)}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => { setEditRate(String(worker.salary_per_day)); setEditRateOpen(true); }}>Edit Rate</Button>
+          <Button variant="ghost" onClick={onToggleActive}>
+            {worker.is_active ? <><Ban className="h-4 w-4" /> Deactivate</> : <><CheckCircle className="h-4 w-4" /> Activate</>}
+          </Button>
+        </div>
+      </Card>
+
+      {loadingDetail ? <Spinner /> : (
+        <>
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 font-semibold text-slate-700"><Banknote className="h-4 w-4" /> Compute &amp; Record Payout</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Input label="Days Worked" type="number" min="0" step="0.5" value={daysWorked} onChange={(e) => setDaysWorked(e.target.value)} placeholder="e.g. 5" />
+              <Input label="Pay Date" type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} max={todayInTZ()} />
+              <Input label="Note (optional)" value={payoutNote} onChange={(e) => setPayoutNote(e.target.value)} placeholder="e.g. Week 3 payout" />
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+              <div className="flex justify-between"><span>{days || 0} day{days === 1 ? "" : "s"} × {peso(worker.salary_per_day)}</span><span>{peso(grossPay)}</span></div>
+              <div className="flex justify-between text-red-600"><span>Less: Outstanding Advance</span><span>− {peso(outstandingAdvance)}</span></div>
+              <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800"><span>Net Pay</span><span>{peso(netPay)}</span></div>
+            </div>
+            <Button onClick={recordPayout} loading={recordingPayout} disabled={!daysWorked || days <= 0}>Record Payout</Button>
+          </Card>
+
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 font-semibold text-slate-700"><HandCoins className="h-4 w-4" /> Cash Advances</h3>
+              <Button variant="secondary" onClick={() => setAdvanceOpen(true)}><Plus className="h-4 w-4" /> Add Advance</Button>
+            </div>
+            <p className="text-sm text-slate-500">Outstanding (unpaid) advance: <span className="font-semibold text-red-600">{peso(outstandingAdvance)}</span></p>
+            {advances.length === 0 ? (
+              <p className="py-4 text-center text-sm text-slate-400">No cash advances recorded.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-slate-400">
+                    <tr><th className="py-2">Date</th><th className="py-2">Amount</th><th className="py-2">Note</th><th className="py-2">Status</th><th></th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {advances.map((a) => (
+                      <tr key={a.id}>
+                        <td className="py-2">{formatDate(a.advance_date)}</td>
+                        <td className="py-2">{peso(Number(a.amount))}</td>
+                        <td className="py-2 max-w-[160px] truncate text-slate-500" title={a.note ?? ""}>{a.note || "—"}</td>
+                        <td className="py-2">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${a.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                            {a.settled ? "Settled" : "Pending"}
+                          </span>
+                        </td>
+                        <td className="py-2 text-right">
+                          {!a.settled && (
+                            <button onClick={() => deleteAdvance(a)} className="text-slate-400 hover:text-red-600" title="Remove">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-4 space-y-3">
+            <h3 className="flex items-center gap-2 font-semibold text-slate-700"><Wallet className="h-4 w-4" /> Payout History</h3>
+            {payouts.length === 0 ? (
+              <p className="py-4 text-center text-sm text-slate-400">No payouts recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-slate-400">
+                    <tr><th className="py-2">Date</th><th className="py-2">Days</th><th className="py-2">Gross</th><th className="py-2">Advance</th><th className="py-2">Net Pay</th><th className="py-2">Note</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {payouts.map((p) => (
+                      <tr key={p.id}>
+                        <td className="py-2">{formatDate(p.pay_date)}</td>
+                        <td className="py-2">{p.days_worked}</td>
+                        <td className="py-2">{peso(Number(p.gross_pay))}</td>
+                        <td className="py-2 text-red-600">− {peso(Number(p.advance_deducted))}</td>
+                        <td className="py-2 font-semibold text-slate-800">{peso(Number(p.net_pay))}</td>
+                        <td className="py-2 max-w-[160px] truncate text-slate-500" title={p.note ?? ""}>{p.note || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+
+      <Modal open={editRateOpen} onClose={() => setEditRateOpen(false)} title="Edit Salary per Day">
+        <Input label="Salary per Day (₱)" type="number" min="0" step="0.01" value={editRate} onChange={(e) => setEditRate(e.target.value)} />
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setEditRateOpen(false)}>Cancel</Button>
+          <Button onClick={saveRate} loading={savingRate}>Save</Button>
+        </div>
+      </Modal>
+
+      <Modal open={advanceOpen} onClose={() => setAdvanceOpen(false)} title="Add Cash Advance">
+        <div className="space-y-3">
+          <Input label="Amount (₱)" type="number" min="0" step="0.01" value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)} placeholder="e.g. 1000" />
+          <Input label="Date" type="date" value={advanceDate} onChange={(e) => setAdvanceDate(e.target.value)} max={todayInTZ()} />
+          <Input label="Note (optional)" value={advanceNote} onChange={(e) => setAdvanceNote(e.target.value)} placeholder="e.g. Emergency advance" />
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setAdvanceOpen(false)}>Cancel</Button>
+          <Button onClick={addAdvance} loading={savingAdvance} disabled={!advanceAmount}>Add Advance</Button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
