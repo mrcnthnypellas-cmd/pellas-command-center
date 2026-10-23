@@ -2,7 +2,7 @@ import { NavLink, Outlet, Navigate, useLocation, useNavigate } from "react-route
 import {
   LayoutDashboard, Users, UserCog, ClipboardList, CalendarClock, FileBarChart,
   Building2, ScrollText, Settings, LogOut, Menu, X, FileWarning, Clock,
-  Search, Bell, ChevronDown, ListTodo, MessagesSquare, Video,
+  Search, Bell, ChevronDown, ListTodo, MessagesSquare, Video, Wallet,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/auth";
@@ -19,6 +19,7 @@ const NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", title: "Overview Dashboard", icon: LayoutDashboard, roles: ["admin", "hr", "employee"], group: "main" },
   { to: "/employees", label: "Employees", title: "Employee Directory", icon: Users, roles: ["admin", "hr"], group: "main" },
   { to: "/attendance", label: "Attendance", title: "Attendance Management", icon: ClipboardList, roles: ["admin", "hr"], group: "main" },
+  { to: "/payroll", label: "Payroll", title: "Payroll (Workers)", icon: Wallet, roles: ["admin", "hr"], group: "main" },
   { to: "/my-attendance", label: "My Attendance", title: "My Attendance", icon: ClipboardList, roles: ["employee"], group: "main" },
   { to: "/corrections", label: "Corrections", title: "Attendance Corrections", icon: FileWarning, roles: ["admin", "hr", "employee"], group: "main" },
   { to: "/overtime", label: "Overtime", title: "Overtime Requests", icon: Clock, roles: ["admin", "hr", "employee"], group: "main" },

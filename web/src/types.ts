@@ -118,6 +118,42 @@ export interface CompanySettings {
   chat_enabled_for_employees: boolean;
 }
 
+export interface PayrollWorker {
+  id: string;
+  company_id: string;
+  name: string;
+  salary_per_day: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface PayrollAdvance {
+  id: string;
+  company_id: string;
+  worker_id: string;
+  amount: number;
+  advance_date: string;
+  note: string | null;
+  settled: boolean;
+  payout_id: string | null;
+  created_at: string;
+}
+
+export interface PayrollPayout {
+  id: string;
+  company_id: string;
+  worker_id: string;
+  days_worked: number;
+  salary_per_day: number;
+  gross_pay: number;
+  advance_deducted: number;
+  net_pay: number;
+  pay_date: string;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Contact {
   id: string;
   company_id: string;
