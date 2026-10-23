@@ -70,11 +70,15 @@ export default function Payroll() {
     setSummary({ outstandingAdvance, outstandingOvertimePay });
   }
 
+  const [sheetRows, setSheetRows] = useState<
+    { workerId: string; name: string; salaryPerDay: number; days: number; gross: number; otHours: number; otPay: number; advance: number; net: number }[]
+  >([]);
+
   async function loadPeriodSummary(period: string) {
     if (!profile) return;
     let query = supabase
       .from("payroll_payouts")
-      .select("days_worked, gross_pay, overtime_hours, overtime_pay, advance_deducted, net_pay")
+      .select("worker_id, days_worked, gross_pay, overtime_hours, overtime_pay, advance_deducted, net_pay, payroll_workers(name, salary_per_day)")
       .eq("company_id", profile.company_id);
     if (period !== "all") {
       const [y, m] = period.split("-").map(Number);
@@ -83,14 +87,46 @@ export default function Payroll() {
       query = query.gte("pay_date", monthStart).lt("pay_date", nextMonth);
     }
     const { data } = await query;
-    const rows = data ?? [];
+    const rows = (data ?? []) as unknown as {
+      worker_id: string; days_worked: number; gross_pay: number; overtime_hours: number; overtime_pay: number;
+      advance_deducted: number; net_pay: number; payroll_workers: { name: string; salary_per_day: number } | null;
+    }[];
+
+    const byWorker = new Map<string, { workerId: string; name: string; salaryPerDay: number; days: number; gross: number; otHours: number; otPay: number; advance: number; net: number }>();
+    for (const r of rows) {
+      const existing = byWorker.get(r.worker_id);
+      const name = r.payroll_workers?.name ?? "—";
+      const salaryPerDay = Number(r.payroll_workers?.salary_per_day ?? 0);
+      if (existing) {
+        existing.days += Number(r.days_worked);
+        existing.gross += Number(r.gross_pay);
+        existing.otHours += Number(r.overtime_hours);
+        existing.otPay += Number(r.overtime_pay);
+        existing.advance += Number(r.advance_deducted);
+        existing.net += Number(r.net_pay);
+      } else {
+        byWorker.set(r.worker_id, {
+          workerId: r.worker_id, name, salaryPerDay,
+          days: Number(r.days_worked), gross: Number(r.gross_pay), otHours: Number(r.overtime_hours),
+          otPay: Number(r.overtime_pay), advance: Number(r.advance_deducted), net: Number(r.net_pay),
+        });
+      }
+    }
+    // Include active workers with no payout this period, so the sheet still lists everyone.
+    for (const w of workers) {
+      if (w.is_active && !byWorker.has(w.id)) {
+        byWorker.set(w.id, { workerId: w.id, name: w.name, salaryPerDay: Number(w.salary_per_day), days: 0, gross: 0, otHours: 0, otPay: 0, advance: 0, net: 0 });
+      }
+    }
+    const sorted = Array.from(byWorker.values()).sort((a, b) => a.name.localeCompare(b.name));
+    setSheetRows(sorted);
     setPeriodSummary({
-      daysWorked: rows.reduce((sum, r) => sum + Number(r.days_worked), 0),
-      grossPay: rows.reduce((sum, r) => sum + Number(r.gross_pay), 0),
-      overtimeHours: rows.reduce((sum, r) => sum + Number(r.overtime_hours), 0),
-      overtimePay: rows.reduce((sum, r) => sum + Number(r.overtime_pay), 0),
-      advanceDeducted: rows.reduce((sum, r) => sum + Number(r.advance_deducted), 0),
-      netPay: rows.reduce((sum, r) => sum + Number(r.net_pay), 0),
+      daysWorked: sorted.reduce((sum, r) => sum + r.days, 0),
+      grossPay: sorted.reduce((sum, r) => sum + r.gross, 0),
+      overtimeHours: sorted.reduce((sum, r) => sum + r.otHours, 0),
+      overtimePay: sorted.reduce((sum, r) => sum + r.otPay, 0),
+      advanceDeducted: sorted.reduce((sum, r) => sum + r.advance, 0),
+      netPay: sorted.reduce((sum, r) => sum + r.net, 0),
       payoutCount: rows.length,
     });
   }
@@ -104,7 +140,7 @@ export default function Payroll() {
   useEffect(() => {
     loadPeriodSummary(periodFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.company_id, periodFilter]);
+  }, [profile?.company_id, periodFilter, workers]);
 
   const activeWorkers = workers.filter((w) => w.is_active);
   const totalDailyPayroll = activeWorkers.reduce((sum, w) => sum + Number(w.salary_per_day), 0);
@@ -160,9 +196,9 @@ export default function Payroll() {
         <IconStatCard label="Outstanding Overtime Pay" value={peso(summary.outstandingOvertimePay)} icon={Clock} tone="amber" />
       </div>
 
-      <Card className="p-4 space-y-3">
+      <Card className="overflow-x-auto p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="flex items-center gap-2 font-semibold text-slate-700"><Receipt className="h-4 w-4" /> Payroll Summary — All Workers</h3>
+          <h3 className="flex items-center gap-2 font-semibold text-slate-700"><Receipt className="h-4 w-4" /> Payroll Sheet — All Workers</h3>
           <select
             value={periodFilter}
             onChange={(e) => setPeriodFilter(e.target.value)}
@@ -173,16 +209,51 @@ export default function Payroll() {
             ))}
           </select>
         </div>
-        {periodSummary.payoutCount === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">No payouts recorded for this period.</p>
+        <p className="text-xs text-slate-400">Days Worked may kasamang half-day (hal. 4.5). I-click ang pangalan para buksan ang worker's detail at mag-record ng bago.</p>
+        {sheetRows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-slate-400">No workers or payouts for this period.</p>
         ) : (
-          <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-            <div className="flex justify-between"><span>Total Days Worked (across {periodSummary.payoutCount} payout{periodSummary.payoutCount === 1 ? "" : "s"}, incl. half-days)</span><span>{periodSummary.daysWorked} day{periodSummary.daysWorked === 1 ? "" : "s"}</span></div>
-            <div className="flex justify-between"><span>Gross Pay (days × rate)</span><span>{peso(periodSummary.grossPay)}</span></div>
-            <div className="flex justify-between text-emerald-600"><span>+ Overtime Pay ({periodSummary.overtimeHours}h)</span><span>+ {peso(periodSummary.overtimePay)}</span></div>
-            <div className="flex justify-between text-red-600"><span>− Advance Deducted</span><span>− {peso(periodSummary.advanceDeducted)}</span></div>
-            <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800"><span>Total Net Pay</span><span>{peso(periodSummary.netPay)}</span></div>
-          </div>
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Worker</th>
+                <th className="px-3 py-2">Salary/Day</th>
+                <th className="px-3 py-2">Days Worked</th>
+                <th className="px-3 py-2">Gross Pay</th>
+                <th className="px-3 py-2">OT Hours</th>
+                <th className="px-3 py-2">OT Pay</th>
+                <th className="px-3 py-2">Advance</th>
+                <th className="px-3 py-2">Net Pay</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {sheetRows.map((r) => (
+                <tr key={r.workerId} className="hover:bg-slate-50">
+                  <td className="px-3 py-2">
+                    <button onClick={() => selectWorker(r.workerId)} className="font-medium text-brand-700 hover:underline">{r.name}</button>
+                  </td>
+                  <td className="px-3 py-2 text-slate-500">{peso(r.salaryPerDay)}</td>
+                  <td className="px-3 py-2">{r.days}</td>
+                  <td className="px-3 py-2">{peso(r.gross)}</td>
+                  <td className="px-3 py-2 text-slate-500">{r.otHours}h</td>
+                  <td className="px-3 py-2 text-emerald-600">+ {peso(r.otPay)}</td>
+                  <td className="px-3 py-2 text-red-600">− {peso(r.advance)}</td>
+                  <td className="px-3 py-2 font-semibold text-slate-800">{peso(r.net)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800">
+                <td className="px-3 py-2" colSpan={2}>TOTAL</td>
+                <td className="px-3 py-2">{periodSummary.daysWorked}</td>
+                <td className="px-3 py-2">{peso(periodSummary.grossPay)}</td>
+                <td className="px-3 py-2">{periodSummary.overtimeHours}h</td>
+                <td className="px-3 py-2 text-emerald-700">+ {peso(periodSummary.overtimePay)}</td>
+                <td className="px-3 py-2 text-red-700">− {peso(periodSummary.advanceDeducted)}</td>
+                <td className="px-3 py-2">{peso(periodSummary.netPay)}</td>
+              </tr>
+            </tfoot>
+          </table>
         )}
       </Card>
 
