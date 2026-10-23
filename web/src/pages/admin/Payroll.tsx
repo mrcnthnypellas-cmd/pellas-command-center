@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Wallet, Ban, CheckCircle, HandCoins, Banknote, ArrowLeft, Trash2, Clock } from "lucide-react";
+import { Plus, Wallet, Ban, CheckCircle, HandCoins, Banknote, ArrowLeft, Trash2, Clock, Users2, Receipt } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
-import { Button, Card, Modal, Input, Spinner, EmptyState } from "../../components/ui/ui";
+import { Button, Card, Modal, Input, Spinner, EmptyState, IconStatCard } from "../../components/ui/ui";
 import { formatDate, todayInTZ } from "../../lib/format";
 import type { PayrollWorker, PayrollAdvance, PayrollOvertime, PayrollPayout } from "../../types";
 
@@ -24,6 +24,8 @@ export default function Payroll() {
   const [newRate, setNewRate] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [summary, setSummary] = useState({ outstandingAdvance: 0, outstandingOvertimePay: 0, paidThisMonth: 0 });
+
   async function loadWorkers() {
     if (!profile) return;
     setLoading(true);
@@ -32,10 +34,36 @@ export default function Payroll() {
     setLoading(false);
   }
 
+  async function loadSummary() {
+    if (!profile) return;
+    const monthStart = `${todayInTZ().slice(0, 7)}-01`;
+    const [{ data: advRows }, { data: otRows }, { data: payoutRows }] = await Promise.all([
+      supabase.from("payroll_advances").select("amount").eq("company_id", profile.company_id).eq("settled", false),
+      supabase
+        .from("payroll_overtime")
+        .select("hours, payroll_workers(salary_per_day)")
+        .eq("company_id", profile.company_id)
+        .eq("settled", false),
+      supabase.from("payroll_payouts").select("net_pay").eq("company_id", profile.company_id).gte("pay_date", monthStart),
+    ]);
+    const outstandingAdvance = (advRows ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+    const outstandingOvertimePay = (otRows ?? []).reduce((sum, r: unknown) => {
+      const row = r as { hours: number; payroll_workers: { salary_per_day: number } | null };
+      const hourlyRate = Number(row.payroll_workers?.salary_per_day ?? 0) / STANDARD_HOURS_PER_DAY;
+      return sum + Number(row.hours) * hourlyRate;
+    }, 0);
+    const paidThisMonth = (payoutRows ?? []).reduce((sum, r) => sum + Number(r.net_pay), 0);
+    setSummary({ outstandingAdvance, outstandingOvertimePay, paidThisMonth });
+  }
+
   useEffect(() => {
     loadWorkers();
+    loadSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.company_id]);
+
+  const activeWorkers = workers.filter((w) => w.is_active);
+  const totalDailyPayroll = activeWorkers.reduce((sum, w) => sum + Number(w.salary_per_day), 0);
 
   async function addWorker() {
     if (!profile || !newName.trim() || !newRate) return;
@@ -62,6 +90,7 @@ export default function Payroll() {
     const { error } = await supabase.from("payroll_workers").update({ is_active: !w.is_active }).eq("id", w.id);
     if (error) return push("error", error.message);
     loadWorkers();
+    loadSummary();
   }
 
   function selectWorker(id: string) {
@@ -78,6 +107,14 @@ export default function Payroll() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">Payroll</h1>
         <Button onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Worker</Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <IconStatCard label="Active Workers" value={activeWorkers.length} icon={Users2} tone="blue" />
+        <IconStatCard label="Total Daily Payroll" value={peso(totalDailyPayroll)} icon={Wallet} tone="violet" />
+        <IconStatCard label="Outstanding Advances" value={peso(summary.outstandingAdvance)} icon={HandCoins} tone="red" />
+        <IconStatCard label="Outstanding Overtime Pay" value={peso(summary.outstandingOvertimePay)} icon={Clock} tone="amber" />
+        <IconStatCard label="Paid This Month" value={peso(summary.paidThisMonth)} icon={Receipt} tone="green" />
       </div>
 
       <div className="flex gap-4">
@@ -112,6 +149,7 @@ export default function Payroll() {
               onBack={() => setMobileView("list")}
               onToggleActive={() => toggleActive(selectedWorker)}
               onWorkerUpdated={loadWorkers}
+              onLedgerChanged={loadSummary}
             />
           ) : (
             <Card className="p-10 text-center text-sm text-slate-400">Select a worker to view advances and compute payout.</Card>
@@ -138,11 +176,13 @@ function WorkerDetail({
   onBack,
   onToggleActive,
   onWorkerUpdated,
+  onLedgerChanged,
 }: {
   worker: PayrollWorker;
   onBack: () => void;
   onToggleActive: () => void;
   onWorkerUpdated: () => void;
+  onLedgerChanged: () => void;
 }) {
   const { profile } = useAuth();
   const { push } = useToast();
@@ -241,6 +281,7 @@ function WorkerDetail({
     setAdvanceNote("");
     setAdvanceDate(todayInTZ());
     loadDetail();
+    onLedgerChanged();
   }
 
   async function deleteAdvance(a: PayrollAdvance) {
@@ -249,6 +290,7 @@ function WorkerDetail({
     if (error) return push("error", error.message);
     push("success", "Advance removed.");
     loadDetail();
+    onLedgerChanged();
   }
 
   async function addOvertime() {
@@ -273,6 +315,7 @@ function WorkerDetail({
     setOvertimeNote("");
     setOvertimeDate(todayInTZ());
     loadDetail();
+    onLedgerChanged();
   }
 
   async function deleteOvertime(o: PayrollOvertime) {
@@ -281,6 +324,7 @@ function WorkerDetail({
     if (error) return push("error", error.message);
     push("success", "Overtime entry removed.");
     loadDetail();
+    onLedgerChanged();
   }
 
   async function recordPayout() {
@@ -330,6 +374,7 @@ function WorkerDetail({
     setPayoutNote("");
     setPayDate(todayInTZ());
     loadDetail();
+    onLedgerChanged();
   }
 
   return (
