@@ -206,6 +206,30 @@ export default function Payroll() {
     setRowEdits((e) => { const next = { ...e }; delete next[rowId]; return next; });
   }
 
+  const [salaryEdits, setSalaryEdits] = useState<Record<string, string>>({});
+  const [savingSalaryFor, setSavingSalaryFor] = useState<string | null>(null);
+
+  function salaryFor(row: SheetRow) {
+    return salaryEdits[row.workerId] ?? String(row.salaryPerDay || "");
+  }
+
+  async function saveSalary(row: SheetRow) {
+    const raw = salaryEdits[row.workerId];
+    if (raw === undefined) return;
+    const newRate = Number(raw) || 0;
+    if (newRate === row.salaryPerDay) {
+      setSalaryEdits((s) => { const next = { ...s }; delete next[row.workerId]; return next; });
+      return;
+    }
+    setSavingSalaryFor(row.workerId);
+    const { error } = await supabase.from("payroll_workers").update({ salary_per_day: newRate }).eq("id", row.workerId);
+    setSavingSalaryFor(null);
+    if (error) return push("error", error.message);
+    push("success", `${row.name}: salary per day updated to ${peso(newRate)}.`);
+    setSalaryEdits((s) => { const next = { ...s }; delete next[row.workerId]; return next; });
+    loadWorkers();
+  }
+
   async function saveRow(row: SheetRow) {
     if (!profile) return;
     const edits = rowEdits[row.rowId];
@@ -382,11 +406,13 @@ export default function Payroll() {
                 const days = Number(fieldFor(r, "days", r.days)) || 0;
                 const otHours = Number(fieldFor(r, "otHours", r.otHours)) || 0;
                 const advance = Number(fieldFor(r, "advance", r.advance)) || 0;
-                const hourlyRate = r.salaryPerDay / STANDARD_HOURS_PER_DAY;
+                const salaryPerDay = Number(salaryFor(r)) || 0;
+                const hourlyRate = salaryPerDay / STANDARD_HOURS_PER_DAY;
                 const liveOtPay = otHours * hourlyRate;
-                const liveGross = days * r.salaryPerDay;
+                const liveGross = days * salaryPerDay;
                 const liveNet = liveGross + liveOtPay - advance;
                 const busy = savingRowId === r.rowId;
+                const salaryBusy = savingSalaryFor === r.workerId;
                 return (
                   <tr key={r.rowId} className="hover:bg-slate-50">
                     <td className="px-3 py-2">
@@ -394,7 +420,18 @@ export default function Payroll() {
                       {!r.payoutId && <span className="ml-1 text-[10px] text-slate-400">(wala pang payout)</span>}
                     </td>
                     <td className="px-3 py-2 text-slate-500">{r.payoutId ? formatDate(r.payDate) : "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{peso(r.salaryPerDay)}</td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={salaryFor(r)}
+                        onChange={(e) => setSalaryEdits((s) => ({ ...s, [r.workerId]: e.target.value }))}
+                        onBlur={() => saveSalary(r)}
+                        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                        disabled={salaryBusy}
+                        placeholder="0"
+                        className="w-24 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
+                      />
+                    </td>
                     <td className="px-3 py-2">
                       <input
                         type="number" min="0" step="0.5"
