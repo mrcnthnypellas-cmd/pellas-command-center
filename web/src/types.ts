@@ -136,6 +136,7 @@ export interface PayrollAdvance {
   note: string | null;
   settled: boolean;
   payout_id: string | null;
+  given_by: string | null;
   created_at: string;
 }
 

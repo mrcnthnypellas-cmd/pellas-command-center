@@ -3,7 +3,7 @@ import { Plus, Wallet, Ban, CheckCircle, HandCoins, Banknote, ArrowLeft, Trash2,
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
-import { Button, Card, Modal, Input, Spinner, EmptyState, IconStatCard } from "../../components/ui/ui";
+import { Button, Card, Modal, Input, Select, Spinner, EmptyState, IconStatCard } from "../../components/ui/ui";
 import { formatDate, todayInTZ } from "../../lib/format";
 import type { PayrollWorker, PayrollAdvance, PayrollOvertime, PayrollPayout } from "../../types";
 
@@ -368,6 +368,7 @@ function WorkerDetail({
   const [advances, setAdvances] = useState<PayrollAdvance[]>([]);
   const [overtime, setOvertime] = useState<PayrollOvertime[]>([]);
   const [payouts, setPayouts] = useState<PayrollPayout[]>([]);
+  const [staff, setStaff] = useState<{ id: string; first_name: string; last_name: string; role: string }[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(true);
 
   const [editRateOpen, setEditRateOpen] = useState(false);
@@ -378,6 +379,7 @@ function WorkerDetail({
   const [advanceAmount, setAdvanceAmount] = useState("");
   const [advanceDate, setAdvanceDate] = useState(todayInTZ());
   const [advanceNote, setAdvanceNote] = useState("");
+  const [givenBy, setGivenBy] = useState(profile?.id ?? "");
   const [savingAdvance, setSavingAdvance] = useState(false);
 
   const [overtimeOpen, setOvertimeOpen] = useState(false);
@@ -393,14 +395,20 @@ function WorkerDetail({
 
   async function loadDetail() {
     setLoadingDetail(true);
-    const [{ data: adv }, { data: ot }, { data: pay }] = await Promise.all([
+    const [{ data: adv }, { data: ot }, { data: pay }, { data: directory }] = await Promise.all([
       supabase.from("payroll_advances").select("*").eq("worker_id", worker.id).order("advance_date", { ascending: false }),
       supabase.from("payroll_overtime").select("*").eq("worker_id", worker.id).order("overtime_date", { ascending: false }),
       supabase.from("payroll_payouts").select("*").eq("worker_id", worker.id).order("pay_date", { ascending: false }),
+      supabase.rpc("company_directory"),
     ]);
     setAdvances((adv as PayrollAdvance[]) ?? []);
     setOvertime((ot as PayrollOvertime[]) ?? []);
     setPayouts((pay as PayrollPayout[]) ?? []);
+    setStaff(
+      ((directory as { id: string; first_name: string; last_name: string; role: string }[]) ?? []).filter(
+        (p) => p.role === "admin" || p.role === "hr"
+      )
+    );
     setLoadingDetail(false);
   }
 
@@ -409,6 +417,10 @@ function WorkerDetail({
     setEditRate(String(worker.salary_per_day));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worker.id]);
+
+  useEffect(() => {
+    if (profile) setGivenBy(profile.id);
+  }, [profile]);
 
   const outstandingAdvance = useMemo(
     () => advances.filter((a) => !a.settled).reduce((sum, a) => sum + Number(a.amount), 0),
@@ -441,24 +453,28 @@ function WorkerDetail({
   async function addAdvance() {
     if (!profile || !advanceAmount) return;
     setSavingAdvance(true);
+    const giver = staff.find((s) => s.id === givenBy);
     const { error } = await supabase.from("payroll_advances").insert({
       company_id: profile.company_id,
       worker_id: worker.id,
       amount: Number(advanceAmount),
       advance_date: advanceDate,
       note: advanceNote || null,
+      given_by: givenBy || null,
     });
     setSavingAdvance(false);
     if (error) return push("error", error.message);
     await supabase.from("audit_logs").insert({
       company_id: profile.company_id, actor_id: profile.id, actor_name: `${profile.first_name} ${profile.last_name}`,
-      action: "Payroll Advance Recorded", module: "Payroll", target: worker.name, details: { amount: Number(advanceAmount), advance_date: advanceDate },
+      action: "Payroll Advance Recorded", module: "Payroll", target: worker.name,
+      details: { amount: Number(advanceAmount), advance_date: advanceDate, given_by: giver ? `${giver.first_name} ${giver.last_name}` : null },
     });
     push("success", "Cash advance recorded.");
     setAdvanceOpen(false);
     setAdvanceAmount("");
     setAdvanceNote("");
     setAdvanceDate(todayInTZ());
+    setGivenBy(profile.id);
     loadDetail();
     onLedgerChanged();
   }
@@ -611,28 +627,32 @@ function WorkerDetail({
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-left text-xs uppercase tracking-wide text-slate-400">
-                    <tr><th className="py-2">Date</th><th className="py-2">Amount</th><th className="py-2">Note</th><th className="py-2">Status</th><th></th></tr>
+                    <tr><th className="py-2">Date</th><th className="py-2">Amount</th><th className="py-2">Given By</th><th className="py-2">Note</th><th className="py-2">Status</th><th></th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {advances.map((a) => (
-                      <tr key={a.id}>
-                        <td className="py-2">{formatDate(a.advance_date)}</td>
-                        <td className="py-2">{peso(Number(a.amount))}</td>
-                        <td className="py-2 max-w-[160px] truncate text-slate-500" title={a.note ?? ""}>{a.note || "—"}</td>
-                        <td className="py-2">
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${a.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                            {a.settled ? "Settled" : "Pending"}
-                          </span>
-                        </td>
-                        <td className="py-2 text-right">
-                          {!a.settled && (
-                            <button onClick={() => deleteAdvance(a)} className="text-slate-400 hover:text-red-600" title="Remove">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {advances.map((a) => {
+                      const giver = staff.find((s) => s.id === a.given_by);
+                      return (
+                        <tr key={a.id}>
+                          <td className="py-2">{formatDate(a.advance_date)}</td>
+                          <td className="py-2">{peso(Number(a.amount))}</td>
+                          <td className="py-2 text-slate-600">{giver ? `${giver.first_name} ${giver.last_name}` : "—"}</td>
+                          <td className="py-2 max-w-[160px] truncate text-slate-500" title={a.note ?? ""}>{a.note || "—"}</td>
+                          <td className="py-2">
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${a.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                              {a.settled ? "Settled" : "Pending"}
+                            </span>
+                          </td>
+                          <td className="py-2 text-right">
+                            {!a.settled && (
+                              <button onClick={() => deleteAdvance(a)} className="text-slate-400 hover:text-red-600" title="Remove">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -721,6 +741,12 @@ function WorkerDetail({
         <div className="space-y-3">
           <Input label="Amount (₱)" type="number" min="0" step="0.01" value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)} placeholder="e.g. 1000" />
           <Input label="Date" type="date" value={advanceDate} onChange={(e) => setAdvanceDate(e.target.value)} max={todayInTZ()} />
+          <Select label="Given By" value={givenBy} onChange={(e) => setGivenBy(e.target.value)}>
+            {staff.length === 0 && <option value="">—</option>}
+            {staff.map((s) => (
+              <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s.role === "admin" ? "Admin" : "HR"})</option>
+            ))}
+          </Select>
           <Input label="Note (optional)" value={advanceNote} onChange={(e) => setAdvanceNote(e.target.value)} placeholder="e.g. Emergency advance" />
         </div>
         <div className="mt-5 flex justify-end gap-2">
