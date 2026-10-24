@@ -25,6 +25,7 @@ export default function Payroll() {
   const [saving, setSaving] = useState(false);
 
   const [summary, setSummary] = useState({ outstandingAdvance: 0, outstandingOvertimePay: 0 });
+  const [advancesByWorker, setAdvancesByWorker] = useState<{ workerId: string; name: string; amount: number; latestDate: string }[]>([]);
 
   const currentMonth = todayInTZ().slice(0, 7);
   const [periodFilter, setPeriodFilter] = useState(currentMonth);
@@ -54,20 +55,38 @@ export default function Payroll() {
   async function loadSummary() {
     if (!profile) return;
     const [{ data: advRows }, { data: otRows }] = await Promise.all([
-      supabase.from("payroll_advances").select("amount").eq("company_id", profile.company_id).eq("settled", false),
+      supabase
+        .from("payroll_advances")
+        .select("worker_id, amount, advance_date, payroll_workers(name)")
+        .eq("company_id", profile.company_id)
+        .eq("settled", false),
       supabase
         .from("payroll_overtime")
         .select("hours, payroll_workers(salary_per_day)")
         .eq("company_id", profile.company_id)
         .eq("settled", false),
     ]);
-    const outstandingAdvance = (advRows ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+    const advances = (advRows ?? []) as unknown as { worker_id: string; amount: number; advance_date: string; payroll_workers: { name: string } | null }[];
+    const outstandingAdvance = advances.reduce((sum, r) => sum + Number(r.amount), 0);
     const outstandingOvertimePay = (otRows ?? []).reduce((sum, r: unknown) => {
       const row = r as { hours: number; payroll_workers: { salary_per_day: number } | null };
       const hourlyRate = Number(row.payroll_workers?.salary_per_day ?? 0) / STANDARD_HOURS_PER_DAY;
       return sum + Number(row.hours) * hourlyRate;
     }, 0);
     setSummary({ outstandingAdvance, outstandingOvertimePay });
+
+    const byWorker = new Map<string, { workerId: string; name: string; amount: number; latestDate: string }>();
+    for (const a of advances) {
+      const existing = byWorker.get(a.worker_id);
+      const name = a.payroll_workers?.name ?? "—";
+      if (existing) {
+        existing.amount += Number(a.amount);
+        if (a.advance_date > existing.latestDate) existing.latestDate = a.advance_date;
+      } else {
+        byWorker.set(a.worker_id, { workerId: a.worker_id, name, amount: Number(a.amount), latestDate: a.advance_date });
+      }
+    }
+    setAdvancesByWorker(Array.from(byWorker.values()).sort((a, b) => b.amount - a.amount));
   }
 
   const [sheetRows, setSheetRows] = useState<
@@ -195,6 +214,26 @@ export default function Payroll() {
         <IconStatCard label="Outstanding Advances" value={peso(summary.outstandingAdvance)} icon={HandCoins} tone="red" />
         <IconStatCard label="Outstanding Overtime Pay" value={peso(summary.outstandingOvertimePay)} icon={Clock} tone="amber" />
       </div>
+
+      {advancesByWorker.length > 0 && (
+        <Card className="p-4 space-y-2">
+          <h3 className="flex items-center gap-2 font-semibold text-slate-700"><HandCoins className="h-4 w-4" /> Who Has Outstanding Advances</h3>
+          <p className="text-sm text-slate-500">Kung kanino may hindi pa naibabawas na advance — mababawas ito awtomatiko sa susunod na payout.</p>
+          <div className="flex flex-wrap gap-2">
+            {advancesByWorker.map((a) => (
+              <button
+                key={a.workerId}
+                onClick={() => selectWorker(a.workerId)}
+                className="flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700 hover:bg-red-100"
+                title={`Latest advance: ${formatDate(a.latestDate)}`}
+              >
+                <span className="font-medium">{a.name}</span>
+                <span>— {peso(a.amount)}</span>
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="overflow-x-auto p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
