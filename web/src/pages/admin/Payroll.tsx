@@ -89,15 +89,17 @@ export default function Payroll() {
     setAdvancesByWorker(Array.from(byWorker.values()).sort((a, b) => b.amount - a.amount));
   }
 
-  const [sheetRows, setSheetRows] = useState<
-    { workerId: string; name: string; salaryPerDay: number; days: number; gross: number; otHours: number; otPay: number; advance: number; net: number }[]
-  >([]);
+  type SheetRow = {
+    workerId: string; name: string; salaryPerDay: number; days: number; gross: number; otHours: number; otPay: number;
+    advance: number; net: number; payoutId: string | null; payoutCount: number;
+  };
+  const [sheetRows, setSheetRows] = useState<SheetRow[]>([]);
 
   async function loadPeriodSummary(period: string) {
     if (!profile) return;
     let query = supabase
       .from("payroll_payouts")
-      .select("worker_id, days_worked, gross_pay, overtime_hours, overtime_pay, advance_deducted, net_pay, payroll_workers(name, salary_per_day)")
+      .select("id, worker_id, days_worked, gross_pay, overtime_hours, overtime_pay, advance_deducted, net_pay, payroll_workers(name, salary_per_day)")
       .eq("company_id", profile.company_id);
     if (period !== "all") {
       const [y, m] = period.split("-").map(Number);
@@ -107,11 +109,11 @@ export default function Payroll() {
     }
     const { data } = await query;
     const rows = (data ?? []) as unknown as {
-      worker_id: string; days_worked: number; gross_pay: number; overtime_hours: number; overtime_pay: number;
+      id: string; worker_id: string; days_worked: number; gross_pay: number; overtime_hours: number; overtime_pay: number;
       advance_deducted: number; net_pay: number; payroll_workers: { name: string; salary_per_day: number } | null;
     }[];
 
-    const byWorker = new Map<string, { workerId: string; name: string; salaryPerDay: number; days: number; gross: number; otHours: number; otPay: number; advance: number; net: number }>();
+    const byWorker = new Map<string, SheetRow>();
     for (const r of rows) {
       const existing = byWorker.get(r.worker_id);
       const name = r.payroll_workers?.name ?? "—";
@@ -123,18 +125,24 @@ export default function Payroll() {
         existing.otPay += Number(r.overtime_pay);
         existing.advance += Number(r.advance_deducted);
         existing.net += Number(r.net_pay);
+        existing.payoutCount += 1;
+        existing.payoutId = null;
       } else {
         byWorker.set(r.worker_id, {
           workerId: r.worker_id, name, salaryPerDay,
           days: Number(r.days_worked), gross: Number(r.gross_pay), otHours: Number(r.overtime_hours),
           otPay: Number(r.overtime_pay), advance: Number(r.advance_deducted), net: Number(r.net_pay),
+          payoutId: r.id, payoutCount: 1,
         });
       }
     }
     // Include active workers with no payout this period, so the sheet still lists everyone.
     for (const w of workers) {
       if (w.is_active && !byWorker.has(w.id)) {
-        byWorker.set(w.id, { workerId: w.id, name: w.name, salaryPerDay: Number(w.salary_per_day), days: 0, gross: 0, otHours: 0, otPay: 0, advance: 0, net: 0 });
+        byWorker.set(w.id, {
+          workerId: w.id, name: w.name, salaryPerDay: Number(w.salary_per_day), days: 0, gross: 0, otHours: 0, otPay: 0,
+          advance: 0, net: 0, payoutId: null, payoutCount: 0,
+        });
       }
     }
     const sorted = Array.from(byWorker.values()).sort((a, b) => a.name.localeCompare(b.name));
@@ -197,6 +205,79 @@ export default function Payroll() {
     setMobileView("detail");
   }
 
+  const [editingDays, setEditingDays] = useState<Record<string, string>>({});
+  const [savingRowId, setSavingRowId] = useState<string | null>(null);
+
+  function daysFor(row: SheetRow) {
+    return editingDays[row.workerId] ?? String(row.days || "");
+  }
+
+  async function saveRowDays(row: SheetRow) {
+    if (!profile) return;
+    const raw = editingDays[row.workerId];
+    if (raw === undefined) return;
+    const days = Number(raw) || 0;
+    if (days === row.days) {
+      setEditingDays((d) => { const next = { ...d }; delete next[row.workerId]; return next; });
+      return;
+    }
+    setSavingRowId(row.workerId);
+    if (row.payoutCount === 1 && row.payoutId) {
+      const grossPay = days * row.salaryPerDay;
+      const netPay = grossPay + row.otPay - row.advance;
+      const { error } = await supabase.from("payroll_payouts").update({ days_worked: days, gross_pay: grossPay, net_pay: netPay }).eq("id", row.payoutId);
+      setSavingRowId(null);
+      if (error) return push("error", error.message);
+      push("success", `${row.name}: Days Worked updated.`);
+      setEditingDays((d) => { const next = { ...d }; delete next[row.workerId]; return next; });
+      loadPeriodSummary(periodFilter);
+      return;
+    }
+    if (row.payoutCount === 0 && days > 0) {
+      const worker = workers.find((w) => w.id === row.workerId);
+      if (!worker) { setSavingRowId(null); return; }
+      const [{ data: advRows }, { data: otRows }] = await Promise.all([
+        supabase.from("payroll_advances").select("id, amount").eq("worker_id", row.workerId).eq("settled", false),
+        supabase.from("payroll_overtime").select("id, hours").eq("worker_id", row.workerId).eq("settled", false),
+      ]);
+      const advanceDeducted = (advRows ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+      const otHours = (otRows ?? []).reduce((sum, r) => sum + Number(r.hours), 0);
+      const hourlyRate = Number(worker.salary_per_day) / STANDARD_HOURS_PER_DAY;
+      const overtimePay = otHours * hourlyRate;
+      const grossPay = days * Number(worker.salary_per_day);
+      const netPay = grossPay + overtimePay - advanceDeducted;
+      const { data: payout, error } = await supabase
+        .from("payroll_payouts")
+        .insert({
+          company_id: profile.company_id, worker_id: row.workerId, days_worked: days, salary_per_day: worker.salary_per_day,
+          gross_pay: grossPay, advance_deducted: advanceDeducted, overtime_hours: otHours, overtime_pay: overtimePay,
+          net_pay: netPay, pay_date: todayInTZ(), created_by: profile.id,
+        })
+        .select()
+        .single();
+      if (error || !payout) {
+        setSavingRowId(null);
+        return push("error", error?.message ?? "Failed to record payout.");
+      }
+      const advIds = (advRows ?? []).map((r) => r.id);
+      if (advIds.length > 0) await supabase.from("payroll_advances").update({ settled: true, payout_id: payout.id }).in("id", advIds);
+      const otIds = (otRows ?? []).map((r) => r.id);
+      if (otIds.length > 0) await supabase.from("payroll_overtime").update({ settled: true, payout_id: payout.id }).in("id", otIds);
+      await supabase.from("audit_logs").insert({
+        company_id: profile.company_id, actor_id: profile.id, actor_name: `${profile.first_name} ${profile.last_name}`,
+        action: "Payroll Payout Recorded", module: "Payroll", target: worker.name,
+        details: { days_worked: days, gross_pay: grossPay, overtime_hours: otHours, overtime_pay: overtimePay, advance_deducted: advanceDeducted, net_pay: netPay, pay_date: todayInTZ() },
+      });
+      setSavingRowId(null);
+      push("success", `${worker.name}: payout recorded — ${peso(netPay)} net.`);
+      setEditingDays((d) => { const next = { ...d }; delete next[row.workerId]; return next; });
+      loadSummary();
+      loadPeriodSummary(periodFilter);
+      return;
+    }
+    setSavingRowId(null);
+  }
+
   const selectedWorker = workers.find((w) => w.id === selectedId) ?? null;
 
   if (loading || !profile) return <Spinner />;
@@ -248,7 +329,9 @@ export default function Payroll() {
             ))}
           </select>
         </div>
-        <p className="text-xs text-slate-400">Days Worked may kasamang half-day (hal. 4.5). I-click ang pangalan para buksan ang worker's detail at mag-record ng bago.</p>
+        <p className="text-xs text-slate-400">
+          I-edit lang ang Days Worked (pwede half-day, hal. 4.5) — awtomatikong kinakalkula ang Gross/Net Pay. Kapag may ilang payout na ang worker sa period na ito, naka-lock ang row — i-click na lang ang pangalan para buksan ang detail.
+        </p>
         {sheetRows.length === 0 ? (
           <p className="py-6 text-center text-sm text-slate-400">No workers or payouts for this period.</p>
         ) : (
@@ -266,20 +349,44 @@ export default function Payroll() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sheetRows.map((r) => (
-                <tr key={r.workerId} className="hover:bg-slate-50">
-                  <td className="px-3 py-2">
-                    <button onClick={() => selectWorker(r.workerId)} className="font-medium text-brand-700 hover:underline">{r.name}</button>
-                  </td>
-                  <td className="px-3 py-2 text-slate-500">{peso(r.salaryPerDay)}</td>
-                  <td className="px-3 py-2">{r.days}</td>
-                  <td className="px-3 py-2">{peso(r.gross)}</td>
-                  <td className="px-3 py-2 text-slate-500">{r.otHours}h</td>
-                  <td className="px-3 py-2 text-emerald-600">+ {peso(r.otPay)}</td>
-                  <td className="px-3 py-2 text-red-600">− {peso(r.advance)}</td>
-                  <td className="px-3 py-2 font-semibold text-slate-800">{peso(r.net)}</td>
-                </tr>
-              ))}
+              {sheetRows.map((r) => {
+                const editable = r.payoutCount <= 1;
+                const liveDays = Number(daysFor(r)) || 0;
+                const liveGross = liveDays * r.salaryPerDay;
+                const liveNet = liveGross + r.otPay - r.advance;
+                return (
+                  <tr key={r.workerId} className="hover:bg-slate-50">
+                    <td className="px-3 py-2">
+                      <button onClick={() => selectWorker(r.workerId)} className="font-medium text-brand-700 hover:underline">{r.name}</button>
+                      {!editable && <span className="ml-1 text-[10px] text-slate-400">({r.payoutCount} payouts)</span>}
+                    </td>
+                    <td className="px-3 py-2 text-slate-500">{peso(r.salaryPerDay)}</td>
+                    <td className="px-3 py-2">
+                      {editable ? (
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={daysFor(r)}
+                          onChange={(e) => setEditingDays((d) => ({ ...d, [r.workerId]: e.target.value }))}
+                          onBlur={() => saveRowDays(r)}
+                          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                          disabled={savingRowId === r.workerId}
+                          placeholder="0"
+                          className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
+                        />
+                      ) : (
+                        r.days
+                      )}
+                    </td>
+                    <td className="px-3 py-2">{peso(editable ? liveGross : r.gross)}</td>
+                    <td className="px-3 py-2 text-slate-500">{r.otHours}h</td>
+                    <td className="px-3 py-2 text-emerald-600">+ {peso(r.otPay)}</td>
+                    <td className="px-3 py-2 text-red-600">− {peso(r.advance)}</td>
+                    <td className="px-3 py-2 font-semibold text-slate-800">{peso(editable ? liveNet : r.net)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800">
