@@ -177,20 +177,21 @@ export default function EmployeeDashboard() {
   const canClockOut = !!today?.time_in && !today?.time_out;
 
   return (
+    <div className="-m-4 min-h-[calc(100vh-4rem)] bg-gradient-to-br from-brand-500 via-indigo-500 to-violet-600 p-4 lg:-m-8 lg:p-8">
     <div className="mx-auto max-w-3xl space-y-6">
-      <Card className="p-6">
+      <Card glass className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-800">Hi, {profile.first_name}!</h1>
-            <p className="text-sm text-slate-500">
+            <h1 className="text-xl font-bold text-white">Hi, {profile.first_name}!</h1>
+            <p className="text-sm text-white/80">
               {profile.employee_code} &middot; {profile.departments?.name ?? "No department"} &middot; {profile.position ?? "—"}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold tabular-nums text-brand-700">
+            <p className="text-2xl font-bold tabular-nums text-white">
               {new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "Asia/Manila" }).format(now)}
             </p>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-white/80">
               {new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }).format(now)}
             </p>
           </div>
@@ -250,7 +251,7 @@ export default function EmployeeDashboard() {
                     <p className="mt-2 text-base font-bold text-emerald-700">Kumpleto ka na sa Time In at Time Out ngayong araw!</p>
                   </div>
                 ) : autoPhase === "success" ? null : (
-                  <Card className="p-6">
+                  <Card glass className="p-6">
                     <div className="mb-3 flex items-center justify-center gap-2 text-slate-700">
                       <ScanFace className="h-5 w-5" />
                       <p className="text-sm font-semibold">
@@ -272,7 +273,7 @@ export default function EmployeeDashboard() {
           todayAttendance: {
             label: "Today's Attendance",
             node: (
-              <Card className="p-5">
+              <Card glass className="p-5">
                 <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
                   <Clock className="h-4 w-4" /> Today's Attendance
                 </h2>
@@ -298,7 +299,7 @@ export default function EmployeeDashboard() {
           calendar: {
             label: "Attendance Calendar",
             node: (
-              <Card className="p-5">
+              <Card glass className="p-5">
                 <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
                   <CalendarDays className="h-4 w-4" /> {new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "Asia/Manila" }).format(calendarMonth)}
                 </h2>
@@ -309,6 +310,7 @@ export default function EmployeeDashboard() {
           contactDirectory: { label: "Contact Directory", node: <ContactDirectoryCard /> },
         }}
       />
+    </div>
     </div>
   );
 }

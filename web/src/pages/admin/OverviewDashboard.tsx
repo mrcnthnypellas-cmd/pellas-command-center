@@ -125,21 +125,22 @@ export default function OverviewDashboard() {
   const maxPresent = Math.max(...trend.map((t) => t.present), 1);
 
   return (
+    <div className="-m-4 min-h-[calc(100vh-4rem)] bg-gradient-to-br from-brand-500 via-indigo-500 to-violet-600 p-4 lg:-m-8 lg:p-8">
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-800">{profile?.role === "admin" ? "Admin" : "HR"} Dashboard</h1>
-        <p className="text-sm text-slate-500">Live overview — updates automatically as employees clock in/out.</p>
+        <h1 className="text-xl font-bold text-white">{profile?.role === "admin" ? "Admin" : "HR"} Dashboard</h1>
+        <p className="text-sm text-white/80">Live overview — updates automatically as employees clock in/out.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <IconStatCard label="Total Employees" value={stats.totalEmployees} icon={Users} tone="blue" />
-        <IconStatCard label="Present Today" value={stats.presentToday} icon={UserCheck} tone="green" />
-        <IconStatCard label="Late Today" value={stats.lateToday} icon={Clock} tone="amber" />
-        <IconStatCard label="Absent Today" value={stats.absentToday} icon={UserX} tone="red" />
-        <IconStatCard label="Currently Working" value={stats.currentlyWorking} icon={Activity} tone="sky" />
-        <IconStatCard label="Completed Shift" value={stats.completedShift} icon={CheckCircle2} tone="slate" />
-        <IconStatCard label="Overtime" value={stats.overtime} icon={TrendingUp} tone="violet" />
-        <IconStatCard label="Pending Corrections" value={stats.pendingCorrections} icon={FileWarning} tone="orange" />
+        <IconStatCard glass label="Total Employees" value={stats.totalEmployees} icon={Users} tone="blue" />
+        <IconStatCard glass label="Present Today" value={stats.presentToday} icon={UserCheck} tone="green" />
+        <IconStatCard glass label="Late Today" value={stats.lateToday} icon={Clock} tone="amber" />
+        <IconStatCard glass label="Absent Today" value={stats.absentToday} icon={UserX} tone="red" />
+        <IconStatCard glass label="Currently Working" value={stats.currentlyWorking} icon={Activity} tone="sky" />
+        <IconStatCard glass label="Completed Shift" value={stats.completedShift} icon={CheckCircle2} tone="slate" />
+        <IconStatCard glass label="Overtime" value={stats.overtime} icon={TrendingUp} tone="violet" />
+        <IconStatCard glass label="Pending Corrections" value={stats.pendingCorrections} icon={FileWarning} tone="orange" />
       </div>
 
       <DashboardCardLayout
@@ -150,7 +151,7 @@ export default function OverviewDashboard() {
           weeklyTrend: {
             label: "Weekly Attendance Trend",
             node: (
-              <Card className="p-5">
+              <Card glass className="p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-slate-800">Weekly Attendance Trend</h2>
@@ -190,7 +191,7 @@ export default function OverviewDashboard() {
           recentActivity: {
             label: "Recent Activity",
             node: (
-              <Card className="p-5">
+              <Card glass className="p-5">
                 <h2 className="mb-4 text-sm font-semibold text-slate-800">Recent Activity</h2>
                 {activity.length === 0 ? (
                   <EmptyState title="No activity yet today" />
@@ -217,7 +218,7 @@ export default function OverviewDashboard() {
           infoCard: {
             label: "Sidebar Tip",
             node: (
-              <Card className="p-5">
+              <Card glass className="p-5">
                 <p className="text-sm text-slate-500">
                   Use the sidebar to manage {profile?.role === "admin" ? "users, employees, departments, schedules, " : ""}
                   attendance, corrections, and reports.
@@ -228,6 +229,7 @@ export default function OverviewDashboard() {
           contactDirectory: { label: "Contact Directory", node: <ContactDirectoryCard /> },
         }}
       />
+    </div>
     </div>
   );
 }
