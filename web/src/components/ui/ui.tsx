@@ -24,8 +24,14 @@ export function Button({
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>;
+export function Card({ children, className = "", glass = false }: { children: ReactNode; className?: string; glass?: boolean }) {
+  return (
+    <div
+      className={`rounded-xl border shadow-sm ${glass ? "border-white/40 bg-white/30 backdrop-blur-xl" : "border-slate-200 bg-white"} ${className}`}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function StatCard({ label, value, accent = "bg-brand-600" }: { label: string; value: string | number; accent?: string }) {
@@ -54,15 +60,17 @@ export function IconStatCard({
   icon: Icon,
   tone = "blue",
   trend,
+  glass = false,
 }: {
   label: string;
   value: string | number;
   icon: LucideIcon;
   tone?: keyof typeof ICON_TONES;
   trend?: { value: string; positive: boolean };
+  glass?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className={`rounded-xl border p-5 shadow-sm ${glass ? "border-white/40 bg-white/30 backdrop-blur-xl" : "border-slate-200 bg-white"}`}>
       <div className="flex items-start justify-between">
         <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${ICON_TONES[tone]}`}>
           <Icon className="h-5 w-5" />
@@ -78,8 +86,8 @@ export function IconStatCard({
           </span>
         )}
       </div>
-      <p className="mt-4 text-2xl font-bold text-slate-800">{value}</p>
-      <p className="mt-1 text-sm text-slate-500">{label}</p>
+      <p className={`mt-4 text-2xl font-bold ${glass ? "text-white" : "text-slate-800"}`}>{value}</p>
+      <p className={`mt-1 text-sm ${glass ? "text-white/80" : "text-slate-500"}`}>{label}</p>
     </div>
   );
 }
