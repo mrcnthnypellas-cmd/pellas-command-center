@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
-import { IconStatCard, Card, Spinner, EmptyState, Badge } from "../../components/ui/ui";
+import { IconStatCard, Card, Spinner, Badge } from "../../components/ui/ui";
 import ContactDirectoryCard from "../../components/ContactDirectoryCard";
 import { MyTasksCard } from "../../components/MyTasksCard";
 import { DashboardCardLayout } from "../../components/DashboardCardLayout";
@@ -125,7 +125,7 @@ export default function OverviewDashboard() {
   const maxPresent = Math.max(...trend.map((t) => t.present), 1);
 
   return (
-    <div className="-m-4 min-h-[calc(100vh-4rem)] bg-gradient-to-br from-brand-500 via-indigo-500 to-violet-600 p-4 lg:-m-8 lg:p-8">
+    <div className="-m-4 min-h-[calc(100vh-4rem)] bg-[linear-gradient(160deg,#0b1120_0%,#1e3a5f_32%,#c2703d_58%,#e8a04d_68%,#0b1120_100%)] p-4 lg:-m-8 lg:p-8">
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-white">{profile?.role === "admin" ? "Admin" : "HR"} Dashboard</h1>
@@ -154,8 +154,8 @@ export default function OverviewDashboard() {
               <Card glass className="p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-slate-800">Weekly Attendance Trend</h2>
-                    <p className="text-xs text-slate-400">Employees present per day, last 7 days</p>
+                    <h2 className="text-sm font-semibold text-white">Weekly Attendance Trend</h2>
+                    <p className="text-xs text-white/60">Employees present per day, last 7 days</p>
                   </div>
                 </div>
                 <div className="flex h-40 items-end justify-between gap-2">
@@ -163,7 +163,7 @@ export default function OverviewDashboard() {
                     <div key={t.date} className="flex flex-1 flex-col items-center gap-2">
                       <div className="flex h-32 w-full items-end justify-center gap-1">
                         <div
-                          className="w-3 rounded-t-md bg-brand-600 sm:w-4"
+                          className="w-3 rounded-t-md bg-emerald-400 sm:w-4"
                           style={{ height: `${Math.max((t.present / maxPresent) * 100, 4)}%` }}
                           title={`${t.present} present`}
                         />
@@ -175,14 +175,14 @@ export default function OverviewDashboard() {
                           />
                         )}
                       </div>
-                      <span className="text-[11px] text-slate-400">
+                      <span className="text-[11px] text-white/50">
                         {new Date(`${t.date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" })}
                       </span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
-                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand-600" /> Present</span>
+                <div className="mt-4 flex items-center gap-4 text-xs text-white/70">
+                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" /> Present</span>
                   <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" /> Late</span>
                 </div>
               </Card>
@@ -192,18 +192,18 @@ export default function OverviewDashboard() {
             label: "Recent Activity",
             node: (
               <Card glass className="p-5">
-                <h2 className="mb-4 text-sm font-semibold text-slate-800">Recent Activity</h2>
+                <h2 className="mb-4 text-sm font-semibold text-white">Recent Activity</h2>
                 {activity.length === 0 ? (
-                  <EmptyState title="No activity yet today" />
+                  <p className="py-6 text-center text-sm text-white/50">No activity yet today</p>
                 ) : (
                   <div className="space-y-3">
                     {activity.map((a) => (
-                      <div key={a.id} className="flex items-start justify-between gap-2 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
+                      <div key={a.id} className="flex items-start justify-between gap-2 border-b border-white/10 pb-3 last:border-0 last:pb-0">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-700">
+                          <p className="truncate text-sm font-medium text-white/90">
                             {a.profiles?.first_name} {a.profiles?.last_name}
                           </p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-white/50">
                             {a.time_out ? `Timed out ${formatTime(a.time_out)}` : a.time_in ? `Timed in ${formatTime(a.time_in)}` : formatDate(a.work_date)}
                           </p>
                         </div>
@@ -219,7 +219,7 @@ export default function OverviewDashboard() {
             label: "Sidebar Tip",
             node: (
               <Card glass className="p-5">
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-white/70">
                   Use the sidebar to manage {profile?.role === "admin" ? "users, employees, departments, schedules, " : ""}
                   attendance, corrections, and reports.
                 </p>
