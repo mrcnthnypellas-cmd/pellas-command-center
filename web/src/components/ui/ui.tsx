@@ -27,7 +27,7 @@ export function Button({
 export function Card({ children, className = "", glass = false }: { children: ReactNode; className?: string; glass?: boolean }) {
   return (
     <div
-      className={`rounded-xl border shadow-sm ${glass ? "border-white/40 bg-white/30 backdrop-blur-xl" : "border-slate-200 bg-white"} ${className}`}
+      className={`rounded-xl border shadow-sm ${glass ? "rounded-2xl border-white/10 bg-black/25 shadow-xl backdrop-blur-2xl" : "border-slate-200 bg-white"} ${className}`}
     >
       {children}
     </div>
@@ -54,6 +54,17 @@ const ICON_TONES: Record<string, string> = {
   orange: "bg-orange-50 text-orange-600",
 };
 
+const ICON_TONES_GLASS: Record<string, string> = {
+  blue: "bg-blue-400/20 text-blue-300",
+  green: "bg-emerald-400/20 text-emerald-300",
+  amber: "bg-amber-400/20 text-amber-300",
+  red: "bg-red-400/20 text-red-300",
+  violet: "bg-violet-400/20 text-violet-300",
+  slate: "bg-slate-300/20 text-slate-200",
+  sky: "bg-sky-400/20 text-sky-300",
+  orange: "bg-orange-400/20 text-orange-300",
+};
+
 export function IconStatCard({
   label,
   value,
@@ -70,9 +81,11 @@ export function IconStatCard({
   glass?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border p-5 shadow-sm ${glass ? "border-white/40 bg-white/30 backdrop-blur-xl" : "border-slate-200 bg-white"}`}>
+    <div
+      className={`rounded-xl border p-5 shadow-sm ${glass ? "rounded-2xl border-white/10 bg-black/25 shadow-xl backdrop-blur-2xl" : "border-slate-200 bg-white"}`}
+    >
       <div className="flex items-start justify-between">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${ICON_TONES[tone]}`}>
+        <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${glass ? ICON_TONES_GLASS[tone] : ICON_TONES[tone]}`}>
           <Icon className="h-5 w-5" />
         </div>
         {trend && (

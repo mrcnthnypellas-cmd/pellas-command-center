@@ -177,7 +177,7 @@ export default function EmployeeDashboard() {
   const canClockOut = !!today?.time_in && !today?.time_out;
 
   return (
-    <div className="-m-4 min-h-[calc(100vh-4rem)] bg-gradient-to-br from-brand-500 via-indigo-500 to-violet-600 p-4 lg:-m-8 lg:p-8">
+    <div className="-m-4 min-h-[calc(100vh-4rem)] bg-[linear-gradient(160deg,#0b1120_0%,#1e3a5f_32%,#c2703d_58%,#e8a04d_68%,#0b1120_100%)] p-4 lg:-m-8 lg:p-8">
     <div className="mx-auto max-w-3xl space-y-6">
       <Card glass className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -252,7 +252,7 @@ export default function EmployeeDashboard() {
                   </div>
                 ) : autoPhase === "success" ? null : (
                   <Card glass className="p-6">
-                    <div className="mb-3 flex items-center justify-center gap-2 text-slate-700">
+                    <div className="mb-3 flex items-center justify-center gap-2 text-white">
                       <ScanFace className="h-5 w-5" />
                       <p className="text-sm font-semibold">
                         {canClockIn ? "Itapat ang mukha sa camera para mag Time In" : "Itapat ang mukha sa camera para mag Time Out"}
@@ -274,11 +274,11 @@ export default function EmployeeDashboard() {
             label: "Today's Attendance",
             node: (
               <Card glass className="p-5">
-                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
                   <Clock className="h-4 w-4" /> Today's Attendance
                 </h2>
                 {loading ? (
-                  <p className="text-sm text-slate-400">Loading…</p>
+                  <p className="text-sm text-white/50">Loading…</p>
                 ) : today ? (
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
                     <Stat label="Time In" value={formatTime(today.time_in)} />
@@ -286,12 +286,12 @@ export default function EmployeeDashboard() {
                     <Stat label="Hours Worked" value={today.hours_worked != null ? String(today.hours_worked) : "—"} />
                     {today.overtime_hours > 0 && <Stat label="Overtime (Approved)" value={`+${today.overtime_hours}h`} />}
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-400">Status</p>
+                      <p className="text-xs uppercase tracking-wide text-white/50">Status</p>
                       <Badge status={today.status} />
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-400">You haven't timed in yet today.</p>
+                  <p className="text-sm text-white/50">You haven't timed in yet today.</p>
                 )}
               </Card>
             ),
@@ -300,7 +300,7 @@ export default function EmployeeDashboard() {
             label: "Attendance Calendar",
             node: (
               <Card glass className="p-5">
-                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
                   <CalendarDays className="h-4 w-4" /> {new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "Asia/Manila" }).format(calendarMonth)}
                 </h2>
                 <AttendanceCalendar month={calendarMonth} records={monthRecords} workDays={profile.work_schedules?.work_days ?? [1, 2, 3, 4, 5]} />
@@ -332,8 +332,8 @@ function voiceLineFor(kind: "in" | "out", status: Attendance["status"], firstNam
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="font-semibold text-slate-800">{value}</p>
+      <p className="text-xs uppercase tracking-wide text-white/50">{label}</p>
+      <p className="font-semibold text-white">{value}</p>
     </div>
   );
 }
