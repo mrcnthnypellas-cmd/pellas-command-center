@@ -15,7 +15,6 @@ import Corrections from "./pages/Corrections";
 import Overtime from "./pages/Overtime";
 import Tasks from "./pages/Tasks";
 import Chat from "./pages/Chat";
-import Meet from "./pages/Meet";
 import Reports from "./pages/Reports";
 import AuditLog from "./pages/admin/AuditLog";
 import Payroll from "./pages/admin/Payroll";
@@ -42,7 +41,6 @@ export default function App() {
                 <Route path="/payroll" element={<RequireRole roles={["admin", "hr"]}><Payroll /></RequireRole>} />
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="/chat" element={<Chat />} />
-                <Route path="/meet" element={<Meet />} />
                 <Route path="/reports" element={<RequireRole roles={["admin", "hr"]}><Reports /></RequireRole>} />
                 <Route path="/audit-log" element={<RequireRole roles={["admin"]}><AuditLog /></RequireRole>} />
                 <Route path="/settings" element={<RequireRole roles={["admin"]}><SettingsPage /></RequireRole>} />
