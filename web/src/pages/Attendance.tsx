@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Pencil, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -86,6 +86,12 @@ export default function Attendance() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AttendanceRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addEmployeeId, setAddEmployeeId] = useState("");
+  const [addDate, setAddDate] = useState(todayInTZ());
+  const [addTimeIn, setAddTimeIn] = useState("");
+  const [addTimeOut, setAddTimeOut] = useState("");
+  const [addSaving, setAddSaving] = useState(false);
   const canManage = me?.role === "admin" || me?.role === "hr";
 
   async function load() {
@@ -381,6 +387,35 @@ export default function Attendance() {
     load();
   }
 
+  function openAdd() {
+    setAddEmployeeId("");
+    setAddDate(todayInTZ());
+    setAddTimeIn("");
+    setAddTimeOut("");
+    setAddOpen(true);
+  }
+
+  async function saveAdd() {
+    if (!addEmployeeId || !addDate || !addTimeIn) return push("error", "Employee, date, and time in are required.");
+    setAddSaving(true);
+    const { error } = await supabase.rpc("admin_add_attendance", {
+      p_employee_id: addEmployeeId,
+      p_work_date: addDate,
+      p_time_in: new Date(addTimeIn).toISOString(),
+      p_time_out: addTimeOut ? new Date(addTimeOut).toISOString() : null,
+    });
+    setAddSaving(false);
+    if (error) {
+      if (error.message.includes("record_exists")) return push("error", "This employee already has a record for that date. Edit it instead.");
+      if (error.message.includes("time_in_required")) return push("error", "Time in is required.");
+      return push("error", error.message);
+    }
+    push("success", "Attendance record added.");
+    setAddOpen(false);
+    load();
+    loadSummary();
+  }
+
   async function deleteRecord() {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -403,6 +438,7 @@ export default function Attendance() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-800">Attendance</h1>
         <div className="flex gap-2">
+          {canManage && <Button onClick={openAdd}><Plus className="h-4 w-4" /> Add Record</Button>}
           <Button variant="secondary" onClick={exportCsv} loading={exportingCsv}><Download className="h-4 w-4" /> Export CSV</Button>
           <Button variant="secondary" onClick={exportPunchLog} loading={exportingLog}><Download className="h-4 w-4" /> Export Punch Log</Button>
         </div>
@@ -503,6 +539,22 @@ export default function Attendance() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Attendance Record">
+        <div className="space-y-3">
+          <Select label="Employee" value={addEmployeeId} onChange={(e) => setAddEmployeeId(e.target.value)}>
+            <option value="">Select employee…</option>
+            {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </Select>
+          <Input label="Date" type="date" value={addDate} onChange={(e) => setAddDate(e.target.value)} />
+          <Input label="Time In" type="datetime-local" value={addTimeIn} onChange={(e) => setAddTimeIn(e.target.value)} />
+          <Input label="Time Out (optional)" type="datetime-local" value={addTimeOut} onChange={(e) => setAddTimeOut(e.target.value)} />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={saveAdd} loading={addSaving}>Add Record</Button>
+          </div>
+        </div>
       </Modal>
 
       <ConfirmDialog
