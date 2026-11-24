@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Download, Pencil } from "lucide-react";
+import { Download, Pencil, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
-import { Card, Badge, Spinner, EmptyState, Select, Input, Button, Modal, StatCard } from "../components/ui/ui";
+import { Card, Badge, Spinner, EmptyState, Select, Input, Button, Modal, StatCard, ConfirmDialog } from "../components/ui/ui";
 import EmployeeMultiSelect, { type EmployeeOption } from "../components/ui/EmployeeMultiSelect";
 import { formatDate, formatTime, getLogDateTimeParts, todayInTZ } from "../lib/format";
 import type { Attendance as AttendanceRow, Department, WorkSchedule } from "../types";
@@ -84,6 +84,9 @@ export default function Attendance() {
   const [editTimeIn, setEditTimeIn] = useState("");
   const [editTimeOut, setEditTimeOut] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AttendanceRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const canManage = me?.role === "admin" || me?.role === "hr";
 
   async function load() {
     setLoading(true);
@@ -378,6 +381,23 @@ export default function Attendance() {
     load();
   }
 
+  async function deleteRecord() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.from("attendance").delete().eq("id", deleteTarget.id);
+    setDeleting(false);
+    if (error) return push("error", error.message);
+    await supabase.from("audit_logs").insert({
+      company_id: me!.company_id, actor_id: me!.id, actor_name: `${me!.first_name} ${me!.last_name}`,
+      action: "Attendance Record Cleared", module: "Attendance", target: deleteTarget.profiles?.employee_code ?? deleteTarget.employee_id,
+      details: { work_date: deleteTarget.work_date, time_in: deleteTarget.time_in, time_out: deleteTarget.time_out, status: deleteTarget.status },
+    });
+    push("success", "Attendance record cleared.");
+    setDeleteTarget(null);
+    load();
+    loadSummary();
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -426,7 +446,7 @@ export default function Attendance() {
                 <th className="px-4 py-3">Time In</th><th className="px-4 py-3">Time Out</th><th className="px-4 py-3">Hours</th>
                 <th className="px-4 py-3">Overtime</th>
                 <th className="px-4 py-3">Status</th>
-                {me?.role === "admin" && <th className="px-4 py-3 text-right">Edit</th>}
+                {canManage && <th className="px-4 py-3 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -440,9 +460,18 @@ export default function Attendance() {
                   <td className="px-4 py-3">{r.hours_worked ?? "—"}</td>
                   <td className="px-4 py-3">{r.overtime_hours ? `+${r.overtime_hours}h` : "—"}</td>
                   <td className="px-4 py-3"><Badge status={r.status} /></td>
-                  {me?.role === "admin" && (
+                  {canManage && (
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => openEdit(r)} className="text-slate-500 hover:text-slate-700"><Pencil className="h-4 w-4" /></button>
+                      <div className="flex justify-end gap-1">
+                        {me?.role === "admin" && (
+                          <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700" title="Edit">
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button onClick={() => setDeleteTarget(r)} className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" title="Clear record">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -475,6 +504,21 @@ export default function Attendance() {
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Clear Attendance Record"
+        message={
+          deleteTarget
+            ? `Clear the attendance record for ${deleteTarget.profiles?.first_name} ${deleteTarget.profiles?.last_name} on ${formatDate(deleteTarget.work_date)}? This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Clear Record"
+        danger
+        loading={deleting}
+        onConfirm={deleteRecord}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
