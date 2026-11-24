@@ -2,6 +2,32 @@ import { type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "
 import { Loader2, Inbox, X, ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
 import { statusColor, statusLabel } from "../../lib/format";
 
+const AVATAR_SIZES: Record<string, string> = { sm: "h-7 w-7 text-xs", md: "h-9 w-9 text-sm", lg: "h-14 w-14 text-lg" };
+
+export function Avatar({
+  url,
+  firstName,
+  lastName,
+  size = "md",
+  className = "",
+}: {
+  url?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
+  const initials = `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`;
+  if (url) {
+    return <img src={url} alt="" className={`${AVATAR_SIZES[size]} shrink-0 rounded-full object-cover ${className}`} />;
+  }
+  return (
+    <div className={`flex ${AVATAR_SIZES[size]} shrink-0 items-center justify-center rounded-full bg-brand-600 font-semibold text-white ${className}`}>
+      {initials || "?"}
+    </div>
+  );
+}
+
 export function Button({
   variant = "primary",
   className = "",

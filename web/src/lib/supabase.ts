@@ -78,3 +78,17 @@ export async function callEdgeFunction<T = any>(fn: string, payload: Record<stri
     return null;
   }
 }
+
+// Uploads a profile picture to the public "avatars" bucket (path must start
+// with the uploader's own user id — enforced by storage RLS) and saves the
+// resulting public URL on their profile. Returns the new URL.
+export async function uploadAvatar(userId: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${userId}-${Date.now()}.${ext}`;
+  const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+  if (uploadError) throw uploadError;
+  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  const { error: updateError } = await supabase.from("profiles").update({ photo_url: data.publicUrl }).eq("id", userId);
+  if (updateError) throw updateError;
+  return data.publicUrl;
+}
