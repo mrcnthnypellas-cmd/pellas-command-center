@@ -1,13 +1,26 @@
-import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Pencil, Trash2, GripVertical, Send } from "lucide-react";
 import { supabase, callEdgeFunction } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
-import { Button, Card, Modal, Input, Select, ConfirmDialog } from "../components/ui/ui";
-import { formatDate } from "../lib/format";
+import { Button, Card, Modal, Input, Select, ConfirmDialog, Avatar } from "../components/ui/ui";
+import { formatDate, formatDateTime } from "../lib/format";
 import type { Task, TaskPriority, TaskStatus } from "../types";
 
-interface EmployeeOption { id: string; name: string }
+interface EmployeeOption { id: string; first_name: string; last_name: string; photo_url: string | null }
+
+interface TaskComment {
+  id: string;
+  task_id: string;
+  author_id: string;
+  message: string;
+  created_at: string;
+}
+
+interface TaskView {
+  user_id: string;
+  viewed_at: string;
+}
 
 const emptyForm = { title: "", description: "", assigned_to: "", due_date: "", priority: "normal" as TaskPriority };
 
@@ -37,6 +50,14 @@ export default function Tasks() {
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [viewingTask, setViewingTask] = useState<Task | null>(null);
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [seenBy, setSeenBy] = useState<TaskView[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
+
+  const employeeMap = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
 
   async function load() {
     if (!profile) return;
@@ -60,9 +81,7 @@ export default function Tasks() {
       .rpc("company_directory")
       .then(({ data }) =>
         setEmployees(
-          ((data as { id: string; first_name: string; last_name: string }[]) ?? [])
-            .map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }))
-            .sort((a, b) => a.name.localeCompare(b.name))
+          ((data as EmployeeOption[]) ?? []).sort((a, b) => a.first_name.localeCompare(b.first_name))
         )
       );
   }, []);
@@ -171,6 +190,46 @@ export default function Tasks() {
     if (taskId) moveTask(taskId, status);
   }
 
+  async function openDetail(t: Task) {
+    setViewingTask(t);
+    setLoadingDetail(true);
+    if (profile) {
+      await supabase
+        .from("task_views")
+        .upsert({ task_id: t.id, company_id: profile.company_id, user_id: profile.id, viewed_at: new Date().toISOString() }, { onConflict: "task_id,user_id" });
+    }
+    const [{ data: commentRows }, { data: viewRows }] = await Promise.all([
+      supabase.from("task_comments").select("*").eq("task_id", t.id).order("created_at", { ascending: true }),
+      supabase.from("task_views").select("user_id, viewed_at").eq("task_id", t.id),
+    ]);
+    setComments((commentRows as TaskComment[]) ?? []);
+    setSeenBy((viewRows as TaskView[]) ?? []);
+    setLoadingDetail(false);
+  }
+
+  function closeDetail() {
+    setViewingTask(null);
+    setComments([]);
+    setSeenBy([]);
+    setNewComment("");
+  }
+
+  async function addComment() {
+    if (!profile || !viewingTask || !newComment.trim()) return;
+    setPostingComment(true);
+    const { error } = await supabase.from("task_comments").insert({
+      task_id: viewingTask.id,
+      company_id: profile.company_id,
+      author_id: profile.id,
+      message: newComment.trim(),
+    });
+    setPostingComment(false);
+    if (error) return push("error", error.message);
+    setNewComment("");
+    const { data } = await supabase.from("task_comments").select("*").eq("task_id", viewingTask.id).order("created_at", { ascending: true });
+    setComments((data as TaskComment[]) ?? []);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -205,6 +264,7 @@ export default function Tasks() {
                       key={t.id}
                       draggable
                       onDragStart={(e: React.DragEvent) => e.dataTransfer.setData("text/task-id", t.id)}
+                      onClick={() => openDetail(t)}
                       className={`cursor-grab space-y-2 p-3 active:cursor-grabbing ${movingId === t.id ? "opacity-50" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -214,10 +274,10 @@ export default function Tasks() {
                         </div>
                         {(isStaff || t.assigned_by === profile?.id) && (
                           <div className="flex shrink-0 gap-1">
-                            <button onClick={() => startEdit(t)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Edit">
+                            <button onClick={(e) => { e.stopPropagation(); startEdit(t); }} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Edit">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => setDeleteTarget(t)} className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete">
+                            <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }} className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -228,7 +288,10 @@ export default function Tasks() {
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${PRIORITY_COLOR[t.priority]}`}>{t.priority}</span>
                         {t.due_date && <span className="text-[11px] text-slate-400">Due {formatDate(t.due_date)}</span>}
                       </div>
-                      <p className="text-[11px] text-slate-400">{t.assignee?.first_name} {t.assignee?.last_name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <Avatar url={employeeMap.get(t.assigned_to)?.photo_url} firstName={t.assignee?.first_name} lastName={t.assignee?.last_name} size="sm" />
+                        <p className="text-[11px] text-slate-400">{t.assignee?.first_name} {t.assignee?.last_name}</p>
+                      </div>
                     </Card>
                   ))
                 )}
@@ -248,7 +311,7 @@ export default function Tasks() {
           </label>
           <Select label="Assign To" value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}>
             <option value="">Select employee…</option>
-            {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            {employees.map((e) => <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}
           </Select>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Due Date" type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
@@ -263,6 +326,82 @@ export default function Tasks() {
           <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
           <Button onClick={submit} loading={saving}>{editing ? "Save Changes" : "Add Task"}</Button>
         </div>
+      </Modal>
+
+      <Modal open={!!viewingTask} onClose={closeDetail} title={viewingTask?.title ?? "Task"} wide>
+        {viewingTask && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${PRIORITY_COLOR[viewingTask.priority]}`}>{viewingTask.priority}</span>
+              {viewingTask.due_date && <span className="text-xs text-slate-400">Due {formatDate(viewingTask.due_date)}</span>}
+              <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                <Avatar url={employeeMap.get(viewingTask.assigned_to)?.photo_url} firstName={viewingTask.assignee?.first_name} lastName={viewingTask.assignee?.last_name} size="sm" />
+                {viewingTask.assignee?.first_name} {viewingTask.assignee?.last_name}
+              </span>
+            </div>
+
+            {viewingTask.description && <p className="text-sm text-slate-600">{viewingTask.description}</p>}
+
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Seen by</p>
+              {seenBy.length === 0 ? (
+                <p className="text-xs text-slate-400">No one has viewed this yet.</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {seenBy.map((v) => {
+                    const p = employeeMap.get(v.user_id);
+                    return (
+                      <div key={v.user_id} className="flex items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-1 pr-2.5" title={formatDateTime(v.viewed_at)}>
+                        <Avatar url={p?.photo_url} firstName={p?.first_name} lastName={p?.last_name} size="sm" />
+                        <span className="text-xs text-slate-600">{p?.first_name ?? "Unknown"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Comments</p>
+              {loadingDetail ? (
+                <p className="text-sm text-slate-400">Loading…</p>
+              ) : comments.length === 0 ? (
+                <p className="text-sm text-slate-400">No comments yet. Be the first to say something.</p>
+              ) : (
+                <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                  {comments.map((c) => {
+                    const author = employeeMap.get(c.author_id);
+                    return (
+                      <div key={c.id} className="flex items-start gap-2">
+                        <Avatar url={author?.photo_url} firstName={author?.first_name} lastName={author?.last_name} size="sm" />
+                        <div className="min-w-0 flex-1 rounded-lg bg-slate-50 px-3 py-2">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="text-xs font-semibold text-slate-700">{author?.first_name} {author?.last_name}</p>
+                            <p className="shrink-0 text-[10px] text-slate-400">{formatDateTime(c.created_at)}</p>
+                          </div>
+                          <p className="whitespace-pre-wrap break-words text-sm text-slate-600">{c.message}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="mt-3 flex items-end gap-2">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); } }}
+                  placeholder="Write a comment…"
+                  rows={1}
+                  className="flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <Button type="button" onClick={addComment} loading={postingComment} disabled={!newComment.trim()}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog

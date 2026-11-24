@@ -2,11 +2,13 @@ import { NavLink, Outlet, Navigate, useLocation, useNavigate } from "react-route
 import {
   LayoutDashboard, Users, UserCog, ClipboardList, CalendarClock, FileBarChart,
   Building2, ScrollText, Settings, LogOut, Menu, X, FileWarning, Clock,
-  Search, Bell, ChevronDown, ListTodo, MessagesSquare, Wallet,
+  Search, Bell, ChevronDown, ListTodo, MessagesSquare, Wallet, Camera,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { supabase } from "../../lib/supabase";
+import { supabase, uploadAvatar } from "../../lib/supabase";
+import { useToast } from "../../lib/toast";
+import { Avatar, Modal, Button } from "../ui/ui";
 import { useScheduledVoiceAnnouncements } from "../../lib/scheduledAnnouncements";
 import LedBanner, { useBanner } from "./LedBanner";
 import { formatDateTime } from "../../lib/format";
@@ -114,10 +116,7 @@ export function ProtectedLayout() {
           </nav>
           <div className="border-t border-slate-800 p-3">
             <div className="flex items-center gap-3 rounded-lg px-3 py-2">
-              <div className="h-9 w-9 shrink-0 rounded-full bg-brand-600 text-white flex items-center justify-center font-semibold">
-                {profile.first_name[0]}
-                {profile.last_name[0]}
-              </div>
+              <Avatar url={profile.photo_url} firstName={profile.first_name} lastName={profile.last_name} />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-white">{profile.first_name} {profile.last_name}</p>
                 <p className="truncate text-xs capitalize text-slate-400">{profile.role}</p>
@@ -202,6 +201,8 @@ function NavGroup({ label, items, badges, onNavigate }: { label: string; items: 
 }
 
 function TopBar({ profile, onSignOut }: { profile: NonNullable<ReturnType<typeof useAuth>["profile"]>; onSignOut: () => void }) {
+  const { refreshProfile } = useAuth();
+  const { push } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -209,6 +210,29 @@ function TopBar({ profile, onSignOut }: { profile: NonNullable<ReturnType<typeof
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      push("error", "Please choose an image file.");
+      return;
+    }
+    setUploadingPhoto(true);
+    try {
+      await uploadAvatar(profile.id, file);
+      await refreshProfile();
+      push("success", "Profile picture updated.");
+    } catch (err) {
+      push("error", (err as Error).message);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
 
   const current = NAV.find((i) => location.pathname === i.to || location.pathname.startsWith(`${i.to}/`));
   const title = current?.title ?? "Overview Dashboard";
@@ -315,9 +339,7 @@ function TopBar({ profile, onSignOut }: { profile: NonNullable<ReturnType<typeof
               onClick={() => { setAvatarOpen((o) => !o); setNotifOpen(false); }}
               className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100"
             >
-              <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-semibold">
-                {profile.first_name[0]}{profile.last_name[0]}
-              </div>
+              <Avatar url={profile.photo_url} firstName={profile.first_name} lastName={profile.last_name} size="sm" />
               <div className="hidden text-left sm:block">
                 <p className="text-sm font-medium leading-tight text-slate-800">{profile.first_name} {profile.last_name}</p>
                 <p className="text-xs capitalize leading-tight text-slate-400">{profile.role}</p>
@@ -326,6 +348,12 @@ function TopBar({ profile, onSignOut }: { profile: NonNullable<ReturnType<typeof
             </button>
             {avatarOpen && (
               <div className="absolute right-0 z-40 mt-2 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                <button
+                  onClick={() => { setProfileModalOpen(true); setAvatarOpen(false); }}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  <Camera className="h-4 w-4" /> My Profile
+                </button>
                 <button
                   onClick={onSignOut}
                   className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
@@ -337,6 +365,20 @@ function TopBar({ profile, onSignOut }: { profile: NonNullable<ReturnType<typeof
           </div>
         </div>
       </div>
+
+      <Modal open={profileModalOpen} onClose={() => setProfileModalOpen(false)} title="My Profile">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Avatar url={profile.photo_url} firstName={profile.first_name} lastName={profile.last_name} size="lg" />
+          <div>
+            <p className="font-semibold text-slate-800">{profile.first_name} {profile.last_name}</p>
+            <p className="text-xs capitalize text-slate-400">{profile.role}</p>
+          </div>
+          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          <Button type="button" variant="secondary" loading={uploadingPhoto} onClick={() => photoInputRef.current?.click()}>
+            <Camera className="h-4 w-4" /> {profile.photo_url ? "Change Picture" : "Upload Picture"}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
