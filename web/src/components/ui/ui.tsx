@@ -1,4 +1,4 @@
-import { type ButtonHTMLAttributes, type ReactNode } from "react";
+import { type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "react";
 import { Loader2, Inbox, X, ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
 import { statusColor, statusLabel } from "../../lib/format";
 
@@ -24,10 +24,16 @@ export function Button({
   );
 }
 
-export function Card({ children, className = "", glass = false }: { children: ReactNode; className?: string; glass?: boolean }) {
+export function Card({
+  children,
+  className = "",
+  glass = false,
+  ...rest
+}: HTMLAttributes<HTMLDivElement> & { children: ReactNode; className?: string; glass?: boolean }) {
   return (
     <div
       className={`rounded-xl border shadow-sm ${glass ? "rounded-2xl border-white/10 bg-black/25 shadow-xl backdrop-blur-2xl" : "border-slate-200 bg-white"} ${className}`}
+      {...rest}
     >
       {children}
     </div>

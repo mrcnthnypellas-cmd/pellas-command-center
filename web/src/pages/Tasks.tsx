@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus, Check, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
 import { supabase, callEdgeFunction } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
-import { Button, Card, Modal, Input, Select, Badge, Spinner, EmptyState, ConfirmDialog } from "../components/ui/ui";
+import { Button, Card, Modal, Input, Select, ConfirmDialog } from "../components/ui/ui";
 import { formatDate } from "../lib/format";
-import type { Task, TaskPriority } from "../types";
+import type { Task, TaskPriority, TaskStatus } from "../types";
 
 interface EmployeeOption { id: string; name: string }
 
@@ -17,6 +17,12 @@ const PRIORITY_COLOR: Record<TaskPriority, string> = {
   high: "bg-red-50 text-red-700",
 };
 
+const COLUMNS: { key: TaskStatus; label: string; accent: string }[] = [
+  { key: "pending", label: "To Do", accent: "border-t-slate-400" },
+  { key: "in_progress", label: "In Progress", accent: "border-t-amber-400" },
+  { key: "completed", label: "Completed", accent: "border-t-emerald-400" },
+];
+
 export default function Tasks() {
   const { profile } = useAuth();
   const { push } = useToast();
@@ -24,23 +30,22 @@ export default function Tasks() {
   const [rows, setRows] = useState<Task[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
 
   async function load() {
     if (!profile) return;
     setLoading(true);
-    let query = supabase
+    const { data } = await supabase
       .from("tasks")
       .select("*, assignee:profiles!tasks_assigned_to_fkey(first_name, last_name)")
       .order("due_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false });
-    if (statusFilter !== "all") query = query.eq("status", statusFilter);
-    const { data } = await query;
     setRows((data as unknown as Task[]) ?? []);
     setLoading(false);
   }
@@ -48,7 +53,7 @@ export default function Tasks() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, statusFilter]);
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!isStaff) return;
@@ -130,13 +135,6 @@ export default function Tasks() {
     load();
   }
 
-  async function markDone(t: Task) {
-    const { error } = await supabase.rpc("mark_task_done", { p_task_id: t.id });
-    if (error) return push("error", error.message);
-    push("success", "Task marked as done.");
-    load();
-  }
-
   async function confirmDelete() {
     if (!deleteTarget) return;
     const { error } = await supabase.from("tasks").delete().eq("id", deleteTarget.id);
@@ -148,6 +146,29 @@ export default function Tasks() {
     setDeleteTarget(null);
   }
 
+  async function moveTask(taskId: string, status: TaskStatus) {
+    const task = rows.find((t) => t.id === taskId);
+    if (!task || task.status === status) return;
+    setMovingId(taskId);
+    // Optimistic update so the card jumps to its new column immediately.
+    setRows((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
+    const { error } = await supabase.rpc("set_task_status", { p_task_id: taskId, p_status: status });
+    setMovingId(null);
+    if (error) {
+      push("error", error.message);
+      load();
+      return;
+    }
+    load();
+  }
+
+  function handleDrop(e: React.DragEvent, status: TaskStatus) {
+    e.preventDefault();
+    setDragOverCol(null);
+    const taskId = e.dataTransfer.getData("text/task-id");
+    if (taskId) moveTask(taskId, status);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -155,68 +176,67 @@ export default function Tasks() {
         {isStaff && <Button onClick={startAdd}><Plus className="h-4 w-4" /> Add Task</Button>}
       </div>
 
-      <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-44">
-        <option value="all">All</option>
-        <option value="pending">Pending</option>
-        <option value="in_progress">In Progress</option>
-        <option value="completed">Completed</option>
-      </Select>
+      {loading ? (
+        <p className="py-10 text-center text-sm text-slate-400">Loading…</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {COLUMNS.map((col) => {
+            const colTasks = rows.filter((t) => t.status === col.key);
+            return (
+              <div
+                key={col.key}
+                onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.key); }}
+                onDragLeave={() => setDragOverCol((c) => (c === col.key ? null : c))}
+                onDrop={(e) => handleDrop(e, col.key)}
+                className={`flex flex-col gap-3 rounded-xl border-t-4 bg-slate-50 p-3 ${col.accent} ${dragOverCol === col.key ? "ring-2 ring-brand-400" : ""}`}
+              >
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="text-sm font-semibold text-slate-700">{col.label}</h2>
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">{colTasks.length}</span>
+                </div>
 
-      <Card className="overflow-x-auto">
-        {loading ? <Spinner /> : rows.length === 0 ? <EmptyState title="No tasks yet" /> : (
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Task</th>
-                <th className="px-4 py-3">Assigned To</th>
-                <th className="px-4 py-3">Due Date</th>
-                <th className="px-4 py-3">Priority</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.map((t) => {
-                const isMine = t.assigned_to === profile?.id;
-                const canEditDelete = isStaff;
-                return (
-                  <tr key={t.id}>
-                    <td className="px-4 py-3">
-                      <p className={`font-medium ${t.status === "completed" ? "text-slate-400 line-through" : "text-slate-700"}`}>{t.title}</p>
-                      {t.description && <p className="text-xs text-slate-400">{t.description}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{t.assignee?.first_name} {t.assignee?.last_name}</td>
-                    <td className="px-4 py-3">{t.due_date ? formatDate(t.due_date) : "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${PRIORITY_COLOR[t.priority]}`}>{t.priority}</span>
-                    </td>
-                    <td className="px-4 py-3"><Badge status={t.status} /></td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        {isMine && t.status !== "completed" && (
-                          <button onClick={() => markDone(t)} className="rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50" title="Mark as Done">
-                            <Check className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canEditDelete && (
-                          <>
-                            <button onClick={() => startEdit(t)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100" title="Edit">
-                              <Pencil className="h-4 w-4" />
+                {colTasks.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-slate-300 py-6 text-center text-xs text-slate-400">No tasks here</p>
+                ) : (
+                  colTasks.map((t) => (
+                    <Card
+                      key={t.id}
+                      draggable
+                      onDragStart={(e: React.DragEvent) => e.dataTransfer.setData("text/task-id", t.id)}
+                      className={`cursor-grab space-y-2 p-3 active:cursor-grabbing ${movingId === t.id ? "opacity-50" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-1.5">
+                          <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300" />
+                          <p className="text-sm font-medium text-slate-700">{t.title}</p>
+                        </div>
+                        {isStaff && (
+                          <div className="flex shrink-0 gap-1">
+                            <button onClick={() => startEdit(t)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Edit">
+                              <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => setDeleteTarget(t)} className="rounded-md p-1.5 text-red-500 hover:bg-red-50" title="Delete">
-                              <Trash2 className="h-4 w-4" />
+                            <button onClick={() => setDeleteTarget(t)} className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete">
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
-                          </>
+                          </div>
                         )}
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </Card>
+                      {t.description && <p className="text-xs text-slate-400">{t.description}</p>}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${PRIORITY_COLOR[t.priority]}`}>{t.priority}</span>
+                        {t.due_date && <span className="text-[11px] text-slate-400">Due {formatDate(t.due_date)}</span>}
+                      </div>
+                      {isStaff && (
+                        <p className="text-[11px] text-slate-400">{t.assignee?.first_name} {t.assignee?.last_name}</p>
+                      )}
+                    </Card>
+                  ))
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? "Edit Task" : "Add Task"}>
         <div className="space-y-3">
