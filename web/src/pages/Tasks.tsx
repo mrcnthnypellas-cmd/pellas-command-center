@@ -56,14 +56,16 @@ export default function Tasks() {
   }, [profile?.id]);
 
   useEffect(() => {
-    if (!isStaff) return;
     supabase
-      .from("profiles")
-      .select("id, first_name, last_name")
-      .in("employment_status", ["active", "on_leave"])
-      .order("first_name")
-      .then(({ data }) => setEmployees(((data as { id: string; first_name: string; last_name: string }[]) ?? []).map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }))));
-  }, [isStaff]);
+      .rpc("company_directory")
+      .then(({ data }) =>
+        setEmployees(
+          ((data as { id: string; first_name: string; last_name: string }[]) ?? [])
+            .map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        )
+      );
+  }, []);
 
   function startAdd() {
     setEditing(null);
@@ -173,7 +175,7 @@ export default function Tasks() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-800">Tasks</h1>
-        {isStaff && <Button onClick={startAdd}><Plus className="h-4 w-4" /> Add Task</Button>}
+        <Button onClick={startAdd}><Plus className="h-4 w-4" /> Add Task</Button>
       </div>
 
       {loading ? (
@@ -210,7 +212,7 @@ export default function Tasks() {
                           <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300" />
                           <p className="text-sm font-medium text-slate-700">{t.title}</p>
                         </div>
-                        {isStaff && (
+                        {(isStaff || t.assigned_by === profile?.id) && (
                           <div className="flex shrink-0 gap-1">
                             <button onClick={() => startEdit(t)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Edit">
                               <Pencil className="h-3.5 w-3.5" />
@@ -226,9 +228,7 @@ export default function Tasks() {
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${PRIORITY_COLOR[t.priority]}`}>{t.priority}</span>
                         {t.due_date && <span className="text-[11px] text-slate-400">Due {formatDate(t.due_date)}</span>}
                       </div>
-                      {isStaff && (
-                        <p className="text-[11px] text-slate-400">{t.assignee?.first_name} {t.assignee?.last_name}</p>
-                      )}
+                      <p className="text-[11px] text-slate-400">{t.assignee?.first_name} {t.assignee?.last_name}</p>
                     </Card>
                   ))
                 )}
