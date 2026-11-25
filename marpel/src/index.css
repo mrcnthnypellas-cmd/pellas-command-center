@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+  body { @apply bg-navy-950 font-sans text-slate-200 antialiased; font-feature-settings: 'cv11', 'ss01'; }
+  ::selection { background: rgba(216, 174, 90, 0.35); color: #fff; }
+  :focus-visible { outline: 2px solid rgba(227, 194, 122, 0.6); outline-offset: 2px; }
+  input[type='date']::-webkit-calendar-picker-indicator, input[type='time']::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+  * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
+}
+
+@layer utilities {
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .text-gold-gradient { background: linear-gradient(100deg, #f5e9c8 0%, #e3c27a 40%, #c99a3e 70%, #f5e9c8 100%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .gold-hairline { background: linear-gradient(90deg, transparent, rgba(216,174,90,.6), transparent); height: 1px; }
+  .glass { @apply border border-white/10 bg-white/[0.04] backdrop-blur-md; }
+}
+
+/* Prose for blog posts (minimal markdown renderer output) */
+.prose-marpel h2 { @apply mt-8 mb-3 font-display text-xl font-semibold text-white; }
+.prose-marpel p { @apply my-4 leading-relaxed text-slate-300; }
+.prose-marpel ul { @apply my-4 list-disc space-y-1.5 pl-6 text-slate-300; }
+.prose-marpel strong { @apply font-semibold text-gold-100; }
+
+/* Print: quotation documents */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body { background: #fff !important; }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; inset: 0 auto auto 0; width: 100%; box-shadow: none !important; border: 0 !important; }
+  .no-print { display: none !important; }
+}

@@ -1,0 +1,7 @@
+# Marpel Tech & Network Solutions — prototype robots.txt
+# Production: replace the Sitemap host with the live domain.
+User-agent: *
+Allow: /
+Disallow: /#/admin
+Disallow: /#/portal
+Sitemap: https://www.marpeltech.example/sitemap.xml
