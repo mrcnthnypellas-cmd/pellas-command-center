@@ -38,7 +38,7 @@ export default function Portfolio() {
   const open = items.find((p) => p.id === params.get('p'));
   return (
     <>
-      <PageHero eyebrow="Portfolio" title="Projects that keep businesses running." body="A selection of websites, business systems, CCTV installations and network projects we’ve delivered." />
+      <PageHero background={db.content.pageBackgrounds?.portfolio} eyebrow="Portfolio" title="Projects that keep businesses running." body="A selection of websites, business systems, CCTV installations and network projects we’ve delivered." />
       <Section>
         <Tabs
           value={cat}

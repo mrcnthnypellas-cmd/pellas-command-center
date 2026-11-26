@@ -36,9 +36,16 @@ export function SectionHeading({ eyebrow, title, body, align = 'center', action 
   );
 }
 
-export function PageHero({ eyebrow, title, body, children }: { eyebrow: string; title: ReactNode; body?: ReactNode; children?: ReactNode }) {
+export function PageHero({ eyebrow, title, body, children, background }: { eyebrow: string; title: ReactNode; body?: ReactNode; children?: ReactNode; background?: { image?: string; dim: number } }) {
   return (
     <div className="relative overflow-hidden border-b border-white/[0.05]">
+      {background?.image && (
+        <>
+          <img src={background.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-navy-950" style={{ opacity: Math.min(90, Math.max(0, background.dim)) / 100 }} />
+          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-navy-950 to-transparent" />
+        </>
+      )}
       <div className="absolute inset-0 bg-grid-faint [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" />
       <div className="absolute -top-40 left-1/2 h-80 w-[700px] -translate-x-1/2 rounded-full bg-gold-400/10 blur-3xl" />
       <div className="relative mx-auto max-w-7xl px-5 pb-16 pt-14 lg:px-8 lg:pb-20 lg:pt-20">

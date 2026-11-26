@@ -140,6 +140,8 @@ export interface SiteContent {
   footer: { blurb: string; copyright: string };
   seo: Record<string, { title: string; description: string }>;
   announcementBar: { enabled: boolean; text: string; link: string };
+  /** Optional background photo for a public page's header banner, keyed by page (e.g. 'portfolio'). dim = 0–90 % dark overlay. */
+  pageBackgrounds?: Record<string, { image?: string; dim: number }>;
 }
 
 export interface Testimonial {

@@ -1,7 +1,7 @@
-import { Images, Pencil, Plus, Star } from 'lucide-react';
+import { ExternalLink, Images, Pencil, Plus, Star } from 'lucide-react';
 import { useState } from 'react';
 import { Artwork } from '../components/brand';
-import { Badge, Button, Card, ConfirmButton, EmptyState, Field, ImageInput, Input, ListEditor, Modal, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle } from '../components/ui';
+import { Badge, Button, Card, CardHeader, ConfirmButton, EmptyState, Field, ImageInput, Input, ListEditor, Modal, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle } from '../components/ui';
 import { actorOf, audit } from '../lib/actions';
 import { useSession, useStore, useToast } from '../lib/store';
 import { PORTFOLIO_CATEGORIES, type PortfolioItem } from '../lib/types';
@@ -30,6 +30,7 @@ export default function PortfolioAdmin() {
           </Button>
         }
       />
+      <PageBackgroundCard />
       <Tabs
         value={filter}
         onChange={setFilter}
@@ -195,5 +196,66 @@ function PortfolioEditor({ initial, onClose }: { initial: PortfolioItem; onClose
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** Background photo for the public Portfolio page header. */
+function PageBackgroundCard() {
+  const { db, update } = useStore();
+  const { user } = useSession();
+  const { push } = useToast();
+  const bg = db.content.pageBackgrounds?.portfolio ?? { dim: 60 };
+  const save = (next: { image?: string; dim: number }, msg?: string) =>
+    update((d) => {
+      d.content.pageBackgrounds = { ...(d.content.pageBackgrounds ?? {}), portfolio: next };
+      if (msg) audit(d, actorOf(user), msg, 'Portfolio page');
+    });
+  return (
+    <Card className="mb-6">
+      <CardHeader
+        title="Portfolio page background"
+        subtitle="Photo shown behind the title at the top of the public Portfolio page"
+        action={
+          <a href="#/portfolio" target="_blank" rel="noreferrer">
+            <Button size="sm" variant="ghost" icon={<ExternalLink className="h-3.5 w-3.5" />}>
+              View page
+            </Button>
+          </a>
+        }
+      />
+      <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+        <div className="space-y-4">
+          <ImageInput
+            value={bg.image}
+            aspect="aspect-[21/8]"
+            label="Upload background photo (landscape works best)"
+            onChange={(v) => {
+              save({ ...bg, image: v }, v ? 'Set portfolio page background' : 'Removed portfolio page background');
+              push({ tone: 'success', title: v ? 'Background saved' : 'Background removed', body: v ? 'Live on the Portfolio page.' : undefined });
+            }}
+          />
+          <Field label={`Darkness overlay: ${bg.dim}%`} hint="Higher keeps the white title easy to read">
+            <input type="range" min={0} max={90} step={5} value={bg.dim} disabled={!bg.image} onChange={(e) => save({ ...bg, dim: Number(e.target.value) })} className="w-full accent-[#d8ae5a] disabled:opacity-40" aria-label="Darkness overlay" />
+          </Field>
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Preview</p>
+          <div className="relative aspect-[21/8] overflow-hidden rounded-xl border border-white/10 bg-navy-950">
+            {bg.image && (
+              <>
+                <img src={bg.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-navy-950" style={{ opacity: bg.dim / 100 }} />
+                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-navy-950 to-transparent" />
+              </>
+            )}
+            <div className="relative flex h-full flex-col justify-center p-5">
+              <span className="mb-2 w-fit rounded-full border border-gold-400/30 bg-gold-400/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-gold-200">Portfolio</span>
+              <p className="max-w-[80%] font-display text-lg font-semibold leading-tight text-white sm:text-2xl">Projects that keep businesses running.</p>
+            </div>
+          </div>
+          {!bg.image && <p className="mt-2 text-xs text-slate-500">No photo yet: the page uses the default navy and gold background.</p>}
+        </div>
+      </div>
+    </Card>
   );
 }
