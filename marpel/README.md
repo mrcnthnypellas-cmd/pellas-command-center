@@ -22,6 +22,11 @@ public URL is updated by promoting/deploying that branch to production.
 `docs/screenshots/`: home, service page, client portal, booking, dashboard, live chat, quotation,
 appointments, reports, project detail, mobile.
 
+## Letterhead
+
+`docs/branding/marpel-letterhead-dark.png` and `-light.png` (2481 px wide = A4 at 300 dpi) for Word / Google Docs.
+In the app, the same header is `src/components/DocHeader.tsx` (Business Settings → Letterhead) and is used on quotations.
+
 ## Run it
 
 ```bash

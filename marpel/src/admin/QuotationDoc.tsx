@@ -1,4 +1,4 @@
-import { LogoMark } from '../components/brand';
+import { DocHeader } from '../components/DocHeader';
 import type { DB, Quotation } from '../lib/types';
 import { fmtDate, money, quoteTotals } from '../lib/utils';
 
@@ -11,31 +11,13 @@ export function QuotationDoc({ db, q }: { db: DB; q: Quotation }) {
   const sym = s.currencySymbol;
   return (
     <div className="print-area mx-auto w-full max-w-[820px] bg-white text-[13px] text-slate-800 shadow-2xl">
-      <div className="relative overflow-hidden bg-[#08101f] px-10 py-8 text-white">
-        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#d8ae5a]/20 blur-2xl" />
-        <div className="relative flex items-start justify-between gap-6">
-          <div className="flex items-center gap-3">
-            {s.logoImage ? <img src={s.logoImage} alt="" className="h-12 w-auto" /> : <LogoMark className="h-12 w-12" />}
-            <div>
-              <p className="font-display text-lg font-bold tracking-[0.12em]">{s.businessName.toUpperCase()}</p>
-              <p className="text-[11px] text-slate-300">
-                {s.address}, {s.city}
-              </p>
-              <p className="text-[11px] text-slate-300">
-                {s.phone} · {s.mobile} · {s.email}
-              </p>
-              {s.tin && <p className="text-[11px] text-slate-400">TIN {s.tin}</p>}
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="font-display text-2xl font-semibold tracking-[0.2em] text-[#e3c27a]">QUOTATION</p>
-            <p className="mt-1 font-mono text-sm">{q.number}</p>
-          </div>
-        </div>
+      <DocHeader s={s} variant="dark" />
+      <div className="flex items-end justify-between gap-6 px-10 pt-7">
+        <p className="font-display text-[22px] font-semibold tracking-[0.24em] text-[#08101f]">QUOTATION</p>
+        <p className="font-mono text-sm text-slate-600">{q.number}</p>
       </div>
-      <div className="h-1 bg-gradient-to-r from-[#a97d2c] via-[#e3c27a] to-[#a97d2c]" />
 
-      <div className="grid grid-cols-2 gap-8 px-10 py-7">
+      <div className="grid grid-cols-2 gap-8 px-10 pb-7 pt-5">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a97d2c]">Prepared for</p>
           <p className="mt-1.5 text-base font-semibold text-slate-900">{c?.name}</p>

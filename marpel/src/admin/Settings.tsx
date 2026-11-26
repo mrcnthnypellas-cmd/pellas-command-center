@@ -1,13 +1,14 @@
 import { Database, Download, RotateCcw, Save, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { LogoMark } from '../components/brand';
+import { DocHeader } from '../components/DocHeader';
 import { Button, Card, CardHeader, Field, ImageInput, Input, Modal, PageHeader, Select, SimBadge, Tabs, Textarea, Toggle } from '../components/ui';
 import { actorOf, audit } from '../lib/actions';
 import { useSession, useStore, useToast } from '../lib/store';
 import type { EmailEvent, Settings as S } from '../lib/types';
 import { bytes } from '../lib/utils';
 
-type Tab = 'profile' | 'contact' | 'quotation' | 'email' | 'data';
+type Tab = 'profile' | 'letterhead' | 'contact' | 'quotation' | 'email' | 'data';
 const EVENTS: [EmailEvent, string, string][] = [
   ['new_inquiry', 'New inquiry', 'Admin alert + customer confirmation with reference number'],
   ['new_message', 'New chat message', 'When a customer sends a live-chat message'],
@@ -60,6 +61,7 @@ export default function Settings() {
         className="mb-5"
         tabs={[
           { value: 'profile', label: 'Business profile' },
+          { value: 'letterhead', label: 'Letterhead' },
           { value: 'contact', label: 'Contact & hours' },
           { value: 'quotation', label: 'Quotation defaults' },
           { value: 'email', label: 'Email notifications' },
@@ -99,6 +101,25 @@ export default function Settings() {
               <ImageInput value={s.logoImage} onChange={(v) => set('logoImage', v)} aspect="aspect-[3/1]" label="Upload logo" />
             </div>
           </Card>
+        </div>
+      )}
+
+      {tab === 'letterhead' && (
+        <div className="space-y-6">
+          <p className="text-sm text-slate-400">
+            The official document header. It is filled in automatically from your business profile and contact details, so editing those (and saving) updates every quotation and proposal. Upload a final logo under Business profile to replace the logo concept.
+          </p>
+          {(['dark', 'light'] as const).map((v) => (
+            <Card key={v}>
+              <CardHeader title={v === 'dark' ? 'Dark: navy and gold' : 'Light: printer-friendly'} subtitle={v === 'dark' ? 'Used on quotations and digital PDFs' : 'White background that saves ink on office printers'} />
+              <div className="overflow-x-auto bg-slate-200/10 p-4 sm:p-6">
+                <div id={`letterhead-${v}`} className="mx-auto w-[794px] bg-white shadow-xl">
+                  <DocHeader s={s} variant={v} />
+                  <div className="h-24 bg-white" />
+                </div>
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 
