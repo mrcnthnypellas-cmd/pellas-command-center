@@ -10,6 +10,12 @@ management dashboard. It is a **prototype for review and approval**. It is not t
   Blog, Quotations, Projects, Project Tracking, Appointments, AI Assistant, Notifications, Reports,
   Users & Roles, Website Content and Business Settings, plus a Prototype Guide.
 
+## Live preview
+
+**https://marpel-prototype.vercel.app** (Vercel project `marpel-prototype`, team Pellas, root directory `marpel/`,
+built from branch `ccr-b4c02944-pexusk`). Pushes to that branch create preview deployments automatically; the
+public URL is updated by promoting/deploying that branch to production.
+
 ## Screenshots
 
 `docs/screenshots/`: home, service page, client portal, booking, dashboard, live chat, quotation,
