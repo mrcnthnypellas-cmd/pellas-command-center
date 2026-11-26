@@ -25,6 +25,7 @@ export const seedSettings: Settings = {
   businessName: 'Marpel Tech & Network Solutions',
   shortName: 'Marpel Tech',
   tagline: 'Websites · Software · CCTV · Networks',
+  pageLoader: true,
   email: 'hello@marpeltech.example',
   supportEmail: 'support@marpeltech.example',
   phone: '(02) 8869-4353 / (02) 8869-4344',

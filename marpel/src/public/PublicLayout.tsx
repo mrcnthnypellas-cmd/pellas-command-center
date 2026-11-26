@@ -7,6 +7,7 @@ import { Button, Modal } from '../components/ui';
 import { useDB, useStore, useToast } from '../lib/store';
 import { cx, fmtTime } from '../lib/utils';
 import ChatWidget from './ChatWidget';
+import PageLoader from './PageLoader';
 
 const NAV = [
   { to: '/', label: 'Home' },
@@ -310,6 +311,7 @@ function PrototypeBar() {
 export default function PublicLayout() {
   return (
     <div className="relative min-h-screen overflow-x-clip">
+      <PageLoader />
       <Header />
       <main>
         <Outlet />

@@ -72,6 +72,8 @@ export interface Settings {
   shortName: string;
   tagline: string;
   logoImage?: string;
+  /** Branded splash screen shown when moving between public pages. */
+  pageLoader?: boolean;
   email: string;
   supportEmail: string;
   phone: string;

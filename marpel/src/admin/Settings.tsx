@@ -84,6 +84,9 @@ export default function Settings() {
               <Field label="TIN / registration no.">
                 <Input value={s.tin} onChange={(e) => set('tin', e.target.value)} />
               </Field>
+              <div className="sm:col-span-2">
+                <Toggle checked={s.pageLoader !== false} onChange={(v) => set('pageLoader', v)} label="Branded page-transition screen" description="Shows the logo on a full-screen splash for about a second when visitors open the site or move between pages" />
+              </div>
             </div>
           </Card>
           <Card>
