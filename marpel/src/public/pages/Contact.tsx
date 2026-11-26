@@ -25,7 +25,7 @@ export default function Contact() {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { icon: Mail, label: 'Business email', value: s.email, href: `mailto:${s.email}` },
-            { icon: Phone, label: 'Business phone', value: s.phone, href: `tel:${s.phone.replace(/[^\d+]/g, '')}` },
+            { icon: Phone, label: 'Business phone', value: s.phone, href: `tel:${(s.phone.split('/')[0] ?? '').replace(/[^\d+]/g, '')}` },
             { icon: Smartphone, label: 'Mobile', value: s.mobile, href: `tel:${s.mobile.replace(/\s/g, '')}` },
             { icon: MapPin, label: 'Address', value: `${s.address}, ${s.city}` },
           ].map((x) => (

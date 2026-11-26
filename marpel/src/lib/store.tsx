@@ -56,7 +56,12 @@ function load(): DB {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const db = JSON.parse(raw) as DB;
-      if (db.version === VERSION) return db;
+      if (db.version === VERSION) {
+        // Carry updated official contact numbers into browsers that still hold the old placeholders.
+        if (db.settings.phone === '(02) 8123 4567') db.settings.phone = seedSettings.phone;
+        if (db.settings.mobile === '+63 917 000 0000') db.settings.mobile = seedSettings.mobile;
+        return db;
+      }
     }
   } catch {
     /* fall through to seed */
