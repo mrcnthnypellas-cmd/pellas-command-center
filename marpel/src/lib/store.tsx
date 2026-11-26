@@ -48,7 +48,24 @@ export function buildSeed(): DB {
     emails: r.emails,
     audit: r.audit,
     counters: r.counters,
+    migrations: ['real-portfolio-1'],
   };
+}
+
+/** One-time updates for data already stored in a browser. */
+function migrate(db: DB) {
+  const done = new Set(db.migrations ?? []);
+  if (!done.has('real-portfolio-1')) {
+    // Replace the original fictional sample projects with Marpel's real work; keep anything the owner added.
+    const oldSeed = /^pf\d+$/;
+    db.portfolio = [...structuredClone(seedPortfolio), ...db.portfolio.filter((p) => !oldSeed.test(p.id))];
+    const fictional = new Set(['t1', 't2', 't3', 't4', 't5', 't6']);
+    db.testimonials.forEach((t) => fictional.has(t.id) && (t.status = 'archived'));
+    const post = db.posts.find((p) => p.id === 'b6');
+    if (post?.status === 'published') post.status = 'draft';
+    done.add('real-portfolio-1');
+  }
+  db.migrations = [...done];
 }
 
 function load(): DB {
@@ -60,6 +77,7 @@ function load(): DB {
         // Carry updated official contact numbers into browsers that still hold the old placeholders.
         if (db.settings.phone === '(02) 8123 4567') db.settings.phone = seedSettings.phone;
         if (db.settings.mobile === '+63 917 000 0000') db.settings.mobile = seedSettings.mobile;
+        migrate(db);
         return db;
       }
     }

@@ -1,10 +1,10 @@
-import { Calendar, MapPin, Star } from 'lucide-react';
+import { Calendar, ExternalLink, MapPin, Star } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Artwork, useMeta } from '../../components/brand';
 import { Badge, Modal, Tabs } from '../../components/ui';
 import { useDB } from '../../lib/store';
-import { PORTFOLIO_CATEGORIES } from '../../lib/types';
+import { PORTFOLIO_CATEGORIES, type PortfolioItem } from '../../lib/types';
 import { cx, fmtDate } from '../../lib/utils';
 import { CTABand, PageHero, Section, ServiceActions } from '../sections';
 
@@ -44,7 +44,7 @@ export default function Portfolio() {
           value={cat}
           onChange={setCat}
           className="mb-10"
-          tabs={[{ value: 'All', label: 'All projects', count: items.length }, ...PORTFOLIO_CATEGORIES.map((c) => ({ value: c, label: c, count: items.filter((p) => p.category === c).length }))]}
+          tabs={[{ value: 'All', label: 'All projects', count: items.length }, ...PORTFOLIO_CATEGORIES.filter((c) => items.some((p) => p.category === c)).map((c) => ({ value: c, label: c, count: items.filter((p) => p.category === c).length }))]}
         />
         {shown.length === 0 ? (
           <p className="py-16 text-center text-slate-500">No published projects in this category yet.</p>
@@ -53,7 +53,7 @@ export default function Portfolio() {
             {shown.map((p) => (
               <button key={p.id} type="button" onClick={() => setParams({ p: p.id })} className="group overflow-hidden rounded-2xl border border-white/[0.07] bg-navy-900/60 text-left transition hover:-translate-y-1 hover:border-gold-400/40">
                 <div className="relative aspect-[4/3] overflow-hidden">
-                  <Artwork topic={p.category} image={p.image ?? p.afterImage} label={p.title} className="transition duration-500 group-hover:scale-105" />
+                  <Artwork topic={p.category} image={p.image ?? p.afterImage} label={p.title} className="object-left-top transition duration-500 group-hover:scale-105" />
                   {p.featured && (
                     <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-gold-sheen px-2 py-0.5 text-[10px] font-bold uppercase text-navy-950">
                       <Star className="h-3 w-3" /> Featured
@@ -79,41 +79,69 @@ export default function Portfolio() {
       </Section>
       <CTABand />
       <Modal open={!!open} onClose={() => setParams({})} title={open?.title ?? ''} subtitle={open ? `${open.client} · ${open.category}` : ''} size="lg">
-        {open && (
-          <div className="space-y-5">
-            {open.beforeImage || open.afterImage ? (
-              <BeforeAfter before={open.beforeImage} after={open.afterImage ?? open.image} topic={open.category} />
-            ) : (
-              <div className="aspect-video overflow-hidden rounded-xl border border-white/10">
-                <Artwork topic={open.category} image={open.image} label={open.title} iconSize="h-14 w-14" />
-              </div>
-            )}
-            <div className="flex flex-wrap gap-4 text-sm text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <Calendar className="h-4 w-4 text-gold-300" /> Completed {fmtDate(open.completedAt)}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-4 w-4 text-gold-300" /> {open.location}
-              </span>
-            </div>
-            <p className="leading-relaxed text-slate-300">{open.description}</p>
-            <div>
-              <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">Technologies used</p>
-              <div className="flex flex-wrap gap-2">
-                {open.technologies.map((t) => (
-                  <span key={t} className={cx('rounded-lg border border-gold-400/20 bg-gold-400/5 px-2.5 py-1 text-xs text-gold-100')}>
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-xl border border-white/[0.07] bg-navy-900/60 p-4">
-              <p className="mb-3 text-sm text-slate-300">Need something similar?</p>
-              <ServiceActions />
-            </div>
-          </div>
-        )}
+        {open && <ProjectView key={open.id} p={open} />}
       </Modal>
     </>
+  );
+}
+
+function ProjectView({ p }: { p: PortfolioItem }) {
+  const shots = [p.image, ...(p.gallery ?? [])].filter(Boolean) as string[];
+  const [i, setI] = useState(0);
+  return (
+    <div className="space-y-5">
+      {p.beforeImage || p.afterImage ? (
+        <BeforeAfter before={p.beforeImage} after={p.afterImage ?? p.image} topic={p.category} />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-white/10 bg-navy-950">
+          {shots.length ? <img src={shots[i]} alt={`${p.title} screenshot ${i + 1}`} className="max-h-[60vh] w-full object-contain" /> : <div className="aspect-video"><Artwork topic={p.category} label={p.title} iconSize="h-14 w-14" /></div>}
+        </div>
+      )}
+      {shots.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {shots.map((src, k) => (
+            <button key={src} type="button" onClick={() => setI(k)} className={cx('h-16 w-28 shrink-0 overflow-hidden rounded-lg border transition', k === i ? 'border-gold-300 ring-2 ring-gold-400/40' : 'border-white/10 opacity-60 hover:opacity-100')} aria-label={`Show screenshot ${k + 1}`}>
+              <img src={src} alt="" className="h-full w-full object-cover object-top" />
+            </button>
+          ))}
+        </div>
+      )}
+      {(p.completedAt || p.location) && (
+        <div className="flex flex-wrap gap-4 text-sm text-slate-400">
+          {p.completedAt && (
+            <span className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4 text-gold-300" /> Completed {fmtDate(p.completedAt)}
+            </span>
+          )}
+          {p.location && (
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-gold-300" /> {p.location}
+            </span>
+          )}
+        </div>
+      )}
+      <p className="leading-relaxed text-slate-300">{p.description}</p>
+      {p.technologies.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">Technologies used</p>
+          <div className="flex flex-wrap gap-2">
+            {p.technologies.map((t) => (
+              <span key={t} className="rounded-lg border border-gold-400/20 bg-gold-400/5 px-2.5 py-1 text-xs text-gold-100">
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {p.demoUrl && (
+        <a href={p.demoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-gold-sheen px-5 py-2.5 text-sm font-semibold text-navy-950 shadow-gold hover:brightness-110">
+          Try the live demo <ExternalLink className="h-4 w-4" />
+        </a>
+      )}
+      <div className="rounded-xl border border-white/[0.07] bg-navy-900/60 p-4">
+        <p className="mb-3 text-sm text-slate-300">Need something similar?</p>
+        <ServiceActions />
+      </div>
+    </div>
   );
 }

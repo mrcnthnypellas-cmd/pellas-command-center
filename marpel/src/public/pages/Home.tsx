@@ -263,7 +263,7 @@ export default function Home() {
             {featured.map((p) => (
               <Link key={p.id} to={`/portfolio?p=${p.id}`} className="group overflow-hidden rounded-2xl border border-white/[0.07] bg-navy-900/60 transition hover:border-gold-400/40">
                 <div className="relative aspect-[4/3] overflow-hidden">
-                  <Artwork topic={p.category} image={p.image ?? p.afterImage} label={p.title} className="transition duration-500 group-hover:scale-105" />
+                  <Artwork topic={p.category} image={p.image ?? p.afterImage} label={p.title} className="object-left-top transition duration-500 group-hover:scale-105" />
                   <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-navy-950 to-transparent" />
                   <Badge tone="gold" className="absolute left-4 top-4 bg-navy-950/70 backdrop-blur">
                     {p.category}
@@ -273,7 +273,8 @@ export default function Home() {
                   <h3 className="font-display text-lg font-semibold text-white group-hover:text-gold-100">{p.title}</h3>
                   <p className="mt-2 line-clamp-2 text-sm text-slate-400">{p.summary}</p>
                   <p className="mt-4 text-xs text-slate-500">
-                    {p.client} · {fmtDate(p.completedAt, { month: 'short', year: 'numeric' })}
+                    {p.client}
+                    {p.completedAt && ` · ${fmtDate(p.completedAt, { month: 'short', year: 'numeric' })}`}
                   </p>
                 </div>
               </Link>
@@ -282,13 +283,15 @@ export default function Home() {
         </Section>
       )}
 
-      {/* TESTIMONIALS */}
-      <div className="border-y border-white/[0.05] bg-navy-900/40">
-        <Section>
-          <SectionHeading eyebrow="Client feedback" title="Trusted by businesses, schools and clinics." />
-          <Testimonials />
-        </Section>
-      </div>
+      {/* TESTIMONIALS (shown once real client feedback is published in Website Content) */}
+      {db.testimonials.some((t) => t.status === 'published') && (
+        <div className="border-y border-white/[0.05] bg-navy-900/40">
+          <Section>
+            <SectionHeading eyebrow="Client feedback" title="Trusted by businesses, schools and clinics." />
+            <Testimonials />
+          </Section>
+        </div>
+      )}
 
       <div className="pt-20">
         <CTABand />

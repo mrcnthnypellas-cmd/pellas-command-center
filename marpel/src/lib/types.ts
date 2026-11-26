@@ -207,6 +207,10 @@ export interface PortfolioItem {
   technologies: string[];
   featured: boolean;
   image?: string;
+  /** Extra screenshots shown in the project's detail view. */
+  gallery?: string[];
+  /** Optional public link to a live demo of the work. */
+  demoUrl?: string;
   beforeImage?: string;
   afterImage?: string;
   status: ContentStatus;
@@ -566,4 +570,6 @@ export interface DB {
   emails: EmailLog[];
   audit: AuditEntry[];
   counters: { inquiry: number; quotation: number; project: number; appointment: number };
+  /** One-time data updates already applied to this browser's stored data. */
+  migrations?: string[];
 }

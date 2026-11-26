@@ -65,7 +65,8 @@ export default function PortfolioAdmin() {
                 <p className="text-xs text-gold-300">{p.category}</p>
                 <p className="mt-1 font-display font-semibold text-white">{p.title}</p>
                 <p className="text-xs text-slate-500">
-                  {p.client} · {fmtDate(p.completedAt)}
+                  {p.client}
+                  {p.completedAt && ` · ${fmtDate(p.completedAt)}`}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   <Button size="sm" icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => setEditing(structuredClone(p))}>
@@ -171,6 +172,9 @@ function PortfolioEditor({ initial, onClose }: { initial: PortfolioItem; onClose
           <Field label="Description" className="sm:col-span-2">
             <Textarea rows={5} value={p.description} onChange={(e) => set('description', e.target.value)} />
           </Field>
+          <Field label="Live demo link" hint="Optional. Shows a “Try the live demo” button" className="sm:col-span-2">
+            <Input value={p.demoUrl ?? ''} onChange={(e) => set('demoUrl', e.target.value.trim() || undefined)} placeholder="https://" />
+          </Field>
           <Field label="Technologies used" className="sm:col-span-2">
             <ListEditor value={p.technologies} onChange={(v) => set('technologies', v)} placeholder="e.g. MikroTik CCR2004" />
           </Field>
@@ -186,6 +190,19 @@ function PortfolioEditor({ initial, onClose }: { initial: PortfolioItem; onClose
         <div className="space-y-4">
           <Field label="Cover image">
             <ImageInput value={p.image} onChange={(v) => set('image', v)} />
+          </Field>
+          <Field label="More screenshots" hint="Shown as a gallery in the project view">
+            <div className="grid grid-cols-3 gap-2">
+              {(p.gallery ?? []).map((g, i) => (
+                <div key={i} className="group relative">
+                  <img src={g} alt="" className="aspect-video w-full rounded-lg object-cover" />
+                  <button type="button" onClick={() => set('gallery', (p.gallery ?? []).filter((_, j) => j !== i))} className="absolute right-1 top-1 rounded bg-black/70 px-1.5 text-xs text-white opacity-0 group-hover:opacity-100" aria-label="Remove screenshot">
+                    ×
+                  </button>
+                </div>
+              ))}
+              {(p.gallery ?? []).length < 6 && <ImageInput value={undefined} onChange={(v) => v && set('gallery', [...(p.gallery ?? []), v])} aspect="aspect-video" label="Add" />}
+            </div>
           </Field>
           <Field label="Before image" hint="Optional — enables the before/after slider">
             <ImageInput value={p.beforeImage} onChange={(v) => set('beforeImage', v)} />
