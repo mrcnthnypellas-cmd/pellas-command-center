@@ -13,7 +13,8 @@ management dashboard. It is a **prototype for review and approval**. It is not t
 ## Live preview
 
 **https://marpel-prototype.vercel.app** (Vercel project `marpel-prototype`, team Pellas, root directory `marpel/`,
-built from branch `ccr-b4c02944-pexusk`). Pushes to that branch create preview deployments automatically; the
+built from branch `ccr-b4c02944-pexusk`). **Private:** Vercel Authentication is on for all deployments, so only
+signed-in members of the Pellas Vercel team can open it. Pushes to that branch create preview deployments automatically; the
 public URL is updated by promoting/deploying that branch to production.
 
 ## Screenshots
