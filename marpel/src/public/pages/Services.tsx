@@ -134,7 +134,7 @@ export function ServiceDetail() {
 
       {s.packages.length > 0 && (
         <Section className="pt-0">
-          <SectionHeading eyebrow="Packages" title="Available packages" body="Starting prices are indicative. Your final price is confirmed in a written, itemised quotation after assessment." />
+          <SectionHeading eyebrow="Packages" title="Available packages" body={s.showPrice ? 'Starting prices are indicative. Your final price is confirmed in a written, itemised quotation after assessment.' : 'Send an inquiry or request a quotation and we will recommend the right package and send an itemised quotation.'} />
           <div className="grid gap-6 md:grid-cols-3">
             {s.packages.map((p) => (
               <div key={p.id} className={cx('relative flex flex-col rounded-2xl border p-7', p.popular ? 'border-gold-400/50 bg-gradient-to-b from-gold-400/10 to-navy-900/60 shadow-gold' : 'border-white/[0.07] bg-navy-900/50')}>
@@ -147,10 +147,10 @@ export function ServiceDetail() {
                       <span className="ml-1.5 text-sm text-slate-500">{p.priceNote}</span>
                     </>
                   ) : (
-                    <span className="font-display text-xl font-semibold text-gold-200">{p.price === null ? 'Custom pricing' : 'Request a quote'}</span>
+                    <span className="font-display text-xl font-semibold text-gold-200">{s.showPrice && p.price === null ? 'Custom pricing' : 'Price upon inquiry'}</span>
                   )}
                 </p>
-                {p.price === null && <p className="text-xs text-slate-500">{p.priceNote}</p>}
+                {s.showPrice && p.price === null && <p className="text-xs text-slate-500">{p.priceNote}</p>}
                 <ul className="mt-6 flex-1 space-y-2.5">
                   {p.features.map((f) => (
                     <li key={f} className="flex gap-2.5 text-sm text-slate-300">

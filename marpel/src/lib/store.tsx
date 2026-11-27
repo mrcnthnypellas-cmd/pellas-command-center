@@ -48,7 +48,7 @@ export function buildSeed(): DB {
     emails: r.emails,
     audit: r.audit,
     counters: r.counters,
-    migrations: ['real-portfolio-1'],
+    migrations: ['real-portfolio-1', 'owner-details-1'],
   };
 }
 
@@ -64,6 +64,23 @@ function migrate(db: DB) {
     const post = db.posts.find((p) => p.id === 'b6');
     if (post?.status === 'published') post.status = 'draft';
     done.add('real-portfolio-1');
+  }
+  if (!done.has('owner-details-1')) {
+    // Owner instructions (Nov 2026): no figures on the homepage, prices on inquiry only, official email and office.
+    if (db.content.stats.every((x) => /^s\d$/.test(x.id))) db.content.stats = [];
+    if (db.content.about.founded === '2019') db.content.about.founded = '';
+    db.services.forEach((x) => (x.showPrice = false));
+    db.ai.showStartingPrices = false;
+    const st = db.settings;
+    if (st.email === 'hello@marpeltech.example') st.email = seedSettings.email;
+    if (st.supportEmail === 'support@marpeltech.example') st.supportEmail = seedSettings.supportEmail;
+    if (st.adminNotificationEmail === 'owner@marpeltech.example') st.adminNotificationEmail = seedSettings.adminNotificationEmail;
+    if (st.address.startsWith('Unit 0, Sample')) {
+      st.address = seedSettings.address;
+      st.city = seedSettings.city;
+      st.mapQuery = seedSettings.mapQuery;
+    }
+    done.add('owner-details-1');
   }
   db.migrations = [...done];
 }

@@ -21,11 +21,15 @@ export default function About() {
             <p className="whitespace-pre-line text-base leading-relaxed text-slate-400">{a.background}</p>
             <div className="mt-8 flex items-center gap-6 rounded-2xl border border-white/[0.07] bg-navy-900/60 p-5">
               <Logo />
-              <div className="h-10 w-px bg-white/10" />
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500">Serving clients since</p>
-                <p className="font-display text-2xl font-semibold text-gold-200">{a.founded}</p>
-              </div>
+              {a.founded && (
+                <>
+                  <div className="h-10 w-px bg-white/10" />
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-slate-500">Serving clients since</p>
+                    <p className="font-display text-2xl font-semibold text-gold-200">{a.founded}</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <div className="grid gap-5">

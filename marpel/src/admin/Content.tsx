@@ -144,12 +144,16 @@ export default function Content() {
               </div>
             </Card>
             <Card>
-              <CardHeader title="Headline statistics" />
+              <CardHeader title="Headline statistics" subtitle="Leave empty to hide the statistics strip on the homepage" action={<Button size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setC({ ...c, stats: [...c.stats, { id: uid('st_'), value: '', label: '' }] })}>Add</Button>} />
               <div className="grid gap-3 p-5 sm:grid-cols-2">
+                {c.stats.length === 0 && <p className="text-sm text-slate-500 sm:col-span-2">No statistics: the strip is hidden on the homepage.</p>}
                 {c.stats.map((s, i) => (
                   <div key={s.id} className="flex gap-2">
                     <Input value={s.value} onChange={(e) => setC({ ...c, stats: c.stats.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) })} className="w-24" aria-label="Value" />
                     <Input value={s.label} onChange={(e) => setC({ ...c, stats: c.stats.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} aria-label="Label" />
+                    <IconButton label="Remove" onClick={() => setC({ ...c, stats: c.stats.filter((_, j) => j !== i) })} className="hover:text-rose-300">
+                      <Trash2 className="h-4 w-4" />
+                    </IconButton>
                   </div>
                 ))}
               </div>
@@ -174,8 +178,6 @@ export default function Content() {
               {c.expertise.map((e, i) => (
                 <div key={e.id} className="flex items-center gap-3">
                   <Input value={e.label} onChange={(ev) => setC({ ...c, expertise: c.expertise.map((x, j) => (j === i ? { ...x, label: ev.target.value } : x)) })} aria-label="Expertise" />
-                  <input type="range" min={0} max={100} value={e.level} onChange={(ev) => setC({ ...c, expertise: c.expertise.map((x, j) => (j === i ? { ...x, level: Number(ev.target.value) } : x)) })} className="w-28 accent-[#d8ae5a]" aria-label="Level" />
-                  <span className="w-10 text-right text-xs tabular-nums text-gold-200">{e.level}%</span>
                   <IconButton label="Remove" onClick={() => setC({ ...c, expertise: c.expertise.filter((_, j) => j !== i) })} className="hover:text-rose-300">
                     <Trash2 className="h-4 w-4" />
                   </IconButton>

@@ -86,7 +86,7 @@ export function ServiceCard({ s, symbol }: { s: Service; symbol: string }) {
               Starts at <span className="font-display text-base font-semibold text-gold-200">{money(s.startingPrice, symbol, 0)}</span>
             </span>
           ) : (
-            <span className="text-xs text-slate-500">Priced after assessment</span>
+            <span className="text-xs text-slate-500">Price upon inquiry</span>
           )}
           <span className="flex items-center gap-1 text-sm font-medium text-gold-200 transition group-hover:gap-2">
             Learn more <ArrowRight className="h-4 w-4" />

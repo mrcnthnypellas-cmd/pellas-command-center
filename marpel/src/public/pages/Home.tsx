@@ -151,7 +151,8 @@ export default function Home() {
           </div>
           <HeroVisual />
         </div>
-        {/* stats */}
+        {/* stats (hidden until real figures are entered in Website Content) */}
+        {c.stats.length > 0 && (
         <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
           <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-white/[0.07] bg-navy-900/60 backdrop-blur lg:grid-cols-4">
             {c.stats.map((st, i) => (
@@ -162,6 +163,7 @@ export default function Home() {
             ))}
           </div>
         </div>
+        )}
       </div>
 
       {/* INTRO + SERVICES */}
@@ -207,16 +209,11 @@ export default function Home() {
         <div className="grid gap-14 lg:grid-cols-2">
           <div>
             <SectionHeading align="left" eyebrow="Our expertise" title="Depth across software and the field." body="Our team combines developers and certified field technicians, so applications, cameras and networks are designed to work together." />
-            <ul className="space-y-5">
+            <ul className="space-y-3">
               {c.expertise.map((e) => (
-                <li key={e.id}>
-                  <div className="mb-2 flex justify-between text-sm">
-                    <span className="text-slate-200">{e.label}</span>
-                    <span className="tabular-nums text-gold-200">{e.level}%</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                    <div className="h-full rounded-full bg-gradient-to-r from-gold-600 via-gold-400 to-gold-200" style={{ width: `${e.level}%` }} />
-                  </div>
+                <li key={e.id} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-navy-900/50 px-4 py-3 text-sm text-slate-200">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-gold-300" />
+                  {e.label}
                 </li>
               ))}
             </ul>
