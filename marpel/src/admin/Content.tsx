@@ -133,6 +133,12 @@ export default function Content() {
           </Card>
           <div className="space-y-6">
             <Card>
+              <CardHeader title="Tagline / promise" subtitle="Animated band under the homepage hero, and in the footer. The part after the dash (—) is shown in gold. Leave empty to hide." />
+              <div className="p-5">
+                <Input value={c.motto ?? ''} onChange={(e) => setC({ ...c, motto: e.target.value })} placeholder="We don’t rush the process—we perfect the service." />
+              </div>
+            </Card>
+            <Card>
               <CardHeader title="Business introduction" />
               <div className="space-y-4 p-5">
                 <Field label="Title">

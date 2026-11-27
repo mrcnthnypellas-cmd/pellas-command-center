@@ -1,5 +1,5 @@
 import { ArrowRight, CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, Copy, FileText, MessageCircle, Quote as QuoteIcon } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Artwork } from '../components/brand';
 import { Icon } from '../components/icons';
@@ -369,5 +369,66 @@ export function InquiryForm({ defaultService, compact, onDone }: { defaultServic
         {!busy && <ArrowRight className="h-4 w-4" />}
       </Button>
     </form>
+  );
+}
+
+/** Splits the motto at its dash: the first half sets up, the second half (the promise) is highlighted. */
+export function splitMotto(m: string): [string, string] {
+  const parts = m.split(/\s*[—–]\s*|\s+-\s+/);
+  return parts.length > 1 ? [parts[0]!, parts.slice(1).join(' ')] : [m, ''];
+}
+
+/** Animated company promise band: words rise in one by one when scrolled into view; the promise shimmers in gold. */
+export function MottoBand() {
+  const { db } = useStore();
+  const motto = db.content.motto?.trim();
+  const ref = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!('IntersectionObserver' in window)) return setSeen(true);
+    const io = new IntersectionObserver(([e]) => e?.isIntersecting && (setSeen(true), io.disconnect()), { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  if (!motto) return null;
+  const [lead, promise] = splitMotto(motto);
+  const leadWords = lead.split(/\s+/).filter(Boolean);
+  const promiseWords = promise.split(/\s+/).filter(Boolean);
+  const step = 0.11;
+  const word = (w: string, i: number, gold: boolean) => (
+    <span key={`${gold}-${i}`} className={cx('inline-block', seen ? 'animate-word-in motion-reduce:animate-none' : 'opacity-0 motion-reduce:opacity-100')} style={{ animationDelay: `${i * step}s` }}>
+      <span className={gold ? 'text-gold-gradient animate-shimmer [background-size:200%_auto]' : undefined}>{w}</span>
+      {'\u00a0'}
+    </span>
+  );
+  const dashAt = leadWords.length;
+  return (
+    <section ref={ref} aria-label="Our promise" className="relative overflow-hidden border-y border-white/[0.05] bg-navy-950 py-20 sm:py-24">
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[380px] w-[680px] max-w-[95vw] animate-float-glow rounded-full bg-gold-400/[0.10] blur-[90px] motion-reduce:animate-none" />
+      <div className="pointer-events-none absolute inset-0 bg-grid-faint [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
+      <div className="relative mx-auto max-w-5xl px-5 text-center">
+        <p className={cx('mb-6 text-[11px] font-semibold uppercase tracking-[0.3em] text-gold-300', seen ? 'animate-fade-up' : 'opacity-0 motion-reduce:opacity-100')}>Our promise</p>
+        <blockquote className="font-display text-[clamp(1.9rem,4.4vw,3.4rem)] font-semibold leading-[1.15] tracking-tight text-white [text-wrap:balance]">
+          <span className="sr-only">{motto}</span>
+          <span aria-hidden>
+            {leadWords.map((w, i) => word(w, i, false))}
+            {promiseWords.length > 0 && (
+              <span className={cx('inline-block text-gold-300', seen ? 'animate-word-in motion-reduce:animate-none' : 'opacity-0 motion-reduce:opacity-100')} style={{ animationDelay: `${dashAt * step}s` }}>
+                —{'\u00a0'}
+              </span>
+            )}
+            {promiseWords.map((w, i) => word(w, dashAt + 1 + i, true))}
+          </span>
+        </blockquote>
+        <div className="mx-auto mt-8 h-px w-40 overflow-hidden bg-white/10">
+          <div className={cx('h-full w-full origin-center bg-gradient-to-r from-transparent via-gold-300 to-transparent', seen ? 'animate-draw-line motion-reduce:animate-none' : 'scale-x-0 motion-reduce:scale-x-100')} style={{ animationDelay: `${(dashAt + promiseWords.length) * step + 0.2}s` }} />
+        </div>
+        <p className={cx('mt-5 text-sm tracking-wide text-slate-400', seen ? 'animate-fade-up' : 'opacity-0 motion-reduce:opacity-100')} style={{ animationDelay: `${(dashAt + promiseWords.length) * step + 0.4}s` }}>
+          {db.settings.businessName}
+        </p>
+      </div>
+    </section>
   );
 }

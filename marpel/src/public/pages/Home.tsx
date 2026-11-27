@@ -5,7 +5,7 @@ import { Icon } from '../../components/icons';
 import { Badge, Button } from '../../components/ui';
 import { useDB } from '../../lib/store';
 import { fmtDate, fmtTime } from '../../lib/utils';
-import { CTABand, InquiryForm, Section, SectionHeading, ServiceCard, Testimonials } from '../sections';
+import { CTABand, InquiryForm, MottoBand, Section, SectionHeading, ServiceCard, Testimonials } from '../sections';
 
 function HeroVisual() {
   return (
@@ -164,6 +164,11 @@ export default function Home() {
           </div>
         </div>
         )}
+      </div>
+
+      {/* PROMISE */}
+      <div className="mt-16">
+        <MottoBand />
       </div>
 
       {/* INTRO + SERVICES */}

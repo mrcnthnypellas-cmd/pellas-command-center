@@ -112,6 +112,7 @@ export const seedContent: SiteContent = {
     { id: 'e4', label: 'Structured cabling & Wi-Fi', level: 90 },
     { id: 'e5', label: 'Business systems (POS, inventory, HR)', level: 88 },
   ],
+  motto: 'We don’t rush the process—we perfect the service.',
   ctaBand: {
     title: 'Have a project in mind?',
     body: 'Tell us what you need. We will review your requirements and get back to you with recommendations and next steps — usually within one business day.',

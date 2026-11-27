@@ -48,7 +48,7 @@ export function buildSeed(): DB {
     emails: r.emails,
     audit: r.audit,
     counters: r.counters,
-    migrations: ['real-portfolio-1', 'owner-details-1'],
+    migrations: ['real-portfolio-1', 'owner-details-1', 'motto-1'],
   };
 }
 
@@ -81,6 +81,10 @@ function migrate(db: DB) {
       st.mapQuery = seedSettings.mapQuery;
     }
     done.add('owner-details-1');
+  }
+  if (!done.has('motto-1')) {
+    if (db.content.motto === undefined) db.content.motto = seedContent.motto;
+    done.add('motto-1');
   }
   db.migrations = [...done];
 }

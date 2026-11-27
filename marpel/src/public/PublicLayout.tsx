@@ -160,6 +160,7 @@ function Footer() {
         <div className="lg:col-span-4">
           <Logo />
           <p className="mt-5 max-w-sm text-sm leading-relaxed text-slate-400">{db.content.footer.blurb}</p>
+          {db.content.motto && <p className="mt-4 max-w-sm font-display text-sm italic text-gold-200/90">“{db.content.motto}”</p>}
           <div className="mt-6 flex gap-2">
             {socials.map(({ href, icon: I, label }) => (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-slate-400 transition hover:border-gold-400/50 hover:text-gold-200">

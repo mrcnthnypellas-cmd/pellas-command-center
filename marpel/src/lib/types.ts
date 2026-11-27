@@ -126,6 +126,8 @@ export interface SiteContent {
   whyChoose: Feature[];
   expertise: { id: ID; label: string; level: number }[];
   ctaBand: { title: string; body: string };
+  /** Company promise shown as an animated band on the homepage and in the footer. The part after the dash is highlighted. */
+  motto?: string;
   about: {
     headline: string;
     profile: string;
