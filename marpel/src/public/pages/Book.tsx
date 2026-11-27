@@ -1,13 +1,13 @@
 import { ArrowLeft, ArrowRight, Building2, CalendarCheck, CheckCircle2, Clock, Globe2, MapPin } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMeta } from '../../components/brand';
 import { dayAvailability, MonthGrid, slotsFor, slotState } from '../../components/calendar';
 import { AttachmentPicker, Button, Field, Input, Textarea } from '../../components/ui';
-import { bookAppointment } from '../../lib/actions';
+import { usePublicApi } from '../../lib/api';
 import { useStore, useToast } from '../../lib/store';
-import { APPOINTMENT_TYPES, type Appointment, type AppointmentType, type Attachment } from '../../lib/types';
-import { clean, cx, fmtDate, fmtTime, isEmail, isPhone } from '../../lib/utils';
+import { APPOINTMENT_TYPES, type Appointment, type AppointmentType, type Attachment, type DB } from '../../lib/types';
+import { clean, cx, fmtDate, fmtTime, isEmail, isPhone, todayYMD } from '../../lib/utils';
 import { PageHero, Section } from '../sections';
 
 const FROM_SLUG: Record<string, AppointmentType> = {
@@ -29,7 +29,8 @@ const DESC: Record<AppointmentType, string> = {
 };
 
 export default function Book() {
-  const { db, update } = useStore();
+  const { db } = useStore();
+  const api = usePublicApi();
   const { push } = useToast();
   useMeta('book');
   const [params] = useSearchParams();
@@ -46,6 +47,23 @@ export default function Book() {
   const duration = type ? db.availability.durations[type] : 60;
   const slots = useMemo(() => slotsFor(db.availability, duration), [db.availability, duration]);
   const onSite = type === 'CCTV Site Inspection' || type === 'Network Site Survey';
+  const [busy, setBusy] = useState(false);
+
+  // Only booked times (no customer details) are fetched for the visible month.
+  const [booked, setBooked] = useState<{ date: string; time: string; duration: number }[]>([]);
+  const { bookedSlots } = api;
+  const loadBooked = useCallback(() => {
+    const from = todayYMD(new Date(month.getFullYear(), month.getMonth(), 1));
+    const to = todayYMD(new Date(month.getFullYear(), month.getMonth() + 1, 0));
+    bookedSlots(from, to).then(setBooked, () => undefined);
+  }, [month, bookedSlots]);
+  useEffect(() => {
+    loadBooked();
+  }, [loadBooked]);
+  const cal = useMemo<DB>(
+    () => ({ ...db, appointments: booked.map((b, i) => ({ id: `b${i}`, date: b.date, time: b.time, duration: b.duration, status: 'Confirmed' }) as Appointment) }),
+    [db, booked],
+  );
 
   const submit = () => {
     const x: Record<string, string> = {};
@@ -55,9 +73,9 @@ export default function Book() {
     if ((onSite || f.mode === 'On-site') && clean(f.location).length < 4) x.location = 'Enter the site address';
     setErr(x);
     if (Object.keys(x).length) return;
-    let result: Appointment | string = '';
-    update((d) => {
-      result = bookAppointment(d, {
+    setBusy(true);
+    api
+      .bookAppointment({
         name: clean(f.name, 120),
         email: f.email.trim().toLowerCase(),
         mobile: f.mobile.trim(),
@@ -69,16 +87,22 @@ export default function Book() {
         mode: onSite ? 'On-site' : f.mode,
         description: clean(f.description, 3000),
         attachments: files,
-      });
-    });
-    if (typeof result === 'string') {
-      push({ tone: 'error', title: 'Slot unavailable', body: result });
-      setTime('');
-      setStep(2);
-      return;
-    }
-    setDone(result);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+      })
+      .then(
+        (result) => {
+          if (typeof result === 'string') {
+            push({ tone: 'error', title: 'Slot unavailable', body: result });
+            setTime('');
+            setStep(2);
+            loadBooked();
+            return;
+          }
+          setDone(result);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        (e: Error) => push({ tone: 'error', title: 'Booking not sent', body: e.message }),
+      )
+      .finally(() => setBusy(false));
   };
 
   if (done)
@@ -169,13 +193,13 @@ export default function Book() {
                   setTime('');
                 }}
                 dayInfo={(ymd, d) => {
-                  const a = dayAvailability(db, ymd, d);
+                  const a = dayAvailability(cal, ymd, d);
                   return { disabled: !a.bookable, tone: a.blackout ? 'blocked' : undefined };
                 }}
                 renderDay={(ymd, d) => {
-                  const a = dayAvailability(db, ymd, d);
+                  const a = dayAvailability(cal, ymd, d);
                   if (!a.bookable) return a.blackout ? <span className="text-[8px] text-rose-300/70">Closed</span> : null;
-                  const free = slots.filter((s) => slotState(db, ymd, s, duration) === 'open').length;
+                  const free = slots.filter((s) => slotState(cal, ymd, s, duration) === 'open').length;
                   return <span className={cx('mt-0.5 h-1 w-1 rounded-full', free === 0 ? 'bg-rose-400' : free < 3 ? 'bg-amber-300' : 'bg-emerald-400')} />;
                 }}
               />
@@ -191,7 +215,7 @@ export default function Book() {
               {date ? (
                 <div className="mt-5 grid grid-cols-3 gap-2">
                   {slots.map((s) => {
-                    const st = slotState(db, date, s, duration);
+                    const st = slotState(cal, date, s, duration);
                     return (
                       <button key={s} type="button" disabled={st !== 'open'} onClick={() => setTime(s)} className={cx('rounded-xl border py-2.5 text-sm transition', time === s ? 'border-gold-400 bg-gold-400 font-semibold text-navy-950' : st === 'open' ? 'border-white/10 text-slate-200 hover:border-gold-400/50' : 'cursor-not-allowed border-white/5 text-slate-600 line-through')}>
                         {fmtTime(s)}
@@ -260,8 +284,8 @@ export default function Book() {
                 <Button variant="ghost" icon={<ArrowLeft className="h-4 w-4" />} onClick={() => setStep(2)}>
                   Back
                 </Button>
-                <Button variant="gold" size="lg" onClick={submit}>
-                  Confirm booking
+                <Button variant="gold" size="lg" onClick={submit} disabled={busy}>
+                  {busy ? 'Booking…' : 'Confirm booking'}
                 </Button>
               </div>
             </div>

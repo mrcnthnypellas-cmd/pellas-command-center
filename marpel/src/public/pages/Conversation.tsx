@@ -3,24 +3,31 @@ import { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChatThread, Composer } from '../../components/chat';
 import { Button, StatusBadge } from '../../components/ui';
-import { customerSend } from '../../lib/actions';
-import { useStore } from '../../lib/store';
+import { useCustomerConversation, usePublicApi } from '../../lib/api';
+import { useToast } from '../../lib/store';
 import { fmtDate } from '../../lib/utils';
+import { LIVE } from '../../lib/supabase';
 import { Section } from '../sections';
 
 /** Secure customer conversation page — reachable only with the unguessable conversation token. */
 export default function ConversationPage() {
   const { token } = useParams();
-  const { db, update } = useStore();
-  const conv = db.conversations.find((c) => c.token === token);
+  const api = usePublicApi();
+  const { push } = useToast();
+  const { conv, setConv, missing } = useCustomerConversation(token ?? null, true);
   useEffect(() => {
     document.title = 'Your conversation | Marpel Tech';
-    if (conv && conv.customerUnread > 0)
-      update((d) => {
-        const c = d.conversations.find((x) => x.id === conv.id);
-        if (c) c.customerUnread = 0;
-      });
-  }, [conv, update]);
+  }, []);
+  useEffect(() => {
+    if (!LIVE && conv && conv.customerUnread > 0) void api.getConversation(conv.token);
+  }, [conv, api]);
+
+  if (!conv && !missing)
+    return (
+      <Section className="flex justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold-400/20 border-t-gold-300" />
+      </Section>
+    );
 
   if (!conv)
     return (
@@ -54,7 +61,14 @@ export default function ConversationPage() {
         <div className="h-[55vh] overflow-y-auto px-6 py-5">
           <ChatThread messages={conv.messages} perspective="customer" />
         </div>
-        <Composer onSend={(t, a) => update((d) => customerSend(d, conv.id, t, a))} />
+        <Composer
+          onSend={(t, a) =>
+            api.sendMessage(conv.token, t, a).then(
+              (c) => c && setConv(c),
+              (e: Error) => push({ tone: 'error', title: 'Message not sent', body: e.message }),
+            )
+          }
+        />
       </div>
       <p className="mt-4 text-center text-xs text-slate-500">Bookmark this page to return to your conversation. Don’t share the link — anyone with it can read this chat.</p>
     </Section>

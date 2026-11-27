@@ -1,4 +1,5 @@
 import { Database, Download, RotateCcw, Save, Undo2 } from 'lucide-react';
+import { LIVE } from '../lib/supabase';
 import { useState } from 'react';
 import { LogoMark } from '../components/brand';
 import { DocHeader } from '../components/DocHeader';
@@ -252,7 +253,7 @@ export default function Settings() {
       {tab === 'data' && (
         <div className="grid gap-6 xl:grid-cols-2">
           <Card>
-            <CardHeader title="Prototype data" subtitle="Stored in this browser's local storage" />
+            <CardHeader title={LIVE ? 'Business data' : 'Prototype data'} subtitle={LIVE ? 'Stored securely in the cloud database (daily backups by Supabase)' : "Stored in this browser's local storage"} />
             <div className="space-y-4 p-5 text-sm">
               <div className="flex items-center gap-3 rounded-xl border border-white/[0.07] p-4">
                 <Database className="h-6 w-6 text-gold-300" />
@@ -260,7 +261,7 @@ export default function Settings() {
                   <p className="text-slate-200">
                     {db.customers.length} customers · {db.inquiries.length} inquiries · {db.projects.length} projects
                   </p>
-                  <p className="text-xs text-slate-500">{bytes(size)} used of ~5 MB browser storage</p>
+                  {!LIVE && <p className="text-xs text-slate-500">{bytes(size)} used of ~5 MB browser storage</p>}
                 </div>
               </div>
               <Button
@@ -269,7 +270,7 @@ export default function Settings() {
                   const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
                   const a = document.createElement('a');
                   a.href = URL.createObjectURL(blob);
-                  a.download = `marpel-prototype-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                  a.download = `marpel-${LIVE ? '' : 'prototype-'}backup-${new Date().toISOString().slice(0, 10)}.json`;
                   a.click();
                   update((d) => audit(d, actorOf(user), 'Exported data backup', 'JSON'));
                 }}
@@ -278,6 +279,7 @@ export default function Settings() {
               </Button>
             </div>
           </Card>
+          {!LIVE && (
           <Card>
             <CardHeader title="Reset" />
             <div className="space-y-3 p-5 text-sm text-slate-400">
@@ -288,6 +290,7 @@ export default function Settings() {
               {user?.role !== 'super_admin' && <p className="text-xs">Only the Super Administrator can reset data.</p>}
             </div>
           </Card>
+          )}
         </div>
       )}
       <Modal

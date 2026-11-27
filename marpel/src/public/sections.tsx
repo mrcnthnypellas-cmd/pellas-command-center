@@ -1,10 +1,11 @@
 import { ArrowRight, CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, Copy, FileText, MessageCircle, Quote as QuoteIcon } from 'lucide-react';
+import { LIVE } from '../lib/supabase';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Artwork } from '../components/brand';
 import { Icon } from '../components/icons';
 import { AttachmentPicker, Button, Field, Input, Select, Stars, Textarea } from '../components/ui';
-import { submitInquiry } from '../lib/actions';
+import { usePublicApi } from '../lib/api';
 import { useStore, useToast } from '../lib/store';
 import type { Attachment, Service } from '../lib/types';
 import { clean, cx, isEmail, isPhone, money } from '../lib/utils';
@@ -159,7 +160,7 @@ export function Testimonials() {
           </button>
         </div>
       )}
-      <p className="mt-6 text-center text-[11px] text-slate-600">Sample testimonials for prototype review — replace with real client feedback in Admin → Website Content.</p>
+      {!LIVE && <p className="mt-6 text-center text-[11px] text-slate-600">Sample testimonials for prototype review — replace with real client feedback in Admin → Website Content.</p>}
     </div>
   );
 }
@@ -194,7 +195,8 @@ export const SCHEDULE_OPTIONS = ['As soon as possible', 'Within 2 weeks', 'Withi
 
 /** The full customer inquiry / quotation request form. */
 export function InquiryForm({ defaultService, compact, onDone }: { defaultService?: string; compact?: boolean; onDone?: (ref: string) => void }) {
-  const { db, update } = useStore();
+  const { db } = useStore();
+  const api = usePublicApi();
   const { push } = useToast();
   const services = db.services.filter((s) => s.status === 'published').sort((a, b) => a.order - b.order);
   const [f, setF] = useState({
@@ -234,28 +236,27 @@ export function InquiryForm({ defaultService, compact, onDone }: { defaultServic
       return;
     }
     setBusy(true);
-    setTimeout(() => {
-      let ref = '';
-      update((d) => {
-        ref = submitInquiry(d, {
-          name: clean(f.name, 120),
-          email: f.email.trim().toLowerCase(),
-          mobile: f.mobile.trim(),
-          company: clean(f.company, 160),
-          service: f.service,
-          title: clean(f.title, 160) || `${f.service} inquiry`,
-          description: clean(f.description, 5000),
-          budget: f.budget || 'Not sure yet',
-          schedule: f.schedule || 'Flexible / planning stage',
-          attachments: files,
-          source: 'Website Form',
-        }).ref;
-      });
-      setBusy(false);
-      setDone(ref);
-      onDone?.(ref);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 600);
+    api
+      .submitInquiry({
+        name: clean(f.name, 120),
+        email: f.email.trim().toLowerCase(),
+        mobile: f.mobile.trim(),
+        company: clean(f.company, 160),
+        service: f.service,
+        title: clean(f.title, 160) || `${f.service} inquiry`,
+        description: clean(f.description, 5000),
+        budget: f.budget || 'Not sure yet',
+        schedule: f.schedule || 'Flexible / planning stage',
+        attachments: files,
+        source: 'Website Form',
+      })
+      .then(({ ref }) => {
+        setDone(ref);
+        onDone?.(ref);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      })
+      .catch((e: Error) => push({ tone: 'error', title: 'Your inquiry was not sent', body: e.message }))
+      .finally(() => setBusy(false));
   };
 
   if (done)

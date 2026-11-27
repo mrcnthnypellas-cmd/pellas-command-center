@@ -5,6 +5,7 @@ import { Logo } from '../components/brand';
 import { Button, Field, Input } from '../components/ui';
 import { ROLE_LABEL } from '../lib/permissions';
 import { useSession, useStore } from '../lib/store';
+import { LIVE } from '../lib/supabase';
 
 export default function Login() {
   const { login, user } = useSession();
@@ -15,13 +16,17 @@ export default function Login() {
   const [p, setP] = useState('');
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     document.title = 'Sign in · Marpel Admin';
     if (user) nav(loc.state?.from ?? '/admin', { replace: true });
   }, [user, nav, loc.state]);
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const r = login(u, p);
+    setBusy(true);
+    setErr('');
+    const r = await login(u, p);
+    setBusy(false);
     if (r) setErr(r);
   };
   const demos = db.users.filter((x) => x.active).slice(0, 4);
@@ -56,8 +61,8 @@ export default function Login() {
           <h2 className="mt-6 font-display text-2xl font-semibold text-white">Sign in to the dashboard</h2>
           <p className="mt-1 text-sm text-slate-400">Authorized staff only.</p>
           <form onSubmit={submit} className="mt-8 space-y-4">
-            <Field label="Username or email">
-              <Input value={u} onChange={(e) => setU(e.target.value)} autoComplete="username" autoFocus />
+            <Field label={LIVE ? 'Email' : 'Username or email'}>
+              <Input type={LIVE ? 'email' : 'text'} value={u} onChange={(e) => setU(e.target.value)} autoComplete="username" autoFocus />
             </Field>
             <Field label="Password">
               <div className="relative">
@@ -68,10 +73,11 @@ export default function Login() {
               </div>
             </Field>
             {err && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{err}</p>}
-            <Button type="submit" variant="gold" size="lg" className="w-full" icon={<Lock className="h-4 w-4" />} disabled={!u || !p}>
-              Sign in
+            <Button type="submit" variant="gold" size="lg" className="w-full" icon={<Lock className="h-4 w-4" />} disabled={!u || !p || busy}>
+              {busy ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
+          {!LIVE && (
           <div className="mt-8 rounded-2xl border border-violet-400/25 bg-violet-500/[0.05] p-4">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-violet-200">
               <FlaskConical className="h-3.5 w-3.5" /> Demo accounts (password: demo1234)
@@ -94,6 +100,7 @@ export default function Login() {
               ))}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

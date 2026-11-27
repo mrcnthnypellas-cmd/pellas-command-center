@@ -50,8 +50,9 @@ function ScrollTop() {
 }
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  const { user } = useSession();
+  const { user, ready } = useSession();
   const loc = useLocation();
+  if (!ready) return <Loading />;
   if (!user) return <Navigate to="/admin/login" replace state={{ from: loc.pathname + loc.search }} />;
   return children;
 }

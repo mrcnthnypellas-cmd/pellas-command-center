@@ -1,4 +1,5 @@
 import { Clock, Facebook, Instagram, Linkedin, Mail, MapPin, MessageCircle, Music2, Phone, Smartphone, Youtube } from 'lucide-react';
+import { LIVE } from '../../lib/supabase';
 import { useMeta } from '../../components/brand';
 import { Button, SimBadge } from '../../components/ui';
 import { useDB } from '../../lib/store';
@@ -52,7 +53,10 @@ export default function Contact() {
           <div className="space-y-6">
             <div className="overflow-hidden rounded-3xl border border-white/[0.07] bg-navy-900/60">
               <div className="relative aspect-[4/3] bg-navy-800">
-                {/* Google Maps placeholder — production embeds the Maps Embed API iframe for settings.mapQuery */}
+                {LIVE ? (
+                  <iframe title="Office location map" src={`https://www.google.com/maps?q=${encodeURIComponent(s.mapQuery)}&output=embed`} className="absolute inset-0 h-full w-full border-0 [filter:invert(.9)_hue-rotate(180deg)_saturate(.6)]" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+                ) : (
+                <>
                 <svg viewBox="0 0 400 300" className="absolute inset-0 h-full w-full" aria-hidden>
                   <rect width="400" height="300" fill="#0d1a30" />
                   {[40, 95, 150, 205, 260].map((y) => (
@@ -69,6 +73,8 @@ export default function Contact() {
                 <div className="absolute left-3 top-3">
                   <SimBadge>Google Maps placeholder</SimBadge>
                 </div>
+                </>
+                )}
               </div>
               <div className="flex items-center justify-between gap-3 p-4">
                 <p className="text-sm text-slate-300">{s.mapQuery}</p>

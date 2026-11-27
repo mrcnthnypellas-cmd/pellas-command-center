@@ -1,9 +1,10 @@
 import { CalendarClock, Camera, CheckCircle2, Circle, FileText, KeyRound, Loader2, LogOut, MessageCircle, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMeta } from '../../components/brand';
 import { Badge, Button, Field, Input, Modal, SimBadge, StatusBadge } from '../../components/ui';
-import { projectProgress, setQuotationStatus } from '../../lib/actions';
+import { trackProgress, usePublicApi, type TrackView } from '../../lib/api';
 import { useStore, useToast } from '../../lib/store';
+import { LIVE } from '../../lib/supabase';
 import { cx, fmtDate, fmtDateTime, money, quoteTotals } from '../../lib/utils';
 import { openChat } from '../ChatWidget';
 import { PageHero, Section } from '../sections';
@@ -11,10 +12,12 @@ import { PageHero, Section } from '../sections';
 const PORTAL_KEY = 'marpel.portal';
 
 export default function Track() {
-  const { db, update } = useStore();
+  const { db } = useStore();
+  const api = usePublicApi();
   const { push } = useToast();
   useMeta('track');
-  const [projectId, setProjectId] = useState<string | null>(() => sessionStorage.getItem(PORTAL_KEY));
+  const [project, setProject] = useState<TrackView | null>(null);
+  const [restoring, setRestoring] = useState(() => !!sessionStorage.getItem(PORTAL_KEY));
   const [ref, setRef] = useState('');
   const [pin, setPin] = useState('');
   const [err, setErr] = useState('');
@@ -23,29 +26,79 @@ export default function Track() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [quoteOpen, setQuoteOpen] = useState(false);
 
-  const project = projectId ? db.projects.find((p) => p.id === projectId) : undefined;
+  // The reference and PIN are kept only for this browser tab, so a refresh stays signed in.
+  const { trackProject } = api;
+  useEffect(() => {
+    const saved = sessionStorage.getItem(PORTAL_KEY);
+    if (!saved) return;
+    let creds: { ref: string; pin: string } | null = null;
+    try {
+      creds = JSON.parse(saved);
+    } catch {
+      creds = null;
+    }
+    if (!creds?.ref || !creds.pin) {
+      sessionStorage.removeItem(PORTAL_KEY);
+      setRestoring(false);
+      return;
+    }
+    const c = creds;
+    trackProject(c.ref, c.pin)
+      .then((v) => {
+        if (v) {
+          setProject(v);
+          setRef(c.ref);
+          setPin(c.pin);
+        } else sessionStorage.removeItem(PORTAL_KEY);
+      }, () => undefined)
+      .finally(() => setRestoring(false));
+    // Run once on page open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const login = (e: React.FormEvent) => {
     e.preventDefault();
     if (attempts >= 5) return setErr('Too many attempts. Please wait a minute or contact us.');
     setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
-      const p = db.projects.find((x) => x.trackingRef.toUpperCase() === ref.trim().toUpperCase());
-      // Same message for wrong ref or wrong PIN — don't reveal which projects exist.
-      if (!p || p.accessPin !== pin.trim()) {
-        setAttempts((a) => a + 1);
-        if (attempts + 1 >= 5) setTimeout(() => setAttempts(0), 60_000);
-        return setErr('We couldn’t verify that tracking reference and PIN.');
-      }
-      setErr('');
-      sessionStorage.setItem(PORTAL_KEY, p.id);
-      setProjectId(p.id);
-      update((d) => {
-        d.audit.unshift({ id: crypto.randomUUID(), at: new Date().toISOString(), user: d.customers.find((c) => c.id === p.customerId)?.name ?? 'Customer', role: 'customer', action: 'Opened project tracking', target: p.trackingRef });
-      });
-    }, 500);
+    const r = ref.trim().toUpperCase();
+    const p = pin.trim();
+    api
+      .trackProject(r, p)
+      .then(
+        (v) => {
+          // Same message for wrong ref or wrong PIN — don't reveal which projects exist.
+          if (!v) {
+            setAttempts((a) => a + 1);
+            if (attempts + 1 >= 5) setTimeout(() => setAttempts(0), 60_000);
+            return setErr('We couldn’t verify that tracking reference and PIN.');
+          }
+          setErr('');
+          sessionStorage.setItem(PORTAL_KEY, JSON.stringify({ ref: r, pin: p }));
+          setProject(v);
+        },
+        (e: Error) => setErr(e.message),
+      )
+      .finally(() => setBusy(false));
   };
+
+  const respond = (qid: string, decision: 'Approved' | 'Rejected') => {
+    if (!project) return;
+    api.respondQuotation(ref.trim().toUpperCase(), pin.trim(), qid, decision, project.customer.name).then(
+      () => {
+        setProject({ ...project, pendingQuotes: project.pendingQuotes.filter((q) => q.id !== qid) });
+        if (decision === 'Approved') push({ tone: 'success', title: 'Quotation approved', body: 'Our team has been notified.' });
+        else push({ tone: 'info', title: 'Quotation declined' });
+      },
+      (e: Error) => push({ tone: 'error', title: 'Could not save your response', body: e.message }),
+    );
+  };
+
+  if (restoring)
+    return (
+      <Section className="flex justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold-400/20 border-t-gold-300" />
+      </Section>
+    );
 
   if (!project)
     return (
@@ -69,6 +122,15 @@ export default function Track() {
                 <ShieldCheck className="h-4 w-4 text-gold-400" /> You can only view projects linked to your reference and PIN.
               </p>
             </form>
+            {LIVE ? (
+              <div className="space-y-3 rounded-3xl border border-white/[0.07] bg-navy-900/60 p-6">
+                <p className="font-display font-semibold text-white">Where do I find these?</p>
+                <p className="text-sm text-slate-400">Your tracking reference and 6-digit PIN are sent by our team when your project starts. Can’t find them? Message us and we’ll resend them.</p>
+                <Button variant="outline" icon={<MessageCircle className="h-4 w-4" />} onClick={() => openChat('live')}>
+                  Chat with our team
+                </Button>
+              </div>
+            ) : (
             <div className="space-y-4 rounded-3xl border border-violet-400/25 bg-violet-500/[0.05] p-6">
               <SimBadge>Prototype demo access</SimBadge>
               <p className="text-sm text-slate-300">Use one of these sample projects to explore the client portal:</p>
@@ -93,18 +155,18 @@ export default function Track() {
               ))}
               <p className="text-xs text-slate-500">Production: customers sign in with a magic link or password, and access is enforced by database row-level security.</p>
             </div>
+            )}
           </div>
         </Section>
       </>
     );
 
-  const pct = projectProgress(project);
-  const customer = db.customers.find((c) => c.id === project.customerId);
-  const updates = project.updates.filter((u) => u.visibleToCustomer);
-  const photos = updates.flatMap((u) => u.images);
-  const quote = project.quotationId ? db.quotations.find((q) => q.id === project.quotationId) : undefined;
-  const pendingQuotes = db.quotations.filter((q) => q.customerId === project.customerId && (q.status === 'Sent' || q.status === 'Viewed'));
-  const pm = db.users.find((u) => u.id === project.managerId);
+  const pct = trackProgress(project);
+  const customer = project.customer;
+  const updates = project.updates;
+  const photos = updates.flatMap((u) => u.images ?? []);
+  const quote = project.quotation;
+  const pendingQuotes = project.pendingQuotes;
   const current = project.milestones.find((m) => m.status === 'active');
 
   return (
@@ -124,7 +186,7 @@ export default function Track() {
               icon={<LogOut className="h-4 w-4" />}
               onClick={() => {
                 sessionStorage.removeItem(PORTAL_KEY);
-                setProjectId(null);
+                setProject(null);
                 setPin('');
               }}
             >
@@ -178,7 +240,7 @@ export default function Track() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wider text-slate-500">Project manager</p>
-                  <p className="mt-1 text-slate-300">{pm?.name}</p>
+                  <p className="mt-1 text-slate-300">{project.managerName ?? '—'}</p>
                 </div>
               </div>
             </div>
@@ -253,9 +315,9 @@ export default function Track() {
                     </p>
                   </div>
                   <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-400">{u.body}</p>
-                  {u.images.length > 0 && (
+                  {(u.images ?? []).length > 0 && (
                     <div className="mt-3 flex gap-2">
-                      {u.images.map((im, i) => (
+                      {(u.images ?? []).map((im, i) => (
                         <button key={i} type="button" onClick={() => setPhoto(im)}>
                           <img src={im} alt="" className="h-20 w-28 rounded-lg object-cover" />
                         </button>
@@ -300,20 +362,14 @@ export default function Track() {
                   <Button
                     variant="gold"
                     size="sm"
-                    onClick={() => {
-                      update((d) => setQuotationStatus(d, q.id, 'Approved', { name: customer?.name ?? 'Customer', role: 'customer' }));
-                      push({ tone: 'success', title: 'Quotation approved', body: 'Our team has been notified.' });
-                    }}
+                    onClick={() => respond(q.id!, 'Approved')}
                   >
                     Approve
                   </Button>
                   <Button
                     variant="danger"
                     size="sm"
-                    onClick={() => {
-                      update((d) => setQuotationStatus(d, q.id, 'Rejected', { name: customer?.name ?? 'Customer', role: 'customer' }));
-                      push({ tone: 'info', title: 'Quotation declined' });
-                    }}
+                    onClick={() => respond(q.id!, 'Rejected')}
                   >
                     Decline
                   </Button>

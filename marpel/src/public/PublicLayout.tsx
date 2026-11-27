@@ -1,4 +1,5 @@
 import { ArrowRight, ChevronDown, Clock, Facebook, FlaskConical, Instagram, Linkedin, Mail, MapPin, Menu, Music2, Phone, RotateCcw, Shield, X, Youtube } from 'lucide-react';
+import { LIVE } from '../lib/supabase';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/brand';
@@ -319,7 +320,7 @@ export default function PublicLayout() {
       </main>
       <Footer />
       <ChatWidget />
-      <PrototypeBar />
+      {!LIVE && <PrototypeBar />}
     </div>
   );
 }

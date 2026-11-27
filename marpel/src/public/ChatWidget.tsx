@@ -4,9 +4,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AIBubble, ChatThread, Composer } from '../components/chat';
 import { LogoMark } from '../components/brand';
 import { Button, Field, Input, SimBadge, Textarea } from '../components/ui';
-import { customerSend, startConversation, submitInquiry } from '../lib/actions';
+import { useCustomerConversation, usePublicApi } from '../lib/api';
 import { greet, initialAIState, respond, type AIReply, type AIState } from '../lib/ai';
 import { useStore, useToast } from '../lib/store';
+import { LIVE } from '../lib/supabase';
 import type { AIConversation } from '../lib/types';
 import { clean, cx, isEmail, isPhone, nowISO, uid } from '../lib/utils';
 
@@ -31,14 +32,14 @@ export function useChatToken() {
 }
 
 export default function ChatWidget() {
-  const { db, update } = useStore();
+  const { db } = useStore();
+  const api = usePublicApi();
   const { push } = useToast();
   const nav = useNavigate();
   const aiOn = db.ai.enabled;
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>(aiOn ? 'ai' : 'live');
   const [token, setToken] = useChatToken();
-  const conv = token ? db.conversations.find((c) => c.token === token) : undefined;
 
   // Allow other pages to open the widget (e.g. "Chat with us" buttons).
   useEffect(() => {
@@ -70,22 +71,38 @@ export default function ChatWidget() {
     endRef.current?.scrollIntoView({ block: 'end' });
   }, [aiMsgs.length, thinking]);
 
+  const aiStarted = useRef<string>(nowISO());
+  const aiVisitor = useRef<string>(`Visitor #${Math.floor(1000 + Math.random() * 9000)}`);
+  const aiOutcome = useRef<AIConversation['outcome']>('Answered');
+  const aiSuggested = useRef<string | undefined>(undefined);
   const logAI = (msgs: AIMsg[], outcome: AIConversation['outcome'], suggested?: string, visitor?: string) => {
-    update((d) => {
-      const rec = d.ai.conversations.find((c) => c.id === aiLogId.current);
-      const messages = msgs.map((m) => ({ from: m.from, text: m.text, at: nowISO() }));
-      if (rec) {
-        rec.messages = messages;
-        if (rec.outcome !== 'Lead captured' && rec.outcome !== 'Handed off') rec.outcome = outcome;
-        rec.suggestedService = suggested ?? rec.suggestedService;
-        if (visitor) rec.visitor = visitor;
-      } else {
-        d.ai.conversations.unshift({ id: aiLogId.current, visitor: visitor ?? `Visitor #${Math.floor(1000 + Math.random() * 9000)}`, startedAt: nowISO(), messages, outcome, suggestedService: suggested });
-      }
+    if (aiOutcome.current !== 'Lead captured' && aiOutcome.current !== 'Handed off') aiOutcome.current = outcome;
+    if (suggested) aiSuggested.current = suggested;
+    if (visitor) aiVisitor.current = visitor;
+    api.logAI({
+      id: aiLogId.current,
+      visitor: aiVisitor.current,
+      startedAt: aiStarted.current,
+      messages: msgs.map((m) => ({ from: m.from, text: m.text, at: nowISO() })),
+      outcome: aiOutcome.current,
+      suggestedService: aiSuggested.current,
     });
   };
 
   const [handoffPrefill, setHandoffPrefill] = useState<string | null>(null);
+
+  const finishAI = (base: AIMsg[], reply: AIReply, state: AIState, replyText: string, outcome: AIConversation['outcome']) => {
+    const aiMsg: AIMsg = { id: uid(), from: 'ai', text: replyText, reply };
+    const all = [...base, aiMsg];
+    setAIMsgs(all);
+    setAIState(state);
+    logAI(all, outcome, state.suggested, state.lead.name);
+    if (reply.action?.type === 'handoff') {
+      const transcript = `Conversation transferred from ${db.ai.name} (AI). Visitor said: “${base.filter((m) => m.from === 'user').slice(-3).map((m) => m.text).join(' / ')}”${state.suggested ? ` · Suggested service: ${state.suggested}` : ''}`;
+      setHandoffPrefill(transcript);
+      setTimeout(() => setTab('live'), 700);
+    }
+  };
 
   const sendAI = (text: string) => {
     const t = clean(text, 1000);
@@ -96,14 +113,10 @@ export default function ChatWidget() {
     setThinking(true);
     const { reply, state } = respond(db, aiState, t);
     setTimeout(() => {
-      setThinking(false);
-      let replyText = reply.text;
-      let outcome: AIConversation['outcome'] = 'Answered';
       if (reply.action?.type === 'submit_lead') {
         const l = state.lead;
-        let ref = '';
-        update((d) => {
-          const inq = submitInquiry(d, {
+        api
+          .submitInquiry({
             name: l.name!,
             email: l.email!,
             mobile: l.mobile!,
@@ -115,25 +128,23 @@ export default function ChatWidget() {
             schedule: 'To be discussed',
             attachments: [],
             source: 'AI Assistant',
-          });
-          ref = inq.ref;
-        });
-        replyText = `Done! Your request was submitted. Your reference number is ${ref || 'being generated'}. Our team will review it and contact you within one business day. You can also book a consultation if you’d like to talk sooner.`;
-        reply.chips = ['Book a consultation', 'Talk to a person'];
-        outcome = 'Lead captured';
-        push({ tone: 'success', title: 'Quotation request submitted', body: ref });
+          })
+          .then(
+            ({ ref }) => {
+              reply.chips = ['Book a consultation', 'Talk to a person'];
+              push({ tone: 'success', title: 'Quotation request submitted', body: ref });
+              finishAI(base, reply, state, `Done! Your request was submitted. Your reference number is ${ref}. Our team will review it and contact you within one business day. You can also book a consultation if you’d like to talk sooner.`, 'Lead captured');
+            },
+            (e: Error) => {
+              reply.chips = ['Request a quotation', 'Talk to a person'];
+              finishAI(base, reply, { ...state, mode: 'confirm' }, `Sorry, I couldn’t submit your request just now (${e.message}). Please try again, use the quotation form, or talk to a person.`, 'Answered');
+            },
+          )
+          .finally(() => setThinking(false));
+        return;
       }
-      if (reply.action?.type === 'handoff') outcome = 'Handed off';
-      const aiMsg: AIMsg = { id: uid(), from: 'ai', text: replyText, reply };
-      const all = [...base, aiMsg];
-      setAIMsgs(all);
-      setAIState(state);
-      logAI(all, outcome, state.suggested, state.lead.name);
-      if (reply.action?.type === 'handoff') {
-        const transcript = `Conversation transferred from ${db.ai.name} (AI). Visitor said: “${base.filter((m) => m.from === 'user').slice(-3).map((m) => m.text).join(' / ')}”${state.suggested ? ` · Suggested service: ${state.suggested}` : ''}`;
-        setHandoffPrefill(transcript);
-        setTimeout(() => setTab('live'), 700);
-      }
+      setThinking(false);
+      finishAI(base, reply, state, reply.text, reply.action?.type === 'handoff' ? 'Handed off' : 'Answered');
     }, 450 + Math.min(900, t.length * 12));
   };
 
@@ -143,15 +154,17 @@ export default function ChatWidget() {
     sendAI(c);
   };
 
-  // Mark admin replies as read when customer views live tab
+  // Live chat: in production the conversation is fetched securely and refreshed
+  // every few seconds while the panel is open; viewing it marks replies as read.
+  const viewing = open && tab === 'live';
+  const { conv, setConv, missing } = useCustomerConversation(token, viewing);
   useEffect(() => {
-    if (open && tab === 'live' && conv && conv.customerUnread > 0) {
-      update((d) => {
-        const c = d.conversations.find((x) => x.id === conv.id);
-        if (c) c.customerUnread = 0;
-      });
-    }
-  }, [open, tab, conv, update]);
+    if (missing && token) setToken(null);
+  }, [missing, token, setToken]);
+  useEffect(() => {
+    if (!LIVE && viewing && conv && conv.customerUnread > 0) void api.getConversation(conv.token);
+  }, [viewing, conv, api]);
+  const [startBusy, setStartBusy] = useState(false);
 
   const unread = conv?.customerUnread ?? 0;
 
@@ -203,7 +216,7 @@ export default function ChatWidget() {
           {tab === 'ai' && aiOn ? (
             <>
               <div className="flex items-center justify-center gap-2 border-b border-white/[0.05] bg-violet-500/[0.06] px-3 py-1.5 text-[10px] text-violet-200">
-                <SimBadge>Demo AI</SimBadge> Answers come from business info managed in the admin.
+                {LIVE ? 'Automated assistant · ask for a person anytime' : <><SimBadge>Demo AI</SimBadge> Answers come from business info managed in the admin.</>}
               </div>
               <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
                 {aiMsgs.map((m, i) => (
@@ -252,9 +265,10 @@ export default function ChatWidget() {
               </div>
               <Composer
                 onSend={(t, a) =>
-                  update((d) => {
-                    customerSend(d, conv.id, t, a);
-                  })
+                  api.sendMessage(conv.token, t, a).then(
+                    (c) => c && setConv(c),
+                    (e: Error) => push({ tone: 'error', title: 'Message not sent', body: e.message }),
+                  )
                 }
                 placeholder="Message our team…"
               />
@@ -265,14 +279,20 @@ export default function ChatWidget() {
           ) : (
             <StartChatForm
               transcript={handoffPrefill}
+              busy={startBusy}
               onStart={(p) => {
-                let tok = '';
-                update((d) => {
-                  const c = startConversation(d, { ...p, source: handoffPrefill ? 'AI Handoff' : 'Live Chat', transcript: handoffPrefill ?? undefined });
-                  tok = c.token;
-                });
-                if (tok) setToken(tok);
-                setHandoffPrefill(null);
+                setStartBusy(true);
+                api
+                  .startConversation({ name: p.name, email: p.email, phone: p.phone, topic: p.topic, message: p.firstMessage, source: handoffPrefill ? 'AI Handoff' : 'Live Chat', transcript: handoffPrefill ?? undefined })
+                  .then(
+                    (c) => {
+                      setConv(c);
+                      setToken(c.token);
+                      setHandoffPrefill(null);
+                    },
+                    (e: Error) => push({ tone: 'error', title: 'Could not start the chat', body: e.message }),
+                  )
+                  .finally(() => setStartBusy(false));
               }}
             />
           )}
@@ -282,7 +302,7 @@ export default function ChatWidget() {
   );
 }
 
-function StartChatForm({ onStart, transcript }: { onStart: (p: { name: string; email: string; phone: string; topic: string; firstMessage: string }) => void; transcript: string | null }) {
+function StartChatForm({ onStart, transcript, busy }: { onStart: (p: { name: string; email: string; phone: string; topic: string; firstMessage: string }) => void; transcript: string | null; busy?: boolean }) {
   const [f, setF] = useState({ name: '', email: '', phone: '', topic: '', firstMessage: '' });
   const [err, setErr] = useState<Record<string, string>>({});
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
@@ -324,8 +344,8 @@ function StartChatForm({ onStart, transcript }: { onStart: (p: { name: string; e
         <Field label="Message" required={!transcript} error={err.firstMessage}>
           <Textarea rows={3} value={f.firstMessage} onChange={set('firstMessage')} placeholder="How can we help?" />
         </Field>
-        <Button variant="gold" className="w-full" onClick={submit}>
-          Start conversation
+        <Button variant="gold" className="w-full" onClick={submit} disabled={busy}>
+          {busy ? 'Starting…' : 'Start conversation'}
         </Button>
         <p className="text-center text-[11px] text-slate-500">By chatting you agree to our handling of your data for this inquiry.</p>
       </div>

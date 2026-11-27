@@ -1,11 +1,12 @@
-import { Bell, ChevronDown, ExternalLink, FlaskConical, LogOut, Menu, Search, UserCog, X } from 'lucide-react';
+import { Bell, ChevronDown, CloudOff, ExternalLink, FlaskConical, KeyRound, Loader2, LogOut, Menu, Search, UserCog, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/brand';
 import { Icon } from '../components/icons';
-import { Avatar, Badge } from '../components/ui';
+import { Avatar, Badge, Button, Field, Input, Modal } from '../components/ui';
 import { can, MODULES, ROLE_LABEL, scopeConversations, scopeInquiries } from '../lib/permissions';
 import { useSession, useStore, useToast } from '../lib/store';
+import { LIVE, sb } from '../lib/supabase';
 import { cx, timeAgo } from '../lib/utils';
 import { NotificationIcon } from './shared';
 
@@ -178,9 +179,11 @@ function UserMenu() {
   const { push } = useToast();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
+  const [pw, setPw] = useState(false);
   if (!user) return null;
   return (
     <div className="relative">
+      {pw && <ChangePassword onClose={() => setPw(false)} />}
       <button type="button" onClick={() => setOpen(!open)} className="flex items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 hover:bg-white/5">
         <Avatar name={user.name} />
         <span className="hidden text-left lg:block">
@@ -199,6 +202,7 @@ function UserMenu() {
                 {user.title} · {user.email}
               </p>
             </div>
+            {!LIVE && (
             <div className="border-b border-white/[0.07] p-2">
               <p className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-300">
                 <FlaskConical className="h-3 w-3" /> Prototype: switch account
@@ -212,7 +216,7 @@ function UserMenu() {
                     onClick={() => {
                       setOpen(false);
                       logout();
-                      const err = login(u.username, u.password);
+                      const err = login(u.username, u.password) as string | null;
                       if (err) push({ tone: 'error', title: err });
                       else {
                         push({ tone: 'success', title: `Signed in as ${u.name}`, body: ROLE_LABEL[u.role] });
@@ -229,7 +233,13 @@ function UserMenu() {
                   </button>
                 ))}
             </div>
+            )}
             <div className="p-2">
+              {LIVE && (
+                <button type="button" onClick={() => (setOpen(false), setPw(true))} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-slate-300 hover:bg-white/5">
+                  <KeyRound className="h-4 w-4" /> Change password
+                </button>
+              )}
               {can(user, 'users') && (
                 <button type="button" onClick={() => (setOpen(false), nav('/admin/users'))} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-slate-300 hover:bg-white/5">
                   <UserCog className="h-4 w-4" /> Users & roles
@@ -253,6 +263,70 @@ function UserMenu() {
   );
 }
 
+function ChangePassword({ onClose }: { onClose: () => void }) {
+  const { push } = useToast();
+  const [a, setA] = useState('');
+  const [b, setB] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (a.length < 10) return setErr('Use at least 10 characters.');
+    if (a !== b) return setErr('The two passwords do not match.');
+    setBusy(true);
+    const { error } = await sb().auth.updateUser({ password: a });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    push({ tone: 'success', title: 'Password changed' });
+    onClose();
+  };
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Change password"
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="gold" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : 'Save password'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Field label="New password" hint="At least 10 characters">
+          <Input type="password" value={a} onChange={(e) => setA(e.target.value)} autoComplete="new-password" />
+        </Field>
+        <Field label="Confirm new password">
+          <Input type="password" value={b} onChange={(e) => setB(e.target.value)} autoComplete="new-password" />
+        </Field>
+        {err && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{err}</p>}
+      </div>
+    </Modal>
+  );
+}
+
+function SyncStatus() {
+  const { sync } = useStore();
+  if (!LIVE) return null;
+  if (sync.error)
+    return (
+      <span className="flex items-center gap-1.5 rounded-lg bg-rose-500/10 px-2.5 py-1.5 text-xs text-rose-200" title={sync.error}>
+        <CloudOff className="h-3.5 w-3.5" /> Not saved
+      </span>
+    );
+  if (sync.saving)
+    return (
+      <span className="flex items-center gap-1.5 px-2 text-xs text-slate-400">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
+      </span>
+    );
+  return null;
+}
+
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { db } = useStore();
   const { user } = useSession();
@@ -273,7 +347,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4" aria-label="Admin">
         {groups.map((g) => {
-          const items = MODULES.filter((m) => m.group === g && m.roles.includes(user.role));
+          const items = MODULES.filter((m) => m.group === g && m.roles.includes(user.role) && !(LIVE && m.key === 'guide'));
           if (!items.length) return null;
           return (
             <div key={g}>
@@ -305,9 +379,15 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
-      <div className="flex items-center gap-1.5 border-t border-white/[0.06] px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-violet-300/80" title="Data is saved in this browser. Email, AI and storage are simulated.">
-        <FlaskConical className="h-3 w-3" /> Prototype mode · local data
-      </div>
+      {LIVE ? (
+        <div className="flex items-center gap-1.5 border-t border-white/[0.06] px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-emerald-300/80">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live · cloud database
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 border-t border-white/[0.06] px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-violet-300/80" title="Data is saved in this browser. Email, AI and storage are simulated.">
+          <FlaskConical className="h-3 w-3" /> Prototype mode · local data
+        </div>
+      )}
     </div>
   );
 }
@@ -349,6 +429,7 @@ export default function AdminLayout() {
           </button>
           <GlobalSearch />
           <div className="ml-auto flex items-center gap-2">
+            <SyncStatus />
             <button type="button" onClick={() => nav('/')} className="hidden items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white sm:flex">
               <ExternalLink className="h-4 w-4" /> View website
             </button>
