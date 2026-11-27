@@ -114,7 +114,7 @@ export default function Settings() {
               <CardHeader title={v === 'dark' ? 'Dark: navy and gold' : 'Light: printer-friendly'} subtitle={v === 'dark' ? 'Used on quotations and digital PDFs' : 'White background that saves ink on office printers'} />
               <div className="overflow-x-auto bg-slate-200/10 p-4 sm:p-6">
                 <div id={`letterhead-${v}`} className="mx-auto w-[794px] bg-white shadow-xl">
-                  <DocHeader s={s} variant={v} />
+                  <DocHeader s={s} variant={v} motto={db.content.motto} />
                   <div className="h-24 bg-white" />
                 </div>
               </div>

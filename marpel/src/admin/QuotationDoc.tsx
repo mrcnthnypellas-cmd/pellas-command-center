@@ -11,7 +11,7 @@ export function QuotationDoc({ db, q }: { db: DB; q: Quotation }) {
   const sym = s.currencySymbol;
   return (
     <div className="print-area mx-auto w-full max-w-[820px] bg-white text-[13px] text-slate-800 shadow-2xl">
-      <DocHeader s={s} variant="dark" />
+      <DocHeader s={s} variant="dark" motto={db.content.motto} />
       <div className="flex items-end justify-between gap-6 px-10 pt-7">
         <p className="font-display text-[22px] font-semibold tracking-[0.24em] text-[#08101f]">QUOTATION</p>
         <p className="font-mono text-sm text-slate-600">{q.number}</p>

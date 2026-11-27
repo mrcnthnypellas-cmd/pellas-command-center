@@ -11,7 +11,7 @@ import { LogoMark } from './brand';
  *  - "dark": navy band with gold accents (digital PDFs, presentations)
  *  - "light": white with navy + gold rules (printer-friendly, saves ink)
  */
-export function DocHeader({ s, variant = 'dark', className }: { s: Settings; variant?: 'dark' | 'light'; className?: string }) {
+export function DocHeader({ s, variant = 'dark', className, motto }: { s: Settings; variant?: 'dark' | 'light'; className?: string; motto?: string }) {
   const dark = variant === 'dark';
   const [first, ...rest] = s.businessName.split(' ');
   const showTin = s.tin && !/^[0\s-]+$/.test(s.tin);
@@ -47,6 +47,7 @@ export function DocHeader({ s, variant = 'dark', className }: { s: Settings; var
             <p className={cx('font-display text-[26px] font-bold tracking-[0.2em]', dark ? 'text-white' : 'text-[#08101f]')}>{first?.toUpperCase()}</p>
             <p className={cx('mt-1.5 text-[10.5px] font-semibold uppercase tracking-[0.3em]', dark ? 'text-[#e3c27a]' : 'text-[#a97d2c]')}>{rest.join(' ')}</p>
             <p className={cx('mt-2 text-[10.5px] tracking-wide', dark ? 'text-slate-400' : 'text-slate-500')}>{s.tagline}</p>
+            {motto && <p className={cx('mt-2 font-display text-[10.5px] italic', dark ? 'text-[#e3c27a]' : 'text-[#a97d2c]')}>“{motto}”</p>}
           </div>
         </div>
         <div className={cx('space-y-1 text-right text-[10.5px] leading-snug', dark ? 'text-slate-300' : 'text-slate-600')}>

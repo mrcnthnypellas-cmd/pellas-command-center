@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { LogoMark } from '../components/brand';
 import { useDB } from '../lib/store';
+import { splitMotto } from './sections';
 import { cx } from '../lib/utils';
 
 type Phase = 'idle' | 'show' | 'hide';
@@ -12,11 +13,14 @@ type Phase = 'idle' | 'show' | 'hide';
  * splash fades away to reveal the new page. Toggle in Admin → Business Settings.
  */
 export default function PageLoader() {
-  const { settings } = useDB();
+  const { settings, content } = useDB();
+  const motto = content.motto?.trim();
+  const [lead, promise] = motto ? splitMotto(motto) : ['', ''];
   const enabled = settings.pageLoader !== false;
   const { pathname } = useLocation();
   const [phase, setPhase] = useState<Phase>(enabled ? 'show' : 'idle');
   const [cycle, setCycle] = useState(0);
+  const [hold, setHold] = useState(1700);
   const first = useRef(true);
   const timers = useRef<number[]>([]);
 
@@ -25,13 +29,16 @@ export default function PageLoader() {
       setPhase('idle');
       return;
     }
-    if (!first.current) setCycle((c) => c + 1);
+    const isFirst = first.current;
+    if (!isFirst) setCycle((c) => c + 1);
     first.current = false;
     timers.current.forEach(clearTimeout);
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const hold = reduced ? 300 : 950;
+    // First visit lingers a little longer so the promise can be read; page changes stay quick.
+    const ms = reduced ? 300 : isFirst ? 1700 : 1050;
+    setHold(ms);
     setPhase('show');
-    timers.current = [window.setTimeout(() => setPhase('hide'), hold), window.setTimeout(() => setPhase('idle'), hold + 450)];
+    timers.current = [window.setTimeout(() => setPhase('hide'), ms), window.setTimeout(() => setPhase('idle'), ms + 450)];
     return () => timers.current.forEach(clearTimeout);
   }, [pathname, enabled]);
 
@@ -54,8 +61,19 @@ export default function PageLoader() {
           </>
         )}
         <span className="mt-6 h-px w-28 overflow-hidden bg-white/10">
-          <span className="block h-full w-full origin-left animate-loader-bar bg-gradient-to-r from-gold-600 via-gold-300 to-gold-600" />
+          <span className="block h-full w-full origin-left animate-loader-bar bg-gradient-to-r from-gold-600 via-gold-300 to-gold-600" style={{ animationDuration: `${hold}ms` }} />
         </span>
+        {motto && (
+          <p className="mt-6 max-w-[88vw] animate-fade-up px-6 text-center font-display text-[15px] italic leading-snug text-slate-300 [animation-delay:250ms] sm:text-base">
+            {lead}
+            {promise && (
+              <>
+                {' '}
+                <span className="text-gold-gradient pr-[0.2em] [-webkit-box-decoration-break:clone] [box-decoration-break:clone]">— {promise}</span>
+              </>
+            )}
+          </p>
+        )}
       </div>
     </div>
   );
